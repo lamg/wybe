@@ -1,0 +1,50 @@
+%{
+    open Predicate
+%}
+
+%start start
+
+%token TRUE
+%token FALSE
+%token <string> VAR
+
+%token AND
+%token OR
+%token IMPLIES
+%token FOLLOWS
+%token EQUIVALES
+%token DIFFERS
+%token NOT
+
+%token LEFT_PAREN
+%token RIGHT_PAREN
+
+%token EOF
+
+%left EQUIVALES DIFFERS
+%left IMPLIES FOLLOWS
+%left OR AND
+%nonassoc NOT
+
+%type <Predicate option> start
+
+%%
+
+start: prog { $1 }
+
+prog:
+    | EOF { None }
+    | expr { Some $1 }
+
+expr:
+    | TRUE { True }
+    | FALSE { False }
+    | VAR { Var $1 }
+    | LEFT_PAREN expr LEFT_PAREN { $2 }
+    | NOT expr { Not $2 }
+    | expr AND expr { And { left = $1; right = $3 } }
+    | expr OR expr { Or { left = $1; right = $3 } }
+    | expr IMPLIES expr { Implies { left = $1; right = $3 } }
+    | expr FOLLOWS expr { Follows { left = $1; right = $3 } }
+    | expr EQUIVALES expr { Equivales { left = $1; right = $3 } }
+    | expr DIFFERS expr { Differs { left = $1; right = $3 } }  

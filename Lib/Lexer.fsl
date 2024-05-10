@@ -1,0 +1,48 @@
+{
+module Lexer
+
+open System
+open FSharp.Text.Lexing
+open Parser
+exception SyntoxError of string
+
+let  lexeme = LexBuffer<_>.LexemeString
+
+let newline (lexbuf: LexBuffer<_>) =
+    lexbuf.StartPos <- lexbuf.StartPos.NextLine
+}
+
+// regex macros
+
+let white = [' ' '\t']+
+let newline = '\r' | '\n' | "\r\n"
+
+let true = "true" 
+let false = "false"
+let var = ['a'-'z']+
+
+let andOp = "∧"
+let orOp = "∨"
+let impliesOp = "⇒"
+let followsOp = "⇐"
+let equivalesOp = "≡"
+let differsOp = "≢"
+let notOp = "¬"
+
+ // rules
+rule read =
+    parse
+    | white { read lexbuf }
+    | newline { newline lexbuf; read lexbuf }
+    | true { TRUE }
+    | false { FALSE }
+    | var { VAR (lexeme lexbuf) }
+    | andOp { AND }
+    | orOp { OR }
+    | impliesOp { IMPLIES }
+    | followsOp { FOLLOWS }
+    | equivalesOp { EQUIVALES }
+    | differsOp { DIFFERS }
+    | notOp { NOT }
+    | eof { EOF }
+    | _ { raise (Exception $"Unexpected character: {lexeme lexbuf}. Line: {lexbuf.StartPos.Line} Column: {lexbuf.StartPos.Column}") }
