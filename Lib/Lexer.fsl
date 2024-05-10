@@ -45,7 +45,7 @@ let declModule = "module"
 
 let letter = ['a'-'z' 'A'-'Z']
 let digit = ['0'-'9']
-let ident = letter+
+let ident = letter (letter | digit)*
 
  // rules
 rule read =

@@ -1,4 +1,4 @@
-﻿module Predicate
+﻿module Language
 
 type Binary = { left: Predicate; right: Predicate }
 and Unary = Predicate
@@ -25,7 +25,11 @@ type Hint =
   { operator: HintOp
     lawNames: string list }
 
-type Step = { pred: Predicate; hint: Hint }
+type Transformer =
+  | Trans of Hint
+  | End
+
+type Step = { pred: Predicate; trans: Transformer }
 
 type Proof = { thesis: Predicate; steps: Step list }
 

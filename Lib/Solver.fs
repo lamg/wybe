@@ -1,5 +1,5 @@
 module Solver
 
-open Predicate
+open Language
 
 let solve (b: Predicate) = false

@@ -1,5 +1,5 @@
 %{
-    open Predicate
+    open Language
 %}
 
 %start start
@@ -68,9 +68,13 @@ hintOp:
 hint:
     | hintOp LEFT_BRACE identList RIGHT_BRACE { {operator = $1; lawNames = List.rev $3 } }
 
+transformer:
+    | hint { Trans $1 }
+    | SQUARE { End }
+
 steps:
-    | SQUARE { [] }
-    | steps predicate hint { { pred = $2; hint = $3 } :: $1 }
+    | { [] }
+    | steps predicate transformer { { pred = $2; trans = $3 } :: $1 }
 
 proof:
     | PROOF predicate steps { {thesis = $2; steps = List.rev $3 } }
