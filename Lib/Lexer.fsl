@@ -19,24 +19,43 @@ let newline = '\r' | '\n' | "\r\n"
 
 let true = "true" 
 let false = "false"
-let var = ['a'-'z']+
 
-let andOp = "∧"
-let orOp = "∨"
-let impliesOp = "⇒"
-let followsOp = "⇐"
-let equivalesOp = "≡"
-let differsOp = "≢"
-let notOp = "¬"
+let andOp = '∧'
+let orOp = '∨'
+let impliesOp = '⇒'
+let followsOp = '⇐'
+let equivalesOp = '≡'
+let differsOp = '≢'
+let notOp = '¬'
+
+let leftParen = '('
+let rightParen = ')'
+
+let leftBrace = '{'
+let rightBrace = '}'
+
+let comma = ','
+let proof = "proof"
+let square = '□'
+
+let ax = "ax"
+let th = "th"
+let openModule = "open"
+let declModule = "module"
+
+let letter = ['a'-'z' 'A'-'Z']
+let digit = ['0'-'9']
+let ident = letter+
 
  // rules
 rule read =
     parse
     | white { read lexbuf }
     | newline { newline lexbuf; read lexbuf }
+    
     | true { TRUE }
     | false { FALSE }
-    | var { VAR (lexeme lexbuf) }
+    
     | andOp { AND }
     | orOp { OR }
     | impliesOp { IMPLIES }
@@ -44,5 +63,22 @@ rule read =
     | equivalesOp { EQUIVALES }
     | differsOp { DIFFERS }
     | notOp { NOT }
+
+    | leftParen { LEFT_PAREN }
+    | rightParen { RIGHT_PAREN }
+
+    | leftBrace { LEFT_BRACE }
+    | rightBrace { RIGHT_BRACE }
+    | comma { COMMA }
+    | proof { PROOF }
+    | square { SQUARE }
+
+    | ax { AX }
+    | th { TH }
+    | openModule { OPEN }
+    | declModule { MODULE }
+
+    | ident { IDENT (lexeme lexbuf) }
+
     | eof { EOF }
     | _ { raise (Exception $"Unexpected character: {lexeme lexbuf}. Line: {lexbuf.StartPos.Line} Column: {lexbuf.StartPos.Column}") }

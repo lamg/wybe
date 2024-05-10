@@ -6,7 +6,6 @@
 
 %token TRUE
 %token FALSE
-%token <string> VAR
 
 %token AND
 %token OR
@@ -19,6 +18,19 @@
 %token LEFT_PAREN
 %token RIGHT_PAREN
 
+%token LEFT_BRACE
+%token RIGHT_BRACE
+%token COMMA
+%token PROOF
+%token SQUARE
+
+%token AX
+%token TH
+%token OPEN
+%token MODULE
+
+%token <string> IDENT
+
 %token EOF
 
 %left EQUIVALES DIFFERS
@@ -26,25 +38,60 @@
 %left OR AND
 %nonassoc NOT
 
-%type <Predicate option> start
+%type <Module> start
 
 %%
 
-start: prog { $1 }
-
-prog:
-    | EOF { None }
-    | expr { Some $1 }
-
-expr:
+predicate:
     | TRUE { True }
     | FALSE { False }
-    | VAR { Var $1 }
-    | LEFT_PAREN expr LEFT_PAREN { $2 }
-    | NOT expr { Not $2 }
-    | expr AND expr { And { left = $1; right = $3 } }
-    | expr OR expr { Or { left = $1; right = $3 } }
-    | expr IMPLIES expr { Implies { left = $1; right = $3 } }
-    | expr FOLLOWS expr { Follows { left = $1; right = $3 } }
-    | expr EQUIVALES expr { Equivales { left = $1; right = $3 } }
-    | expr DIFFERS expr { Differs { left = $1; right = $3 } }  
+    | IDENT { Var $1 }
+    | LEFT_PAREN predicate LEFT_PAREN { $2 }
+    | NOT predicate { Not $2 }
+    | predicate AND predicate { And { left = $1; right = $3 } }
+    | predicate OR predicate { Or { left = $1; right = $3 } }
+    | predicate IMPLIES predicate { Implies { left = $1; right = $3 } }
+    | predicate FOLLOWS predicate { Follows { left = $1; right = $3 } }
+    | predicate EQUIVALES predicate { Equivales { left = $1; right = $3 } }
+    | predicate DIFFERS predicate { Differs { left = $1; right = $3 } }
+
+identList:
+    | IDENT { [$1] }
+    | identList COMMA IDENT { $3 :: $1 }
+
+hintOp:
+    | IMPLIES { HintImplies }
+    | FOLLOWS { HintFollows }
+    | EQUIVALES { HintEquivales }
+    | DIFFERS { HintDiffers }
+
+hint:
+    | hintOp LEFT_BRACE identList RIGHT_BRACE { {operator = $1; lawNames = List.rev $3 } }
+
+steps:
+    | SQUARE { [] }
+    | steps predicate hint { { pred = $2; hint = $3 } :: $1 }
+
+proof:
+    | PROOF predicate steps { {thesis = $2; steps = List.rev $3 } }
+
+law:
+    | TH IDENT predicate { Theorem {name = $2; pred = $3 } }
+    | AX IDENT predicate { Axiom {name = $2; pred = $3} }
+
+open:
+    | OPEN IDENT { Open $2 }
+
+statement:
+    | open { $1 }
+    | law { Law $1 }
+    | proof { Proof $1 }
+
+statements:
+    | { [] }
+    | statements statement { $2 :: $1 }
+
+module:
+    | MODULE IDENT statements { {name = $2; statements = $3 } }
+
+start: module { $1 }

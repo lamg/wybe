@@ -11,6 +11,16 @@ open Predicate
 // This type is the type of tokens accepted by the parser
 type token =
   | EOF
+  | IDENT of (string)
+  | MODULE
+  | OPEN
+  | TH
+  | AX
+  | SQUARE
+  | PROOF
+  | COMMA
+  | RIGHT_BRACE
+  | LEFT_BRACE
   | RIGHT_PAREN
   | LEFT_PAREN
   | NOT
@@ -20,12 +30,21 @@ type token =
   | IMPLIES
   | OR
   | AND
-  | VAR of (string)
   | FALSE
   | TRUE
 // This type is used to give symbolic names to token indexes, useful for error messages
 type tokenId =
   | TOKEN_EOF
+  | TOKEN_IDENT
+  | TOKEN_MODULE
+  | TOKEN_OPEN
+  | TOKEN_TH
+  | TOKEN_AX
+  | TOKEN_SQUARE
+  | TOKEN_PROOF
+  | TOKEN_COMMA
+  | TOKEN_RIGHT_BRACE
+  | TOKEN_LEFT_BRACE
   | TOKEN_RIGHT_PAREN
   | TOKEN_LEFT_PAREN
   | TOKEN_NOT
@@ -35,7 +54,6 @@ type tokenId =
   | TOKEN_IMPLIES
   | TOKEN_OR
   | TOKEN_AND
-  | TOKEN_VAR
   | TOKEN_FALSE
   | TOKEN_TRUE
   | TOKEN_end_of_input
@@ -43,74 +61,128 @@ type tokenId =
 // This type is used to give symbolic names to token indexes, useful for error messages
 type nonTerminalId =
   | NONTERM__startstart
+  | NONTERM_predicate
+  | NONTERM_identList
+  | NONTERM_hintOp
+  | NONTERM_hint
+  | NONTERM_steps
+  | NONTERM_proof
+  | NONTERM_law
+  | NONTERM_open
+  | NONTERM_statement
+  | NONTERM_statements
+  | NONTERM_module
   | NONTERM_start
-  | NONTERM_prog
-  | NONTERM_expr
 
 // This function maps tokens to integer indexes
 let tagOfToken (t: token) =
   match t with
   | EOF -> 0
-  | RIGHT_PAREN -> 1
-  | LEFT_PAREN -> 2
-  | NOT -> 3
-  | DIFFERS -> 4
-  | EQUIVALES -> 5
-  | FOLLOWS -> 6
-  | IMPLIES -> 7
-  | OR -> 8
-  | AND -> 9
-  | VAR _ -> 10
-  | FALSE -> 11
-  | TRUE -> 12
+  | IDENT _ -> 1
+  | MODULE -> 2
+  | OPEN -> 3
+  | TH -> 4
+  | AX -> 5
+  | SQUARE -> 6
+  | PROOF -> 7
+  | COMMA -> 8
+  | RIGHT_BRACE -> 9
+  | LEFT_BRACE -> 10
+  | RIGHT_PAREN -> 11
+  | LEFT_PAREN -> 12
+  | NOT -> 13
+  | DIFFERS -> 14
+  | EQUIVALES -> 15
+  | FOLLOWS -> 16
+  | IMPLIES -> 17
+  | OR -> 18
+  | AND -> 19
+  | FALSE -> 20
+  | TRUE -> 21
 
 // This function maps integer indexes to symbolic token ids
 let tokenTagToTokenId (tokenIdx: int) =
   match tokenIdx with
   | 0 -> TOKEN_EOF
-  | 1 -> TOKEN_RIGHT_PAREN
-  | 2 -> TOKEN_LEFT_PAREN
-  | 3 -> TOKEN_NOT
-  | 4 -> TOKEN_DIFFERS
-  | 5 -> TOKEN_EQUIVALES
-  | 6 -> TOKEN_FOLLOWS
-  | 7 -> TOKEN_IMPLIES
-  | 8 -> TOKEN_OR
-  | 9 -> TOKEN_AND
-  | 10 -> TOKEN_VAR
-  | 11 -> TOKEN_FALSE
-  | 12 -> TOKEN_TRUE
-  | 15 -> TOKEN_end_of_input
-  | 13 -> TOKEN_error
+  | 1 -> TOKEN_IDENT
+  | 2 -> TOKEN_MODULE
+  | 3 -> TOKEN_OPEN
+  | 4 -> TOKEN_TH
+  | 5 -> TOKEN_AX
+  | 6 -> TOKEN_SQUARE
+  | 7 -> TOKEN_PROOF
+  | 8 -> TOKEN_COMMA
+  | 9 -> TOKEN_RIGHT_BRACE
+  | 10 -> TOKEN_LEFT_BRACE
+  | 11 -> TOKEN_RIGHT_PAREN
+  | 12 -> TOKEN_LEFT_PAREN
+  | 13 -> TOKEN_NOT
+  | 14 -> TOKEN_DIFFERS
+  | 15 -> TOKEN_EQUIVALES
+  | 16 -> TOKEN_FOLLOWS
+  | 17 -> TOKEN_IMPLIES
+  | 18 -> TOKEN_OR
+  | 19 -> TOKEN_AND
+  | 20 -> TOKEN_FALSE
+  | 21 -> TOKEN_TRUE
+  | 24 -> TOKEN_end_of_input
+  | 22 -> TOKEN_error
   | _ -> failwith "tokenTagToTokenId: bad token"
 
 /// This function maps production indexes returned in syntax errors to strings representing the non terminal that would be produced by that production
 let prodIdxToNonTerminal (prodIdx: int) =
   match prodIdx with
   | 0 -> NONTERM__startstart
-  | 1 -> NONTERM_start
-  | 2 -> NONTERM_prog
-  | 3 -> NONTERM_prog
-  | 4 -> NONTERM_expr
-  | 5 -> NONTERM_expr
-  | 6 -> NONTERM_expr
-  | 7 -> NONTERM_expr
-  | 8 -> NONTERM_expr
-  | 9 -> NONTERM_expr
-  | 10 -> NONTERM_expr
-  | 11 -> NONTERM_expr
-  | 12 -> NONTERM_expr
-  | 13 -> NONTERM_expr
-  | 14 -> NONTERM_expr
+  | 1 -> NONTERM_predicate
+  | 2 -> NONTERM_predicate
+  | 3 -> NONTERM_predicate
+  | 4 -> NONTERM_predicate
+  | 5 -> NONTERM_predicate
+  | 6 -> NONTERM_predicate
+  | 7 -> NONTERM_predicate
+  | 8 -> NONTERM_predicate
+  | 9 -> NONTERM_predicate
+  | 10 -> NONTERM_predicate
+  | 11 -> NONTERM_predicate
+  | 12 -> NONTERM_identList
+  | 13 -> NONTERM_identList
+  | 14 -> NONTERM_hintOp
+  | 15 -> NONTERM_hintOp
+  | 16 -> NONTERM_hintOp
+  | 17 -> NONTERM_hintOp
+  | 18 -> NONTERM_hint
+  | 19 -> NONTERM_steps
+  | 20 -> NONTERM_steps
+  | 21 -> NONTERM_proof
+  | 22 -> NONTERM_law
+  | 23 -> NONTERM_law
+  | 24 -> NONTERM_open
+  | 25 -> NONTERM_statement
+  | 26 -> NONTERM_statement
+  | 27 -> NONTERM_statement
+  | 28 -> NONTERM_statements
+  | 29 -> NONTERM_statements
+  | 30 -> NONTERM_module
+  | 31 -> NONTERM_start
   | _ -> failwith "prodIdxToNonTerminal: bad production index"
 
-let _fsyacc_endOfInputTag = 15
-let _fsyacc_tagOfErrorTerminal = 13
+let _fsyacc_endOfInputTag = 24
+let _fsyacc_tagOfErrorTerminal = 22
 
 // This function gets the name of a token as a string
 let token_to_string (t: token) =
   match t with
   | EOF -> "EOF"
+  | IDENT _ -> "IDENT"
+  | MODULE -> "MODULE"
+  | OPEN -> "OPEN"
+  | TH -> "TH"
+  | AX -> "AX"
+  | SQUARE -> "SQUARE"
+  | PROOF -> "PROOF"
+  | COMMA -> "COMMA"
+  | RIGHT_BRACE -> "RIGHT_BRACE"
+  | LEFT_BRACE -> "LEFT_BRACE"
   | RIGHT_PAREN -> "RIGHT_PAREN"
   | LEFT_PAREN -> "LEFT_PAREN"
   | NOT -> "NOT"
@@ -120,7 +192,6 @@ let token_to_string (t: token) =
   | IMPLIES -> "IMPLIES"
   | OR -> "OR"
   | AND -> "AND"
-  | VAR _ -> "VAR"
   | FALSE -> "FALSE"
   | TRUE -> "TRUE"
 
@@ -128,6 +199,16 @@ let token_to_string (t: token) =
 let _fsyacc_dataOfToken (t: token) =
   match t with
   | EOF -> (null: System.Object)
+  | IDENT _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
+  | MODULE -> (null: System.Object)
+  | OPEN -> (null: System.Object)
+  | TH -> (null: System.Object)
+  | AX -> (null: System.Object)
+  | SQUARE -> (null: System.Object)
+  | PROOF -> (null: System.Object)
+  | COMMA -> (null: System.Object)
+  | RIGHT_BRACE -> (null: System.Object)
+  | LEFT_BRACE -> (null: System.Object)
   | RIGHT_PAREN -> (null: System.Object)
   | LEFT_PAREN -> (null: System.Object)
   | NOT -> (null: System.Object)
@@ -137,43 +218,93 @@ let _fsyacc_dataOfToken (t: token) =
   | IMPLIES -> (null: System.Object)
   | OR -> (null: System.Object)
   | AND -> (null: System.Object)
-  | VAR _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
   | FALSE -> (null: System.Object)
   | TRUE -> (null: System.Object)
 
 let _fsyacc_gotos =
   [| 0us
      65535us
-     1us
+     16us
      65535us
-     0us
-     1us
-     1us
-     65535us
-     0us
-     2us
-     9us
-     65535us
-     0us
-     4us
+     5us
+     6us
      8us
      9us
-     11us
-     12us
-     19us
-     13us
      20us
-     14us
+     10us
      21us
-     15us
+     11us
      22us
-     16us
+     12us
      23us
-     17us
+     12us
      24us
-     18us |]
+     13us
+     25us
+     13us
+     26us
+     14us
+     27us
+     14us
+     28us
+     15us
+     29us
+     15us
+     38us
+     16us
+     40us
+     17us
+     42us
+     18us
+     44us
+     19us
+     1us
+     65535us
+     35us
+     31us
+     1us
+     65535us
+     16us
+     34us
+     1us
+     65535us
+     16us
+     39us
+     1us
+     65535us
+     17us
+     38us
+     1us
+     65535us
+     50us
+     49us
+     1us
+     65535us
+     50us
+     48us
+     1us
+     65535us
+     50us
+     47us
+     1us
+     65535us
+     50us
+     51us
+     1us
+     65535us
+     53us
+     50us
+     1us
+     65535us
+     0us
+     54us
+     1us
+     65535us
+     0us
+     1us |]
 
-let _fsyacc_sparseGotoTableRowOffsets = [| 0us; 1us; 3us; 5us |]
+let _fsyacc_sparseGotoTableRowOffsets =
+  [| 0us; 1us; 18us; 20us; 22us; 24us; 26us; 28us; 30us; 32us; 34us; 36us; 38us |]
 
 let _fsyacc_stateToProdIdxsTableElements =
   [| 1us
@@ -184,102 +315,187 @@ let _fsyacc_stateToProdIdxsTableElements =
      1us
      1us
      2us
-     7us
+     1us
      3us
+     1us
+     4us
+     7us
+     4us
+     6us
+     7us
+     8us
      9us
      10us
      11us
-     12us
-     13us
-     14us
      1us
      4us
      1us
      5us
+     7us
+     5us
+     6us
+     7us
+     8us
+     9us
+     10us
+     11us
+     7us
+     6us
+     6us
+     7us
+     8us
+     9us
+     10us
+     11us
+     7us
+     6us
+     7us
+     7us
+     8us
+     9us
+     10us
+     11us
+     7us
+     6us
+     7us
+     8us
+     8us
+     9us
+     10us
+     11us
+     7us
+     6us
+     7us
+     8us
+     9us
+     9us
+     10us
+     11us
+     7us
+     6us
+     7us
+     8us
+     9us
+     10us
+     10us
+     11us
+     7us
+     6us
+     7us
+     8us
+     9us
+     10us
+     11us
+     11us
+     7us
+     6us
+     7us
+     8us
+     9us
+     10us
+     11us
+     20us
+     7us
+     6us
+     7us
+     8us
+     9us
+     10us
+     11us
+     21us
+     7us
+     6us
+     7us
+     8us
+     9us
+     10us
+     11us
+     22us
+     7us
+     6us
+     7us
+     8us
+     9us
+     10us
+     11us
+     23us
      1us
      6us
      1us
      7us
-     7us
-     7us
-     9us
-     10us
-     11us
-     12us
-     13us
-     14us
-     1us
-     7us
      1us
      8us
-     7us
+     2us
      8us
-     9us
-     10us
-     11us
-     12us
-     13us
-     14us
-     7us
-     9us
-     9us
-     10us
-     11us
-     12us
-     13us
-     14us
-     7us
-     9us
-     10us
-     10us
-     11us
-     12us
-     13us
-     14us
-     7us
-     9us
-     10us
-     11us
-     11us
-     12us
-     13us
-     14us
-     7us
-     9us
-     10us
-     11us
-     12us
-     12us
-     13us
-     14us
-     7us
-     9us
-     10us
-     11us
-     12us
-     13us
-     13us
-     14us
-     7us
-     9us
-     10us
-     11us
-     12us
-     13us
-     14us
      14us
      1us
      9us
+     2us
+     9us
+     15us
      1us
      10us
+     2us
+     10us
+     16us
      1us
      11us
+     2us
+     11us
+     17us
      1us
      12us
+     2us
+     13us
+     18us
      1us
      13us
      1us
-     14us |]
+     13us
+     1us
+     18us
+     1us
+     18us
+     1us
+     18us
+     1us
+     19us
+     2us
+     20us
+     21us
+     1us
+     20us
+     1us
+     21us
+     1us
+     22us
+     1us
+     22us
+     1us
+     23us
+     1us
+     23us
+     1us
+     24us
+     1us
+     24us
+     1us
+     25us
+     1us
+     26us
+     1us
+     27us
+     2us
+     29us
+     30us
+     1us
+     29us
+     1us
+     30us
+     1us
+     30us
+     1us
+     31us |]
 
 let _fsyacc_stateToProdIdxsTableRowOffsets =
   [| 0us
@@ -287,268 +503,581 @@ let _fsyacc_stateToProdIdxsTableRowOffsets =
      4us
      6us
      8us
-     16us
-     18us
+     10us
+     12us
      20us
      22us
      24us
      32us
-     34us
-     36us
-     44us
-     52us
-     60us
-     68us
-     76us
-     84us
-     92us
-     94us
+     40us
+     48us
+     56us
+     64us
+     72us
+     80us
+     88us
      96us
-     98us
-     100us
-     102us |]
+     104us
+     112us
+     114us
+     116us
+     118us
+     121us
+     123us
+     126us
+     128us
+     131us
+     133us
+     136us
+     138us
+     141us
+     143us
+     145us
+     147us
+     149us
+     151us
+     153us
+     156us
+     158us
+     160us
+     162us
+     164us
+     166us
+     168us
+     170us
+     172us
+     174us
+     176us
+     178us
+     181us
+     183us
+     185us
+     187us |]
 
-let _fsyacc_action_rows = 25
+let _fsyacc_action_rows = 55
 
 let _fsyacc_actionTableElements =
-  [| 6us
+  [| 1us
      32768us
-     0us
-     3us
      2us
-     8us
-     3us
-     11us
-     10us
-     7us
-     11us
-     6us
-     12us
-     5us
+     52us
      0us
      49152us
      0us
      16385us
      0us
      16386us
-     6us
+     0us
      16387us
-     4us
-     24us
      5us
-     23us
-     6us
-     22us
-     7us
-     21us
+     32768us
+     1us
+     4us
+     12us
+     5us
+     13us
      8us
      20us
-     9us
+     3us
+     21us
+     2us
+     7us
+     32768us
+     12us
+     7us
+     14us
+     28us
+     15us
+     26us
+     16us
+     24us
+     17us
+     22us
+     18us
+     21us
      19us
+     20us
      0us
      16388us
+     5us
+     32768us
+     1us
+     4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
      0us
      16389us
      0us
      16390us
-     5us
-     32768us
-     2us
-     8us
-     3us
-     11us
-     10us
-     7us
-     11us
-     6us
-     12us
-     5us
-     7us
-     32768us
-     2us
-     10us
-     4us
-     24us
-     5us
-     23us
-     6us
-     22us
-     7us
-     21us
-     8us
-     20us
-     9us
-     19us
      0us
      16391us
-     5us
-     32768us
      2us
-     8us
-     3us
-     11us
-     10us
-     7us
-     11us
-     6us
-     12us
-     5us
-     0us
      16392us
-     0us
+     18us
+     21us
+     19us
+     20us
+     2us
      16393us
-     0us
+     18us
+     21us
+     19us
+     20us
+     4us
      16394us
-     2us
+     16us
+     24us
+     17us
+     22us
+     18us
+     21us
+     19us
+     20us
+     4us
      16395us
-     8us
-     20us
-     9us
-     19us
-     2us
-     16396us
-     8us
-     20us
-     9us
-     19us
-     4us
-     16397us
-     6us
+     16us
+     24us
+     17us
      22us
-     7us
+     18us
      21us
+     19us
+     20us
+     6us
+     32768us
+     14us
+     29us
+     15us
+     27us
+     16us
+     25us
+     17us
+     23us
+     18us
+     21us
+     19us
+     20us
+     7us
+     32768us
+     6us
+     37us
+     14us
+     28us
+     15us
+     26us
+     16us
+     24us
+     17us
+     22us
+     18us
+     21us
+     19us
+     20us
+     6us
+     16406us
+     14us
+     28us
+     15us
+     26us
+     16us
+     24us
+     17us
+     22us
+     18us
+     21us
+     19us
+     20us
+     6us
+     16407us
+     14us
+     28us
+     15us
+     26us
+     16us
+     24us
+     17us
+     22us
+     18us
+     21us
+     19us
+     20us
+     5us
+     32768us
+     1us
+     4us
+     12us
+     5us
+     13us
      8us
      20us
-     9us
-     19us
+     3us
+     21us
+     2us
+     5us
+     32768us
+     1us
      4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     5us
+     32768us
+     1us
+     4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     5us
      16398us
-     6us
-     22us
-     7us
-     21us
+     1us
+     4us
+     12us
+     5us
+     13us
      8us
      20us
+     3us
+     21us
+     2us
+     5us
+     32768us
+     1us
+     4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     5us
+     16399us
+     1us
+     4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     5us
+     32768us
+     1us
+     4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     5us
+     16400us
+     1us
+     4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     5us
+     32768us
+     1us
+     4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     5us
+     16401us
+     1us
+     4us
+     12us
+     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     0us
+     16396us
+     2us
+     32768us
+     8us
+     32us
      9us
-     19us
-     5us
+     36us
+     1us
      32768us
-     2us
-     8us
-     3us
-     11us
+     1us
+     33us
+     0us
+     16397us
+     1us
+     32768us
      10us
-     7us
-     11us
-     6us
+     35us
+     1us
+     32768us
+     1us
+     30us
+     0us
+     16402us
+     0us
+     16403us
+     5us
+     16405us
+     1us
+     4us
      12us
      5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     0us
+     16404us
      5us
      32768us
-     2us
-     8us
-     3us
-     11us
-     10us
-     7us
-     11us
-     6us
+     1us
+     4us
      12us
      5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     1us
+     32768us
+     1us
+     42us
      5us
      32768us
-     2us
-     8us
-     3us
-     11us
-     10us
-     7us
-     11us
-     6us
+     1us
+     4us
      12us
      5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     1us
+     32768us
+     1us
+     44us
      5us
      32768us
-     2us
-     8us
-     3us
-     11us
-     10us
-     7us
-     11us
-     6us
+     1us
+     4us
      12us
      5us
-     5us
+     13us
+     8us
+     20us
+     3us
+     21us
+     2us
+     1us
      32768us
-     2us
-     8us
+     1us
+     46us
+     0us
+     16408us
+     0us
+     16409us
+     0us
+     16410us
+     0us
+     16411us
+     4us
+     16414us
      3us
-     11us
-     10us
+     45us
+     4us
+     41us
+     5us
+     43us
      7us
-     11us
-     6us
-     12us
-     5us
-     5us
+     40us
+     0us
+     16413us
+     1us
      32768us
-     2us
-     8us
-     3us
-     11us
-     10us
-     7us
-     11us
-     6us
-     12us
-     5us |]
+     1us
+     53us
+     0us
+     16412us
+     0us
+     16415us |]
 
 let _fsyacc_actionTableRowOffsets =
   [| 0us
+     2us
+     3us
+     4us
+     5us
+     6us
+     12us
+     20us
+     21us
+     27us
+     28us
+     29us
+     30us
+     33us
+     36us
+     41us
+     46us
+     53us
+     61us
+     68us
+     75us
+     81us
+     87us
+     93us
+     99us
+     105us
+     111us
+     117us
+     123us
+     129us
+     135us
+     136us
+     139us
+     141us
+     142us
+     144us
+     146us
+     147us
+     148us
+     154us
+     155us
+     161us
+     163us
+     169us
+     171us
+     177us
+     179us
+     180us
+     181us
+     182us
+     183us
+     188us
+     189us
+     191us
+     192us |]
+
+let _fsyacc_reductionSymbolCounts =
+  [| 1us
+     1us
+     1us
+     1us
+     3us
+     2us
+     3us
+     3us
+     3us
+     3us
+     3us
+     3us
+     1us
+     3us
+     1us
+     1us
+     1us
+     1us
+     4us
+     1us
+     3us
+     3us
+     3us
+     3us
+     2us
+     1us
+     1us
+     1us
+     0us
+     2us
+     3us
+     1us |]
+
+let _fsyacc_productionToNonTerminalTable =
+  [| 0us
+     1us
+     1us
+     1us
+     1us
+     1us
+     1us
+     1us
+     1us
+     1us
+     1us
+     1us
+     2us
+     2us
+     3us
+     3us
+     3us
+     3us
+     4us
+     5us
+     5us
+     6us
+     7us
      7us
      8us
      9us
+     9us
+     9us
      10us
-     17us
-     18us
-     19us
-     20us
-     26us
-     34us
-     35us
-     41us
-     42us
-     43us
-     44us
-     47us
-     50us
-     55us
-     60us
-     66us
-     72us
-     78us
-     84us
-     90us |]
-
-let _fsyacc_reductionSymbolCounts =
-  [| 1us; 1us; 1us; 1us; 1us; 1us; 1us; 3us; 2us; 3us; 3us; 3us; 3us; 3us; 3us |]
-
-let _fsyacc_productionToNonTerminalTable =
-  [| 0us; 1us; 2us; 2us; 3us; 3us; 3us; 3us; 3us; 3us; 3us; 3us; 3us; 3us; 3us |]
+     10us
+     11us
+     12us |]
 
 let _fsyacc_immediateActions =
   [| 65535us
      49152us
      16385us
      16386us
+     16387us
+     65535us
      65535us
      16388us
-     16389us
-     16390us
-     65535us
-     65535us
-     16391us
      65535us
      65535us
      65535us
@@ -562,59 +1091,151 @@ let _fsyacc_immediateActions =
      65535us
      65535us
      65535us
-     65535us |]
+     65535us
+     65535us
+     65535us
+     65535us
+     65535us
+     65535us
+     65535us
+     65535us
+     65535us
+     16396us
+     65535us
+     65535us
+     16397us
+     65535us
+     65535us
+     16402us
+     16403us
+     65535us
+     16404us
+     65535us
+     65535us
+     65535us
+     65535us
+     65535us
+     65535us
+     16408us
+     16409us
+     16410us
+     16411us
+     65535us
+     16413us
+     65535us
+     65535us
+     16415us |]
 
 let _fsyacc_reductions =
   lazy
     [| (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> Predicate option in
+         let _1 = parseState.GetInput(1) :?> Module in
 
          Microsoft.FSharp.Core.Operators.box (
            (raise (FSharp.Text.Parsing.Accept(Microsoft.FSharp.Core.Operators.box _1))): 'gentype__startstart
          ))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> 'gentype_prog in
-         Microsoft.FSharp.Core.Operators.box ((_1): Predicate option))
+         Microsoft.FSharp.Core.Operators.box ((True): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         Microsoft.FSharp.Core.Operators.box ((None): 'gentype_prog))
+         Microsoft.FSharp.Core.Operators.box ((False): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> 'gentype_expr in
-         Microsoft.FSharp.Core.Operators.box ((Some _1): 'gentype_prog))
+         let _1 = parseState.GetInput(1) :?> string in
+         Microsoft.FSharp.Core.Operators.box ((Var _1): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         Microsoft.FSharp.Core.Operators.box ((True): 'gentype_expr))
+         let _2 = parseState.GetInput(2) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((_2): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         Microsoft.FSharp.Core.Operators.box ((False): 'gentype_expr))
+         let _2 = parseState.GetInput(2) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((Not _2): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> string in Microsoft.FSharp.Core.Operators.box ((Var _1): 'gentype_expr))
+         let _1 = parseState.GetInput(1) :?> 'gentype_predicate in
+         let _3 = parseState.GetInput(3) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((And { left = _1; right = _3 }): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _2 = parseState.GetInput(2) :?> 'gentype_expr in Microsoft.FSharp.Core.Operators.box ((_2): 'gentype_expr))
+         let _1 = parseState.GetInput(1) :?> 'gentype_predicate in
+         let _3 = parseState.GetInput(3) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((Or { left = _1; right = _3 }): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _2 = parseState.GetInput(2) :?> 'gentype_expr in
-         Microsoft.FSharp.Core.Operators.box ((Not _2): 'gentype_expr))
+         let _1 = parseState.GetInput(1) :?> 'gentype_predicate in
+         let _3 = parseState.GetInput(3) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((Implies { left = _1; right = _3 }): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> 'gentype_expr in
-         let _3 = parseState.GetInput(3) :?> 'gentype_expr in
-         Microsoft.FSharp.Core.Operators.box ((And { left = _1; right = _3 }): 'gentype_expr))
+         let _1 = parseState.GetInput(1) :?> 'gentype_predicate in
+         let _3 = parseState.GetInput(3) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((Follows { left = _1; right = _3 }): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> 'gentype_expr in
-         let _3 = parseState.GetInput(3) :?> 'gentype_expr in
-         Microsoft.FSharp.Core.Operators.box ((Or { left = _1; right = _3 }): 'gentype_expr))
+         let _1 = parseState.GetInput(1) :?> 'gentype_predicate in
+         let _3 = parseState.GetInput(3) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((Equivales { left = _1; right = _3 }): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> 'gentype_expr in
-         let _3 = parseState.GetInput(3) :?> 'gentype_expr in
-         Microsoft.FSharp.Core.Operators.box ((Implies { left = _1; right = _3 }): 'gentype_expr))
+         let _1 = parseState.GetInput(1) :?> 'gentype_predicate in
+         let _3 = parseState.GetInput(3) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((Differs { left = _1; right = _3 }): 'gentype_predicate))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> 'gentype_expr in
-         let _3 = parseState.GetInput(3) :?> 'gentype_expr in
-         Microsoft.FSharp.Core.Operators.box ((Follows { left = _1; right = _3 }): 'gentype_expr))
+         let _1 = parseState.GetInput(1) :?> string in
+         Microsoft.FSharp.Core.Operators.box (([ _1 ]): 'gentype_identList))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> 'gentype_expr in
-         let _3 = parseState.GetInput(3) :?> 'gentype_expr in
-         Microsoft.FSharp.Core.Operators.box ((Equivales { left = _1; right = _3 }): 'gentype_expr))
+         let _1 = parseState.GetInput(1) :?> 'gentype_identList in
+         let _3 = parseState.GetInput(3) :?> string in
+         Microsoft.FSharp.Core.Operators.box ((_3 :: _1): 'gentype_identList))
        (fun (parseState: FSharp.Text.Parsing.IParseState) ->
-         let _1 = parseState.GetInput(1) :?> 'gentype_expr in
-         let _3 = parseState.GetInput(3) :?> 'gentype_expr in
-         Microsoft.FSharp.Core.Operators.box ((Differs { left = _1; right = _3 }): 'gentype_expr)) |]
+         Microsoft.FSharp.Core.Operators.box ((HintImplies): 'gentype_hintOp))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         Microsoft.FSharp.Core.Operators.box ((HintFollows): 'gentype_hintOp))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         Microsoft.FSharp.Core.Operators.box ((HintEquivales): 'gentype_hintOp))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         Microsoft.FSharp.Core.Operators.box ((HintDiffers): 'gentype_hintOp))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _1 = parseState.GetInput(1) :?> 'gentype_hintOp in
+         let _3 = parseState.GetInput(3) :?> 'gentype_identList in
+
+         Microsoft.FSharp.Core.Operators.box (
+           ({ operator = _1
+              lawNames = List.rev _3 })
+           : 'gentype_hint
+         ))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) -> Microsoft.FSharp.Core.Operators.box (([]): 'gentype_steps))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _1 = parseState.GetInput(1) :?> 'gentype_steps in
+         let _2 = parseState.GetInput(2) :?> 'gentype_predicate in
+         let _3 = parseState.GetInput(3) :?> 'gentype_hint in
+         Microsoft.FSharp.Core.Operators.box (({ pred = _2; hint = _3 } :: _1): 'gentype_steps))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _2 = parseState.GetInput(2) :?> 'gentype_predicate in
+         let _3 = parseState.GetInput(3) :?> 'gentype_steps in
+         Microsoft.FSharp.Core.Operators.box (({ thesis = _2; steps = List.rev _3 }): 'gentype_proof))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _2 = parseState.GetInput(2) :?> string in
+         let _3 = parseState.GetInput(3) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((Theorem { name = _2; pred = _3 }): 'gentype_law))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _2 = parseState.GetInput(2) :?> string in
+         let _3 = parseState.GetInput(3) :?> 'gentype_predicate in
+         Microsoft.FSharp.Core.Operators.box ((Axiom { name = _2; pred = _3 }): 'gentype_law))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _2 = parseState.GetInput(2) :?> string in Microsoft.FSharp.Core.Operators.box ((Open _2): 'gentype_open))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _1 = parseState.GetInput(1) :?> 'gentype_open in
+         Microsoft.FSharp.Core.Operators.box ((_1): 'gentype_statement))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _1 = parseState.GetInput(1) :?> 'gentype_law in
+         Microsoft.FSharp.Core.Operators.box ((Law _1): 'gentype_statement))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _1 = parseState.GetInput(1) :?> 'gentype_proof in
+         Microsoft.FSharp.Core.Operators.box ((Proof _1): 'gentype_statement))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         Microsoft.FSharp.Core.Operators.box (([]): 'gentype_statements))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _1 = parseState.GetInput(1) :?> 'gentype_statements in
+         let _2 = parseState.GetInput(2) :?> 'gentype_statement in
+         Microsoft.FSharp.Core.Operators.box ((_2 :: _1): 'gentype_statements))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _2 = parseState.GetInput(2) :?> string in
+         let _3 = parseState.GetInput(3) :?> 'gentype_statements in
+         Microsoft.FSharp.Core.Operators.box (({ name = _2; statements = _3 }): 'gentype_module))
+       (fun (parseState: FSharp.Text.Parsing.IParseState) ->
+         let _1 = parseState.GetInput(1) :?> 'gentype_module in Microsoft.FSharp.Core.Operators.box ((_1): Module)) |]
 
 let tables: FSharp.Text.Parsing.Tables<_> =
   { reductions = _fsyacc_reductions.Value
@@ -635,10 +1256,10 @@ let tables: FSharp.Text.Parsing.Tables<_> =
         match parse_error_rich with
         | Some f -> f ctxt
         | None -> parse_error ctxt.Message)
-    numTerminals = 16
+    numTerminals = 25
     productionToNonTerminalTable = _fsyacc_productionToNonTerminalTable }
 
 let engine lexer lexbuf startState =
   tables.Interpret(lexer, lexbuf, startState)
 
-let start lexer lexbuf : Predicate option = engine lexer lexbuf 0 :?> _
+let start lexer lexbuf : Module = engine lexer lexbuf 0 :?> _

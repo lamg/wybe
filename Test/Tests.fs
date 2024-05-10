@@ -6,22 +6,22 @@ open Predicate
 
 let parse source =
   let lexbuf = LexBuffer<char>.FromString source
-  let res = Parser.start Lexer.read lexbuf
+  Parser.start Lexer.read lexbuf
 
-  match res with
-  | Some ast -> ast
-  | None -> failwith "failed to parse"
+let pred p =
+  { name = "x"
+    statements = [ Law(Axiom { name = "t"; pred = p }) ] }
 
 [<Fact>]
 let ``basic constructions`` () =
-  [ "true", True
-    "false", False
-    "id", Var "id"
-    "¬false", (Not False)
-    "true ∧ false", And { left = True; right = False }
-    "true ∨ false", Or { left = True; right = False }
-    "true ⇒ false", Implies { left = True; right = False }
-    "true ⇐ false", Follows { left = True; right = False }
-    "true ≡ false", Equivales { left = True; right = False }
-    "true ≢ false", Differs { left = True; right = False } ]
+  [ "module x ax t true", pred True
+    "module x ax t false", pred False
+    "module x ax t id", pred (Var "id")
+    "module x ax t ¬false", pred (Not False)
+    "module x ax t true ∧ false", pred (And { left = True; right = False })
+    "module x ax t true ∨ false", pred (Or { left = True; right = False })
+    "module x ax t true ⇒ false", pred (Implies { left = True; right = False })
+    "module x ax t true ⇐ false", pred (Follows { left = True; right = False })
+    "module x ax t true ≡ false", pred (Equivales { left = True; right = False })
+    "module x ax t true ≢ false", pred (Differs { left = True; right = False }) ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))

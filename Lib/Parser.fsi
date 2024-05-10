@@ -3,6 +3,16 @@ module Parser
 
 type token =
     | EOF
+    | IDENT of (string)
+    | MODULE
+    | OPEN
+    | TH
+    | AX
+    | SQUARE
+    | PROOF
+    | COMMA
+    | RIGHT_BRACE
+    | LEFT_BRACE
     | RIGHT_PAREN
     | LEFT_PAREN
     | NOT
@@ -12,12 +22,21 @@ type token =
     | IMPLIES
     | OR
     | AND
-    | VAR of (string)
     | FALSE
     | TRUE
 
 type tokenId =
     | TOKEN_EOF
+    | TOKEN_IDENT
+    | TOKEN_MODULE
+    | TOKEN_OPEN
+    | TOKEN_TH
+    | TOKEN_AX
+    | TOKEN_SQUARE
+    | TOKEN_PROOF
+    | TOKEN_COMMA
+    | TOKEN_RIGHT_BRACE
+    | TOKEN_LEFT_BRACE
     | TOKEN_RIGHT_PAREN
     | TOKEN_LEFT_PAREN
     | TOKEN_NOT
@@ -27,7 +46,6 @@ type tokenId =
     | TOKEN_IMPLIES
     | TOKEN_OR
     | TOKEN_AND
-    | TOKEN_VAR
     | TOKEN_FALSE
     | TOKEN_TRUE
     | TOKEN_end_of_input
@@ -35,9 +53,18 @@ type tokenId =
 
 type nonTerminalId =
     | NONTERM__startstart
+    | NONTERM_predicate
+    | NONTERM_identList
+    | NONTERM_hintOp
+    | NONTERM_hint
+    | NONTERM_steps
+    | NONTERM_proof
+    | NONTERM_law
+    | NONTERM_open
+    | NONTERM_statement
+    | NONTERM_statements
+    | NONTERM_module
     | NONTERM_start
-    | NONTERM_prog
-    | NONTERM_expr
 
 /// This function maps tokens to integer indexes
 val tagOfToken: token -> int
@@ -50,4 +77,4 @@ val prodIdxToNonTerminal: int -> nonTerminalId
 
 /// This function gets the name of a token as a string
 val token_to_string: token -> string
-val start: (FSharp.Text.Lexing.LexBuffer<'cty> -> token) -> FSharp.Text.Lexing.LexBuffer<'cty> -> (Predicate option)
+val start: (FSharp.Text.Lexing.LexBuffer<'cty> -> token) -> FSharp.Text.Lexing.LexBuffer<'cty> -> (Module)
