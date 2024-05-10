@@ -4,7 +4,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Predicate.fs" />
+    <Compile Include="Language.fs" />
     
     
     <FsYacc Include="Parser.fsy">
