@@ -3,11 +3,11 @@ module core
 pub eq_assoc
 pub eq_symmetry
 pub eq_identity
-pub true_th
 pub eq_reflexivity
+pub true_th
 pub false_def
 pub negation_over_equivales
-pub differs_de
+pub differs_def
 
 ax eq_assoc
 ((p ≡ q) ≡ r) ≡ (p ≡ (q ≡ r))
@@ -36,7 +36,7 @@ proof true_th
 p ≡ q ≡ q ≡ p
 ≡ { eq_symmetry }
 q ≡ q ≡ p ≡ p
-≡ { identity }
+≡ { eq_identity }
 true
 □
 
