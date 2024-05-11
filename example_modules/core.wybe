@@ -1,0 +1,52 @@
+module core
+ 
+pub eq_assoc
+pub eq_symmetry
+pub eq_identity
+pub true_th
+pub eq_reflexivity
+pub false_def
+pub negation_over_equivales
+pub differs_de
+
+ax eq_assoc
+((p ≡ q) ≡ r) ≡ (p ≡ (q ≡ r))
+
+ax eq_symmetry
+p ≡ q ≡ q ≡ p
+
+ax eq_identity
+true ≡ q ≡ q
+
+ax false_def
+false ≡ ¬true
+
+ax negation_over_equivales
+¬(p ≡ q) ≡ ¬p ≡ q
+
+ax differs_def
+p ≢ q ≡ ¬(p ≡ q)
+
+
+th true_th
+true
+
+proof true_th
+
+p ≡ q ≡ q ≡ p
+≡ { eq_symmetry }
+q ≡ q ≡ p ≡ p
+≡ { identity }
+true
+□
+
+
+th eq_reflexivity
+p ≡ p
+
+proof eq_reflexivity
+
+true ≡ q ≡ q
+≡ { identity }
+q ≡ q
+□
