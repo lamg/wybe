@@ -27,6 +27,7 @@
 %token AX
 %token TH
 %token OPEN
+%token PUB
 %token MODULE
 
 %token <string> IDENT

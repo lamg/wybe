@@ -41,6 +41,7 @@ let square = '□'
 let ax = "ax"
 let th = "th"
 let openModule = "open"
+let pub = "pub"
 let declModule = "module"
 
 let letter = ['a'-'z' 'A'-'Z']
@@ -76,6 +77,7 @@ rule read =
     | ax { AX }
     | th { TH }
     | openModule { OPEN }
+    | pub { PUB }
     | declModule { MODULE }
 
     | ident { IDENT (lexeme lexbuf) }

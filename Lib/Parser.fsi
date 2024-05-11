@@ -4,6 +4,7 @@ type token =
   | EOF
   | IDENT of (string)
   | MODULE
+  | PUB
   | OPEN
   | TH
   | AX
@@ -27,6 +28,7 @@ type tokenId =
     | TOKEN_EOF
     | TOKEN_IDENT
     | TOKEN_MODULE
+    | TOKEN_PUB
     | TOKEN_OPEN
     | TOKEN_TH
     | TOKEN_AX
