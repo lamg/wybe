@@ -1,8 +1,10 @@
 # Wybe
 
-Features:
+Features and progress:
 
 - Check proofs written in a syntax inspired by [Dijkstra's predicate calculus][0]
+  - [x] Parsing syntax
+  - [ ] Checking proofs
 - Support for VS Code
 - Support for Sublime Text
 
