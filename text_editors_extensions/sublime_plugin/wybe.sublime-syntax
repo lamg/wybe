@@ -29,8 +29,11 @@ contexts:
     - match: '\b(-)?[0-9.]+\b'
       scope: constant.numeric.wybe
 
+    - match: '\b(true|false)\b'
+      scope: constant.numeric.wybe
+
     - match: '(≡|≢|⇒|⇐|∧|∨|¬|□)'
-      scope: keyword.operator.wybe
+      scope: keyword.operator.new.wybe
 
   double_quoted_string:
     - meta_scope: string.quoted.double.wybe
