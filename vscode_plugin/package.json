@@ -1,0 +1,38 @@
+{
+  "name": "wybe",
+  "displayName": "Wybe",
+  "description": "Support for the Wybe proof checker syntax",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "wybe",
+        "aliases": [
+          "Wybe",
+          "wybe"
+        ],
+        "extensions": [
+          ".wybe"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "wybe",
+        "scopeName": "source.wybe",
+        "path": "./syntaxes/wybe.tmLanguage.json"
+      }
+    ]
+  },
+  "devDependencies": {
+    "@vscode/test-cli": "^0.0.9",
+    "@vscode/test-electron": "^2.3.9"
+  }
+}
