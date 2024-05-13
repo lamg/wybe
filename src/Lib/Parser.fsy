@@ -4,9 +4,6 @@
 
 %start start
 
-%token TRUE
-%token FALSE
-
 %token AND
 %token OR
 %token IMPLIES
@@ -44,9 +41,7 @@
 %%
 
 predicate:
-    | TRUE { True }
-    | FALSE { False }
-    | IDENT { Var $1 }
+    | IDENT { Ident $1 }
     | LEFT_PAREN predicate LEFT_PAREN { $2 }
     | NOT predicate { Not $2 }
     | predicate AND predicate { And { left = $1; right = $3 } }

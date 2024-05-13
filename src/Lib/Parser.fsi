@@ -22,8 +22,6 @@ type token =
   | IMPLIES
   | OR
   | AND
-  | FALSE
-  | TRUE
 type tokenId = 
     | TOKEN_EOF
     | TOKEN_IDENT
@@ -46,8 +44,6 @@ type tokenId =
     | TOKEN_IMPLIES
     | TOKEN_OR
     | TOKEN_AND
-    | TOKEN_FALSE
-    | TOKEN_TRUE
     | TOKEN_end_of_input
     | TOKEN_error
 type nonTerminalId = 

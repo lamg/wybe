@@ -54,9 +54,6 @@ rule read =
     | white { read lexbuf }
     | newline { newline lexbuf; read lexbuf }
     
-    | true { TRUE }
-    | false { FALSE }
-    
     | andOp { AND }
     | orOp { OR }
     | impliesOp { IMPLIES }

@@ -1,12 +1,10 @@
 ﻿module Language
 
-type Binary = { left: Predicate; right: Predicate }
-and Unary = Predicate
+type Binary = { left: Expr; right: Expr }
+and Unary = Expr
 
-and Predicate =
-  | True
-  | False
-  | Var of string
+and Expr =
+  | Ident of string
   | And of Binary
   | Or of Binary
   | Implies of Binary
@@ -29,11 +27,11 @@ type Transformer =
   | Trans of Hint
   | End
 
-type Step = { pred: Predicate; trans: Transformer }
+type Step = { pred: Expr; trans: Transformer }
 
-type Proof = { thesis: Predicate; steps: Step list }
+type Proof = { thesis: Expr; steps: Step list }
 
-type NamedPred = { name: string; pred: Predicate }
+type NamedPred = { name: string; pred: Expr }
 
 type Law =
   | Theorem of NamedPred

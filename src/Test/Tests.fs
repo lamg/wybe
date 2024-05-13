@@ -21,7 +21,7 @@ let axiom name p =
     statements = [ Law(Axiom({ name = name; pred = p })) ] }
 
 let equiv x y =
-  Equivales { left = Var x; right = Var y }
+  Equivales { left = Ident x; right = Ident y }
 
 let proof0 =
   "
@@ -34,20 +34,21 @@ a ≡ b
 □
 "
 
-
+let falseExpr = Ident "false"
+let trueExpr = Ident "true"
 
 [<Fact>]
 let ``basic constructions`` () =
-  [ "module x ax t true", pred True
-    "module x ax t false", pred False
-    "module x ax t id", pred (Var "id")
-    "module x ax t ¬false", pred (Not False)
-    "module x ax t true ∧ false", pred (And { left = True; right = False })
-    "module x ax t true ∨ false", pred (Or { left = True; right = False })
-    "module x ax t true ⇒ false", pred (Implies { left = True; right = False })
-    "module x ax t true ⇐ false", pred (Follows { left = True; right = False })
-    "module x ax t true ≡ false", pred (Equivales { left = True; right = False })
-    "module x ax t true ≢ false", pred (Differs { left = True; right = False }) ]
+  [ "module x ax t true", pred trueExpr
+    "module x ax t false", pred falseExpr
+    "module x ax t id", pred (Ident "id")
+    "module x ax t ¬false", pred (Not falseExpr)
+    "module x ax t true ∧ false", pred (And { left = trueExpr; right = falseExpr })
+    "module x ax t true ∨ false", pred (Or { left = trueExpr; right = falseExpr })
+    "module x ax t true ⇒ false", pred (Implies { left = trueExpr; right = falseExpr })
+    "module x ax t true ⇐ false", pred (Follows { left = trueExpr; right = falseExpr })
+    "module x ax t true ≡ false", pred (Equivales { left = trueExpr; right = falseExpr })
+    "module x ax t true ≢ false", pred (Differs { left = trueExpr; right = falseExpr }) ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))
 
 [<Fact>]
@@ -69,8 +70,8 @@ let ``open statement`` () =
 
 [<Fact>]
 let ``laws`` () =
-  [ "module x th m a ≡ b", theorem "m" (Equivales { left = Var "a"; right = Var "b" })
-    "module x ax m a ≡ b", axiom "m" (Equivales { left = Var "a"; right = Var "b" }) ]
+  [ "module x th m a ≡ b", theorem "m" (Equivales { left = Ident "a"; right = Ident "b" })
+    "module x ax m a ≡ b", axiom "m" (Equivales { left = Ident "a"; right = Ident "b" }) ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))
 
 
