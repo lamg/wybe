@@ -14,14 +14,14 @@
       "patterns": [
         {
           "name": "keyword.control.wybe",
-          "match": "\\b(module|open|pub|ax|th|proof|□)\\b"
+          "match": "\\b(module|open|pub|ax|th|proof|□|type)\\b"
         },
         {
           "name": "constant.language.wybe",
-          "match": "\\b(true|false)\\b"
+          "match": "\\b(true|false|bool)\\b"
         },
         {
-          "match": "(\\≡|\\≢|\\⇒|\\⇐|\\∧|\\∨|\\¬)",
+          "match": "(\\≡|\\≢|\\⇒|\\⇐|\\∧|\\∨|\\¬|\\=)",
           "name": "keyword.operator.new"
         }
       ]
