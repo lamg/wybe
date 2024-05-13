@@ -3,6 +3,9 @@ module Parser
 type token = 
   | EOF
   | IDENT of (string)
+  | BAR
+  | EQUAL
+  | TYPE
   | MODULE
   | PUB
   | OPEN
@@ -25,6 +28,9 @@ type token =
 type tokenId = 
     | TOKEN_EOF
     | TOKEN_IDENT
+    | TOKEN_BAR
+    | TOKEN_EQUAL
+    | TOKEN_TYPE
     | TOKEN_MODULE
     | TOKEN_PUB
     | TOKEN_OPEN
@@ -48,7 +54,7 @@ type tokenId =
     | TOKEN_error
 type nonTerminalId = 
     | NONTERM__startstart
-    | NONTERM_predicate
+    | NONTERM_expr
     | NONTERM_identList
     | NONTERM_hintOp
     | NONTERM_hint
@@ -57,6 +63,8 @@ type nonTerminalId =
     | NONTERM_proof
     | NONTERM_law
     | NONTERM_open
+    | NONTERM_valueList
+    | NONTERM_typeDecl
     | NONTERM_statement
     | NONTERM_statements
     | NONTERM_module

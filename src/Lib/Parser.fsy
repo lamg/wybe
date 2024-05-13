@@ -27,6 +27,10 @@
 %token PUB
 %token MODULE
 
+%token TYPE
+%token EQUAL
+%token BAR
+
 %token <string> IDENT
 
 %token EOF
@@ -40,16 +44,16 @@
 
 %%
 
-predicate:
+expr:
     | IDENT { Ident $1 }
-    | LEFT_PAREN predicate LEFT_PAREN { $2 }
-    | NOT predicate { Not $2 }
-    | predicate AND predicate { And { left = $1; right = $3 } }
-    | predicate OR predicate { Or { left = $1; right = $3 } }
-    | predicate IMPLIES predicate { Implies { left = $1; right = $3 } }
-    | predicate FOLLOWS predicate { Follows { left = $1; right = $3 } }
-    | predicate EQUIVALES predicate { Equivales { left = $1; right = $3 } }
-    | predicate DIFFERS predicate { Differs { left = $1; right = $3 } }
+    | LEFT_PAREN expr LEFT_PAREN { $2 }
+    | NOT expr { Not $2 }
+    | expr AND expr { And { left = $1; right = $3 } }
+    | expr OR expr { Or { left = $1; right = $3 } }
+    | expr IMPLIES expr { Implies { left = $1; right = $3 } }
+    | expr FOLLOWS expr { Follows { left = $1; right = $3 } }
+    | expr EQUIVALES expr { Equivales { left = $1; right = $3 } }
+    | expr DIFFERS expr { Differs { left = $1; right = $3 } }
 
 identList:
     | IDENT { [$1] }
@@ -70,22 +74,30 @@ transformer:
 
 steps:
     | { [] }
-    | steps predicate transformer { { pred = $2; trans = $3 } :: $1 }
+    | steps expr transformer { { pred = $2; trans = $3 } :: $1 }
 
 proof:
-    | PROOF predicate steps { {thesis = $2; steps = List.rev $3 } }
+    | PROOF expr steps { {thesis = $2; steps = List.rev $3 } }
 
 law:
-    | TH IDENT predicate { Theorem {name = $2; pred = $3 } }
-    | AX IDENT predicate { Axiom {name = $2; pred = $3} }
+    | TH IDENT expr { Theorem {name = $2; pred = $3 } }
+    | AX IDENT expr { Axiom {name = $2; pred = $3} }
 
 open:
     | OPEN IDENT { Open $2 }
+
+valueList:
+    | IDENT { [Value $1] }
+    | valueList BAR IDENT { (Value $3) :: $1 }
+
+typeDecl:
+    | TYPE IDENT EQUAL valueList { {name = $2; values = List.rev $4} }
 
 statement:
     | open { $1 }
     | law { Law $1 }
     | proof { Proof $1 }
+    | typeDecl { TypeDecl $1 }
 
 statements:
     | { [] }

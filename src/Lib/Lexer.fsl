@@ -44,6 +44,10 @@ let openModule = "open"
 let pub = "pub"
 let declModule = "module"
 
+let typeDecl = "type"
+let equal = '='
+let bar = '|'
+
 let letter = ['a'-'z' 'A'-'Z']
 let digit = ['0'-'9']
 let ident = letter (letter | digit)*
@@ -76,6 +80,10 @@ rule read =
     | openModule { OPEN }
     | pub { PUB }
     | declModule { MODULE }
+
+    | typeDecl { TYPE }
+    | equal { EQUAL }
+    | bar { BAR }
 
     | ident { IDENT (lexeme lexbuf) }
 

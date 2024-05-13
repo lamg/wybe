@@ -37,10 +37,14 @@ type Law =
   | Theorem of NamedPred
   | Axiom of NamedPred
 
+type Value = Value of string
+type TypeDecl = { name: string; values: Value list }
+
 type Statement =
   | Open of string
   | Law of Law
   | Proof of Proof
+  | TypeDecl of TypeDecl
 
 type Module =
   { name: string
