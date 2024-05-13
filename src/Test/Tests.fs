@@ -8,17 +8,17 @@ let parse source =
   let lexbuf = LexBuffer<char>.FromString source
   Parser.start Lexer.read lexbuf
 
-let pred p =
+let expr p =
   { name = "x"
-    statements = [ Law(Axiom { name = "t"; pred = p }) ] }
+    statements = [ Law(Axiom { name = "t"; expr = p }) ] }
 
 let theorem name p =
   { name = "x"
-    statements = [ Law(Theorem({ name = name; pred = p })) ] }
+    statements = [ Law(Theorem({ name = name; expr = p })) ] }
 
 let axiom name p =
   { name = "x"
-    statements = [ Law(Axiom({ name = name; pred = p })) ] }
+    statements = [ Law(Axiom({ name = name; expr = p })) ] }
 
 let equiv x y =
   Equivales { left = Ident x; right = Ident y }
@@ -39,16 +39,16 @@ let trueExpr = Ident "true"
 
 [<Fact>]
 let ``basic constructions`` () =
-  [ "module x ax t true", pred trueExpr
-    "module x ax t false", pred falseExpr
-    "module x ax t id", pred (Ident "id")
-    "module x ax t ¬false", pred (Not falseExpr)
-    "module x ax t true ∧ false", pred (And { left = trueExpr; right = falseExpr })
-    "module x ax t true ∨ false", pred (Or { left = trueExpr; right = falseExpr })
-    "module x ax t true ⇒ false", pred (Implies { left = trueExpr; right = falseExpr })
-    "module x ax t true ⇐ false", pred (Follows { left = trueExpr; right = falseExpr })
-    "module x ax t true ≡ false", pred (Equivales { left = trueExpr; right = falseExpr })
-    "module x ax t true ≢ false", pred (Differs { left = trueExpr; right = falseExpr }) ]
+  [ "module x ax t true", expr trueExpr
+    "module x ax t false", expr falseExpr
+    "module x ax t id", expr (Ident "id")
+    "module x ax t ¬false", expr (Not falseExpr)
+    "module x ax t true ∧ false", expr (And { left = trueExpr; right = falseExpr })
+    "module x ax t true ∨ false", expr (Or { left = trueExpr; right = falseExpr })
+    "module x ax t true ⇒ false", expr (Implies { left = trueExpr; right = falseExpr })
+    "module x ax t true ⇐ false", expr (Follows { left = trueExpr; right = falseExpr })
+    "module x ax t true ≡ false", expr (Equivales { left = trueExpr; right = falseExpr })
+    "module x ax t true ≢ false", expr (Differs { left = trueExpr; right = falseExpr }) ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))
 
 [<Fact>]
@@ -77,7 +77,12 @@ let ``laws`` () =
 
 [<Fact>]
 let ``type declaration`` () =
-  [ "module x type bool = true | false", { name = "x"; statements = [ TypeDecl { name = "bool"; values = [ Value "true"; Value "false" ] } ] } ]
+  [ "module x type bool = true | false",
+    { name = "x"
+      statements =
+        [ TypeDecl
+            { name = "bool"
+              values = [ Value "true"; Value "false" ] } ] } ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))
 
 [<Fact>]
@@ -88,10 +93,10 @@ let ``proofs`` () =
         [ Proof
             { thesis = equiv "a" "b"
               steps =
-                [ { pred = equiv "c" "d"
+                [ { expr = equiv "c" "d"
                     trans =
                       Trans
                         { operator = HintEquivales
                           lawNames = [ "t0" ] } }
-                  { pred = equiv "a" "b"; trans = End } ] } ] } ]
+                  { expr = equiv "a" "b"; trans = End } ] } ] } ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))

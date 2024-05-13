@@ -27,15 +27,15 @@ type Transformer =
   | Trans of Hint
   | End
 
-type Step = { pred: Expr; trans: Transformer }
+type Step = { expr: Expr; trans: Transformer }
 
 type Proof = { thesis: Expr; steps: Step list }
 
-type NamedPred = { name: string; pred: Expr }
+type NamedExpr = { name: string; expr: Expr }
 
 type Law =
-  | Theorem of NamedPred
-  | Axiom of NamedPred
+  | Theorem of NamedExpr
+  | Axiom of NamedExpr
 
 type Value = Value of string
 type TypeDecl = { name: string; values: Value list }

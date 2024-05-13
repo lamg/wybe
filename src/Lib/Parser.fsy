@@ -74,14 +74,14 @@ transformer:
 
 steps:
     | { [] }
-    | steps expr transformer { { pred = $2; trans = $3 } :: $1 }
+    | steps expr transformer { { expr = $2; trans = $3 } :: $1 }
 
 proof:
     | PROOF expr steps { {thesis = $2; steps = List.rev $3 } }
 
 law:
-    | TH IDENT expr { Theorem {name = $2; pred = $3 } }
-    | AX IDENT expr { Axiom {name = $2; pred = $3} }
+    | TH IDENT expr { Theorem {name = $2; expr = $3 } }
+    | AX IDENT expr { Axiom {name = $2; expr = $3} }
 
 open:
     | OPEN IDENT { Open $2 }
