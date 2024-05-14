@@ -1,6 +1,5 @@
 module core
 
-pub bool
 pub eq_assoc
 pub eq_symmetry
 pub eq_identity
@@ -12,6 +11,8 @@ pub differs_def
 
 type bool = true | false
 
+typeof ≡ = bool → bool → bool
+
 ax eq_assoc
 ((p ≡ q) ≡ r) ≡ (p ≡ (q ≡ r))
 
@@ -21,11 +22,15 @@ p ≡ q ≡ q ≡ p
 ax eq_identity
 true ≡ q ≡ q
 
+typeof ¬ = bool → bool
+
 ax false_def
 false ≡ ¬true
 
 ax negation_over_equivales
 ¬(p ≡ q) ≡ ¬p ≡ q
+
+typeof ≢ = bool → bool → bool
 
 ax differs_def
 p ≢ q ≡ ¬(p ≡ q)

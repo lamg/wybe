@@ -20,13 +20,8 @@ let newline = '\r' | '\n' | "\r\n"
 let true = "true" 
 let false = "false"
 
-let andOp = '∧'
-let orOp = '∨'
-let impliesOp = '⇒'
-let followsOp = '⇐'
-let equivalesOp = '≡'
-let differsOp = '≢'
-let notOp = '¬'
+let binaryOp = '∧' | '∨' | '⇒' | '⇐' | '≡'| '≢'
+let unaryOp = '¬' | '~'
 
 let leftParen = '('
 let rightParen = ')'
@@ -47,6 +42,8 @@ let declModule = "module"
 let typeDecl = "type"
 let equal = '='
 let bar = '|'
+let typeof = "typeof"
+let arrow = '→'
 
 let letter = ['a'-'z' 'A'-'Z']
 let digit = ['0'-'9']
@@ -58,13 +55,8 @@ rule read =
     | white { read lexbuf }
     | newline { newline lexbuf; read lexbuf }
     
-    | andOp { AND }
-    | orOp { OR }
-    | impliesOp { IMPLIES }
-    | followsOp { FOLLOWS }
-    | equivalesOp { EQUIVALES }
-    | differsOp { DIFFERS }
-    | notOp { NOT }
+    | binaryOp { BIN_OP (lexeme lexbuf) }
+    | unaryOp { UN_OP (lexeme lexbuf) }
 
     | leftParen { LEFT_PAREN }
     | rightParen { RIGHT_PAREN }
@@ -84,6 +76,8 @@ rule read =
     | typeDecl { TYPE }
     | equal { EQUAL }
     | bar { BAR }
+    | typeof { TYPEOF }
+    | arrow { ARROW }
 
     | ident { IDENT (lexeme lexbuf) }
 

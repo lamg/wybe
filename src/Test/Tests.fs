@@ -21,7 +21,17 @@ let axiom name p =
     statements = [ Law(Axiom({ name = name; expr = p })) ] }
 
 let equiv x y =
-  Equivales { left = Ident x; right = Ident y }
+  Binary
+    { operator = "≡"
+      left = Ident x
+      right = Ident y }
+
+let binaryTF operator =
+  Binary
+    { operator = operator
+      left = Ident "true"
+      right = Ident "false" }
+  |> expr
 
 let proof0 =
   "
@@ -42,13 +52,13 @@ let ``basic constructions`` () =
   [ "module x ax t true", expr trueExpr
     "module x ax t false", expr falseExpr
     "module x ax t id", expr (Ident "id")
-    "module x ax t ¬false", expr (Not falseExpr)
-    "module x ax t true ∧ false", expr (And { left = trueExpr; right = falseExpr })
-    "module x ax t true ∨ false", expr (Or { left = trueExpr; right = falseExpr })
-    "module x ax t true ⇒ false", expr (Implies { left = trueExpr; right = falseExpr })
-    "module x ax t true ⇐ false", expr (Follows { left = trueExpr; right = falseExpr })
-    "module x ax t true ≡ false", expr (Equivales { left = trueExpr; right = falseExpr })
-    "module x ax t true ≢ false", expr (Differs { left = trueExpr; right = falseExpr }) ]
+    "module x ax t ¬false", expr (Unary { operator = "¬"; expr = falseExpr })
+    "module x ax t true ∧ false", binaryTF "∧"
+    "module x ax t true ∨ false", binaryTF "∨"
+    "module x ax t true ⇒ false", binaryTF "⇒"
+    "module x ax t true ⇐ false", binaryTF "⇐"
+    "module x ax t true ≡ false", binaryTF "≡"
+    "module x ax t true ≢ false", binaryTF "≢" ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))
 
 [<Fact>]
@@ -70,8 +80,20 @@ let ``open statement`` () =
 
 [<Fact>]
 let ``laws`` () =
-  [ "module x th m a ≡ b", theorem "m" (Equivales { left = Ident "a"; right = Ident "b" })
-    "module x ax m a ≡ b", axiom "m" (Equivales { left = Ident "a"; right = Ident "b" }) ]
+  [ "module x th m a ≡ b",
+    theorem
+      "m"
+      (Binary
+        { operator = "≡"
+          left = Ident "a"
+          right = Ident "b" })
+    "module x ax m a ≡ b",
+    axiom
+      "m"
+      (Binary
+        { operator = "≡"
+          left = Ident "a"
+          right = Ident "b" }) ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))
 
 
@@ -94,9 +116,23 @@ let ``proofs`` () =
             { thesis = equiv "a" "b"
               steps =
                 [ { expr = equiv "c" "d"
-                    trans =
-                      Trans
-                        { operator = HintEquivales
-                          lawNames = [ "t0" ] } }
+                    trans = Trans { operator = "≡"; lawNames = [ "t0" ] } }
                   { expr = equiv "a" "b"; trans = End } ] } ] } ]
+  |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))
+
+[<Fact>]
+let ``typeof declarations`` () =
+  [ "module x typeof f = bool → bool",
+    { name = "x"
+      statements =
+        [ TypeOfDecl
+            { func = "f"
+              signature = [ "bool"; "bool" ] } ] }
+
+    "module x typeof ≡ = bool → bool → bool",
+    { name = "x"
+      statements =
+        [ TypeOfDecl
+            { func = "≡"
+              signature = [ "bool"; "bool"; "bool" ] } ] } ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))

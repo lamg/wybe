@@ -1,26 +1,14 @@
 ﻿module Language
 
-type Binary = { left: Expr; right: Expr }
-and Unary = Expr
-
+type Binary = { operator: string; left: Expr; right: Expr }
+and Unary = { operator: string; expr: Expr }
 and Expr =
   | Ident of string
-  | And of Binary
-  | Or of Binary
-  | Implies of Binary
-  | Follows of Binary
-  | Equivales of Binary
-  | Differs of Binary
-  | Not of Unary
-
-type HintOp =
-  | HintImplies
-  | HintFollows
-  | HintEquivales
-  | HintDiffers
+  | Binary of Binary
+  | Unary of Unary
 
 type Hint =
-  { operator: HintOp
+  { operator: string
     lawNames: string list }
 
 type Transformer =
@@ -39,12 +27,14 @@ type Law =
 
 type Value = Value of string
 type TypeDecl = { name: string; values: Value list }
+type TypeOfDecl = { func: string; signature: string list }
 
 type Statement =
   | Open of string
   | Law of Law
   | Proof of Proof
   | TypeDecl of TypeDecl
+  | TypeOfDecl of TypeOfDecl
 
 type Module =
   { name: string

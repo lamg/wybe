@@ -4,13 +4,8 @@
 
 %start start
 
-%token AND
-%token OR
-%token IMPLIES
-%token FOLLOWS
-%token EQUIVALES
-%token DIFFERS
-%token NOT
+%token <string> BIN_OP
+%token <string> UN_OP
 
 %token LEFT_PAREN
 %token RIGHT_PAREN
@@ -30,15 +25,15 @@
 %token TYPE
 %token EQUAL
 %token BAR
+%token TYPEOF
+%token ARROW
 
 %token <string> IDENT
 
 %token EOF
 
-%left EQUIVALES DIFFERS
-%left IMPLIES FOLLOWS
-%left OR AND
-%nonassoc NOT
+%left BIN_OP
+%nonassoc UN_OP
 
 %type <Module> start
 
@@ -47,26 +42,15 @@
 expr:
     | IDENT { Ident $1 }
     | LEFT_PAREN expr LEFT_PAREN { $2 }
-    | NOT expr { Not $2 }
-    | expr AND expr { And { left = $1; right = $3 } }
-    | expr OR expr { Or { left = $1; right = $3 } }
-    | expr IMPLIES expr { Implies { left = $1; right = $3 } }
-    | expr FOLLOWS expr { Follows { left = $1; right = $3 } }
-    | expr EQUIVALES expr { Equivales { left = $1; right = $3 } }
-    | expr DIFFERS expr { Differs { left = $1; right = $3 } }
+    | UN_OP expr { Unary {operator = $1; expr = $2 } }
+    | expr BIN_OP expr { Binary { operator = $2; left = $1; right = $3 } }
 
 identList:
     | IDENT { [$1] }
     | identList COMMA IDENT { $3 :: $1 }
 
-hintOp:
-    | IMPLIES { HintImplies }
-    | FOLLOWS { HintFollows }
-    | EQUIVALES { HintEquivales }
-    | DIFFERS { HintDiffers }
-
 hint:
-    | hintOp LEFT_BRACE identList RIGHT_BRACE { {operator = $1; lawNames = List.rev $3 } }
+    | BIN_OP LEFT_BRACE identList RIGHT_BRACE { {operator = $1; lawNames = List.rev $3 } }
 
 transformer:
     | hint { Trans $1 }
@@ -93,11 +77,24 @@ valueList:
 typeDecl:
     | TYPE IDENT EQUAL valueList { {name = $2; values = List.rev $4} }
 
+signature:
+    | IDENT { [$1] }
+    | signature ARROW IDENT { $3 :: $1 }
+
+funcIdent:
+    | IDENT { $1 }
+    | UN_OP { $1 }
+    | BIN_OP { $1 }
+
+typeOfDecl:
+    | TYPEOF funcIdent EQUAL signature { {func = $2; signature = List.rev $4 }}
+
 statement:
     | open { $1 }
     | law { Law $1 }
     | proof { Proof $1 }
     | typeDecl { TypeDecl $1 }
+    | typeOfDecl { TypeOfDecl $1 }
 
 statements:
     | { [] }
