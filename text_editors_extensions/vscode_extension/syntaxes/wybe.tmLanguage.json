@@ -14,7 +14,7 @@
       "patterns": [
         {
           "name": "keyword.control.wybe",
-          "match": "\\b(module|open|pub|ax|th|proof|□|type)\\b"
+          "match": "\\b(module|open|pub|ax|th|proof|□|type|typeof)\\b"
         },
         {
           "name": "constant.language.wybe",
