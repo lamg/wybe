@@ -16,6 +16,7 @@ class ReplaceListener(sublime_plugin.EventListener):
             '<=': '⇐',
             '-,': '¬',
             '|]': '□',
+            '->': '→',
         }
 
         if last_two_chars in sequences:

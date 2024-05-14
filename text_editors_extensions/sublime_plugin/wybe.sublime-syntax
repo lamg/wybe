@@ -22,7 +22,7 @@ contexts:
     # strings in YAML. When using single quoted strings, only single quotes
     # need to be escaped: this is done by using two single quotes next to each
     # other.
-    - match: '\b(module|open|pub|ax|th|proof|type)\b'
+    - match: '\b(module|open|pub|ax|th|proof|type|typeof)\b'
       scope: keyword.control.wybe
 
     # Numbers
