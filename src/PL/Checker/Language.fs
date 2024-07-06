@@ -1,7 +1,12 @@
 ﻿module Language
 
-type Binary = { operator: string; left: Expr; right: Expr }
+type Binary =
+  { operator: string
+    left: Expr
+    right: Expr }
+
 and Unary = { operator: string; expr: Expr }
+
 and Expr =
   | Ident of string
   | Binary of Binary
@@ -27,7 +32,9 @@ type Law =
 
 type Value = Value of string
 type TypeDecl = { name: string; values: Value list }
-type TypeOfDecl = { func: string; signature: string list }
+
+type TypeOfDecl =
+  { func: string; signature: string list }
 
 type Statement =
   | Open of string
