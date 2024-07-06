@@ -7,6 +7,9 @@
 
   <ItemGroup>
     <Compile Include="Language.fs" />
+    <Compile Include="Compiler.fs" />
+    <Compile Include="Interpreter.fs" />
+    <Compile Include="TypeChecker.fs" />
   </ItemGroup>
 
 </Project>

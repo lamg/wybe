@@ -2,10 +2,6 @@
 
 type Identifier = string
 
-and TupleDestructor =
-  | Fst
-  | Snd
-
 and Operator =
   | Plus
   | Minus
@@ -14,9 +10,11 @@ and Operator =
   | And
   | Or
   | BoolEqual
+  | BoolDifferent
   | Implies
   | Follows
   | Equal
+  | Different
   | Gt
   | Lt
   | Gte
@@ -26,46 +24,58 @@ and UnaryOp =
   | Not
   | UnaryMinus
 
-and Literal =
-  | Natural of uint64
+and RecordValue = (Identifier * Value) list
+
+and Value =
+  | Uint64 of uint64
   | Bytes of byte array
   | String of string
   | Bool of bool
-  | Integer of int64
-  | RecordValue of (Identifier * Literal) list
-  | Constructior of Identifier * Literal
+  | Int64 of int64
+  | RecordValue of RecordValue
+  | Constructor of Identifier * Value
+
+and RecordExpr = (Identifier * Expression) list
 
 and Expression =
-  | Constant of Literal
+  | Literal of Value
   | Binary of Operator * Expression * Expression
+  | Unary of UnaryOp * Expression
   | Variable of Identifier
+  | RecordExpr of RecordExpr
+  | Call of Identifier * Expression // Expression restricted to RecordExpr
 
   static member (+)(a: Expression, b: Expression) = Binary(Plus, a, b)
   static member (-)(a: Expression, b: Expression) = Binary(Minus, a, b)
   static member (*)(a: Expression, b: Expression) = Binary(Times, a, b)
   static member (/)(a: Expression, b: Expression) = Binary(Divide, a, b)
 
-and Guarded = Expression * Statement
+and Guarded = Expression * SourceStatement
 
 and IdentType =
   { name: Identifier
     nameType: Identifier }
 
+and RecordBody = IdentType list
+
 and Proc =
   { name: Identifier
-    args: IdentType list
-    body: Statement list }
+    input: RecordBody
+    output: RecordBody
+    body: SourceStatement list }
 
 and TypeDecl =
   | TypeSynonym of Identifier * Identifier
-  | Record of IdentType list
+  | Record of Identifier * RecordBody
   | Union of Identifier * Identifier list
 
 and Statement =
   | Alternative of Guarded list
   | Repetition of Guarded list
-  | Assignment of Identifier * Expression
+  | Assignment of Identifier list * Expression
   | Skip
   | Proc of Proc
   | TypeDecl of TypeDecl
-  | Assertion of Expression
+  | Assertion of Expression // Expression restricted to Bool
+
+and SourceStatement = {id: uint; statement: Statement}
