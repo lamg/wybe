@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Lib\Lib.fsproj" />
+    <ProjectReference Include="..\Checker\Checker.fsproj" />
   </ItemGroup>
 
 </Project>
