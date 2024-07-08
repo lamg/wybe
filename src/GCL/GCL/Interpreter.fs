@@ -129,8 +129,8 @@ and evalRecordExpr ctx (ns: RecordExpr) =
     |> List.fold
       (fun (ctx, xs) (id, x) ->
         match ctx with
-        | { error = Some e } -> ctx, xs
-        | { expr = Literal v } -> (evaluate ctx, (id, v) :: xs)
+        | { error = Some _ } -> ctx, xs
+        | { expr = Literal v } -> (evaluate {ctx with expr = x}, (id, v) :: xs)
         | { expr = m } ->
           { ctx with
               error = Some(ExpectingValue m) },
@@ -151,7 +151,7 @@ and evaluate (ctx: Context) =
 
 type ExecCtx =
   { values: Map<Identifier, Value>
-    types: TypeDecl list
+    types: SetDeclaration list
     procedures: Proc list
     statements: Statement array
     current: int
