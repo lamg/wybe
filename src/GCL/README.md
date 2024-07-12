@@ -61,7 +61,7 @@ Example
 set bool = {true, false}
 state Line = { length ∈ float32 }
 state Circle = { radius ∈ float32 }
-state Figure = Circle | Line 
+state Figure = Circle | Line
 state float32_opt = { def ≡ value ∈ float32 }
 
 proc {f ∈ Figure} area {area ∈ float32_opt }
@@ -129,6 +129,7 @@ proc { xs ∈ nat32_array } times2 { ys ∈ nat32_array ∧ (xs.i = ys.i ⇒ ys.
     do
     | i ≠ length → ys.x, i := x * 2, i + 1
     od
+    i := 0
 end
 
 proc {xs: nat32_array } plus1_times2 {xs: nat32_array }

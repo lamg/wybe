@@ -2,156 +2,73 @@ module GCL.Interpreter
 
 open GCL.Language
 
-type Error =
+type EvalError =
   | ExpectingType of Identifier * Identifier
   | UnknownExpression
   | ExpectingValue of Expression
   | Undefined of Identifier
   | CannotApplyBinOp of Operator * Expression * Expression
   | CannotApplyUnaryOp of UnaryOp * Expression
+  | ConflictingValues of Identifier * List<Value>
 
-type Context =
-  { values: Map<Identifier, Value>
-    expr: Expression
-    error: Error option }
+exception EvalErrorEx of EvalError
 
-let evalVariable (ctx: Context) (id: Identifier) =
-  if ctx.values.ContainsKey id then
-    { ctx with
-        expr = Literal ctx.values[id] }
-  else
-    { ctx with error = Some(Undefined id) }
+type Context = { varValues: Map<Identifier, Value> }
+
+let reduceBinary (ctx: Context) (op: Operator) (left: Expression) (right: Expression) =
+  match op, left, right with
+  | Plus, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Uint64(x + y))
+  | Minus, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Uint64(x - y))
+  | Times, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Uint64(x * y))
+  | Divide, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Uint64(x / y))
+  | Plus, Literal(Int64 x), Literal(Int64 y) -> Literal(Int64(x + y))
+  | Minus, Literal(Int64 x), Literal(Int64 y) -> Literal(Int64(x - y))
+  | Times, Literal(Int64 x), Literal(Int64 y) -> Literal(Int64(x * y))
+  | Divide, Literal(Int64 x), Literal(Int64 y) -> Literal(Int64(x / y))
+  | And, Literal(Bool x), Literal(Bool y) -> Literal(Bool(x && y))
+  | Or, Literal(Bool x), Literal(Bool y) -> Literal(Bool(x || y))
+  | BoolEqual, Literal(Bool x), Literal(Bool y) -> Literal(Bool(x = y))
+  | BoolDifferent, Literal(Bool x), Literal(Bool y) -> Literal(Bool(x <> y))
+  | Implies, Literal(Bool x), Literal(Bool y) -> Literal(Bool(not x || y))
+  | Follows, Literal(Bool x), Literal(Bool y) -> Literal(Bool(x || not y))
+  | Equal, Literal x, Literal y -> Literal(Bool(x = y))
+  | Different, Literal x, Literal y -> Literal(Bool(x <> y))
+  | Gt, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Bool(x > y))
+  | Lt, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Bool(x < y))
+  | Gte, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Bool(x >= y))
+  | Lte, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Bool(x <= y))
+  | Gt, Literal(Int64 x), Literal(Int64 y) -> Literal(Bool(x > y))
+  | Lt, Literal(Int64 x), Literal(Int64 y) -> Literal(Bool(x < y))
+  | Gte, Literal(Int64 x), Literal(Int64 y) -> Literal(Bool(x >= y))
+  | Lte, Literal(Int64 x), Literal(Int64 y) ->
+    // TODO create ctx with error when literal type is not correct for the operator
+    Literal(Bool(x <= y))
+  | _ -> Binary(op, left, right)
 
 let rec evalBinary (ctx: Context) (op: Operator) (left: Expression) (right: Expression) =
-  let lCtx = evaluate { ctx with expr = left }
-  let rCtx = evaluate { lCtx with expr = right }
-
-  match op, lCtx.expr, rCtx.expr with
-  | Plus, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Uint64(x + y)) }
-  | Minus, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Uint64(x - y)) }
-  | Times, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Uint64(x * y)) }
-  | Divide, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Uint64(x / y)) }
-  | Plus, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Int64(x + y)) }
-  | Minus, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Int64(x - y)) }
-  | Times, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Int64(x * y)) }
-  | Divide, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Int64(x / y)) }
-  | And, Literal(Bool x), Literal(Bool y) ->
-    { rCtx with
-        expr = Literal(Bool(x && y)) }
-  | Or, Literal(Bool x), Literal(Bool y) ->
-    { rCtx with
-        expr = Literal(Bool(x || y)) }
-  | BoolEqual, Literal(Bool x), Literal(Bool y) ->
-    { rCtx with
-        expr = Literal(Bool(x = y)) }
-  | BoolDifferent, Literal(Bool x), Literal(Bool y) ->
-    { rCtx with
-        expr = Literal(Bool(x <> y)) }
-  | Implies, Literal(Bool x), Literal(Bool y) ->
-    { rCtx with
-        expr = Literal(Bool(not x || y)) }
-  | Follows, Literal(Bool x), Literal(Bool y) ->
-    { rCtx with
-        expr = Literal(Bool(x || not y)) }
-  | Equal, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x = y)) }
-  | Different, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x <> y)) }
-  | Gt, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x > y)) }
-  | Lt, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x < y)) }
-  | Gte, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x >= y)) }
-  | Lte, Literal(Uint64 x), Literal(Uint64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x <= y)) }
-  | Equal, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x = y)) }
-  | Different, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x <> y)) }
-  | Gt, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x > y)) }
-  | Lt, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x < y)) }
-  | Gte, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x >= y)) }
-  | Lte, Literal(Int64 x), Literal(Int64 y) ->
-    { rCtx with
-        expr = Literal(Bool(x <= y)) }
-  | _, x, y ->
-    { rCtx with
-        error = Some(CannotApplyBinOp(op, x, y)) }
+  let l = evaluate ctx left
+  let r = evaluate ctx right
+  reduceBinary ctx op l r
 
 and evalUnary (ctx: Context) (op: UnaryOp) (right: Expression) =
-  let rCtx = evaluate { ctx with expr = right }
+  match op, evaluate ctx right with
+  | Not, Literal(Bool v) -> Literal(Bool(not v))
+  | UnaryMinus, Literal(Int64 v) -> Literal(Int64 -v)
+  | _, v -> EvalErrorEx(CannotApplyUnaryOp(op, v)) |> raise
 
-  match op, rCtx.expr with
-  | Not, Literal(Bool v) ->
-    { rCtx with
-        expr = Literal(Bool(not v)) }
-  | UnaryMinus, Literal(Int64 v) -> { rCtx with expr = Literal(Int64 -v) }
-  | _, v ->
-    { rCtx with
-        error = Some(CannotApplyUnaryOp(op, v)) }
-
-and callProc ctx proc args = ctx //TODO
-
-and evalRecordExpr ctx (ns: RecordExpr) =
-  let ctx, vs =
-    ns
-    |> List.fold
-      (fun (ctx, xs) (id, x) ->
-        match ctx with
-        | { error = Some _ } -> ctx, xs
-        | { expr = Literal v } -> (evaluate {ctx with expr = x}, (id, v) :: xs)
-        | { expr = m } ->
-          { ctx with
-              error = Some(ExpectingValue m) },
-          xs)
-      (ctx, [])
-  
-  {ctx with expr = Literal (RecordValue vs) }
-
-and evaluate (ctx: Context) =
-  match ctx.expr with
-  | Literal _ -> ctx
-  | Variable id -> evalVariable ctx id
+and evaluate (ctx: Context) (expr: Expression) =
+  match expr with
+  | Literal _ -> expr
+  | Variable id ->
+    match Map.tryFind id ctx.varValues with
+    | Some m -> Literal m
+    | _ -> expr
   | Binary(op, left, right) -> evalBinary ctx op left right
   | Unary(op, right) -> evalUnary ctx op right
-  | RecordExpr e -> evalRecordExpr ctx e
-  | Call(proc, args) -> callProc ctx proc args
-
 
 type ExecCtx =
   { values: Map<Identifier, Value>
-    types: SetDeclaration list
+    data: SetDeclaration list
     procedures: Proc list
     statements: Statement array
     current: int
@@ -160,6 +77,14 @@ type ExecCtx =
 let execute (ctx: ExecCtx) =
   let current = ctx.statements[ctx.current]
 
+  // TODO
   match current with
-  | Assignment(vars, expr) -> ctx
-  | _ -> ctx // TODO
+  | Assignment(vars, exprs) -> ctx
+  | Alternative guards -> ctx
+  | Repetition guards -> ctx
+  | Skip -> ctx
+  | SetDeclaration d -> ctx
+  | SetTransformation exp -> ctx
+  | Call p -> ctx
+  | Composition xs -> ctx
+  | Proc p -> ctx

@@ -25,16 +25,12 @@ and UnaryOp =
   | Not
   | UnaryMinus
 
-and RecordValue = (Identifier * Value) list
-
 and Value =
   | Uint64 of uint64
   | Bytes of byte array
   | String of string
   | Bool of bool
   | Int64 of int64
-  | RecordValue of RecordValue
-  | Constructor of Identifier * Value
 
 and Expression =
   | Literal of Value
@@ -48,27 +44,23 @@ and Expression =
   static member (/)(a: Expression, b: Expression) = Binary(Divide, a, b)
 
 and Guarded = Expression * SourceStatement
- 
+and SetDeclaration = Identifier * Expression list // list of alternative sets
+
 and Proc =
   { name: Identifier
-    input: Expression
-    output: Expression
+    input: Expression // restricted to StateExpr
+    output: Expression // restricted to StateExpr
     body: SourceStatement list }
-
-and SetDeclaration =
-  | Synonym of Identifier * Identifier
-  | Members of Identifier list
-  | State of Expression list // list of alternative predicates
 
 and Statement =
   | Alternative of Guarded list
   | Repetition of Guarded list
-  | Assignment of Identifier list * Expression
+  | Assignment of Identifier list * Expression list
   | Skip
   | Proc of Proc
   | SetDeclaration of SetDeclaration
-  | ContextTransformation of Expression // Expression restricted to RecordExpr
+  | SetTransformation of Expression
   | Call of Identifier
-  | Composition of Statement list
+  | Composition of SourceStatement list
 
-and SourceStatement = {id: uint; statement: Statement}
+and SourceStatement = { id: uint; statement: Statement }
