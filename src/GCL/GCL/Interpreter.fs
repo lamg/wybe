@@ -15,7 +15,7 @@ exception EvalErrorEx of EvalError
 
 type Context = { varValues: Map<Identifier, Value> }
 
-let reduceBinary (ctx: Context) (op: Operator) (left: Expression) (right: Expression) =
+let reduceBinary (op: Operator) (left: Expression) (right: Expression) =
   match op, left, right with
   // number -> number
   | Plus, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Uint64(x + y))
@@ -68,7 +68,7 @@ let reduceBinary (ctx: Context) (op: Operator) (left: Expression) (right: Expres
 let rec evalBinary (ctx: Context) (op: Operator) (left: Expression) (right: Expression) =
   let l = evaluate ctx left
   let r = evaluate ctx right
-  reduceBinary ctx op l r
+  reduceBinary op l r
 
 and evalUnary (ctx: Context) (op: UnaryOp) (right: Expression) =
   match op, evaluate ctx right with
