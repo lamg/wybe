@@ -47,3 +47,15 @@ let ``x = 1 && x = y`` () =
   let r = evaluate ctx expr
 
   Assert.Equal(expected, r)
+
+[<Fact>]
+let ``true = 1`` () =
+  let l, r = Literal(Bool true), Literal(Uint64 1UL)
+  let expr = Binary(Equal, l, r)
+
+  try
+    evaluate emptyCtx expr |> ignore
+    Assert.Fail "should have raised an exception"
+  with
+  | EvalErrorEx(CannotApplyBinOp(Equal, Bool true, Uint64 1UL)) -> ()
+  | e -> Assert.Fail e.Message
