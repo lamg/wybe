@@ -3,15 +3,19 @@ module GCL.Interpreter
 open GCL.Language
 
 type EvalError =
-  | ExpectingType of Identifier * Identifier
-  | UnknownExpression
   | ExpectingValue of Expression
-  | Undefined of Identifier
   | CannotApplyBinOp of Operator * Value * Value
-  | CannotApplyUnaryOp of UnaryOp * Expression
-  | ConflictingValues of Identifier * List<Value>
+  | CannotApplyUnaryOp of UnaryOp * Value
 
 exception EvalErrorEx of EvalError
+
+type ExecError =
+  | MalformedAssigment of Identifier list * Expression list
+  | AltGuardFailure
+  | FindProcFailure of Identifier
+  | AssertionFailed of Identifier * Expression
+
+exception ExecException of ExecError
 
 type Context = { varValues: Map<Identifier, Value> }
 
@@ -42,13 +46,13 @@ let reduceBinary (op: Operator) (left: Expression) (right: Expression) =
   | BoolEqual, Literal x, Literal y -> CannotApplyBinOp(op, x, y) |> EvalErrorEx |> raise
   | BoolDifferent, Literal x, Literal y -> CannotApplyBinOp(op, x, y) |> EvalErrorEx |> raise
   // x -> bool
-  | Equal, Literal (Bool x), Literal (Bool y) -> Literal(Bool(x = y))
-  | Equal, Literal (Uint64 x), Literal (Uint64 y) -> Literal(Bool(x = y))
-  | Equal, Literal (Int64 x), Literal (Int64 y) -> Literal(Bool(x = y))
+  | Equal, Literal(Bool x), Literal(Bool y) -> Literal(Bool(x = y))
+  | Equal, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Bool(x = y))
+  | Equal, Literal(Int64 x), Literal(Int64 y) -> Literal(Bool(x = y))
   | Equal, Literal x, Literal y -> CannotApplyBinOp(op, x, y) |> EvalErrorEx |> raise
-  | Different, Literal (Bool x), Literal (Bool y) -> Literal(Bool(x <> y))
-  | Different, Literal (Uint64 x), Literal (Uint64 y) -> Literal(Bool(x <> y))
-  | Different, Literal (Int64 x), Literal (Int64 y) -> Literal(Bool(x <> y))
+  | Different, Literal(Bool x), Literal(Bool y) -> Literal(Bool(x <> y))
+  | Different, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Bool(x <> y))
+  | Different, Literal(Int64 x), Literal(Int64 y) -> Literal(Bool(x <> y))
   | Different, Literal x, Literal y -> CannotApplyBinOp(op, x, y) |> EvalErrorEx |> raise
   // number -> bool
   | Gt, Literal(Uint64 x), Literal(Uint64 y) -> Literal(Bool(x > y))
@@ -74,7 +78,8 @@ and evalUnary (ctx: Context) (op: UnaryOp) (right: Expression) =
   match op, evaluate ctx right with
   | Not, Literal(Bool v) -> Literal(Bool(not v))
   | UnaryMinus, Literal(Int64 v) -> Literal(Int64 -v)
-  | _, v -> CannotApplyUnaryOp(op, v) |> EvalErrorEx |> raise
+  | _, Literal x -> CannotApplyUnaryOp (op,x) |> EvalErrorEx |> raise
+  | _, v -> ExpectingValue v |> EvalErrorEx |> raise
 
 and evaluate (ctx: Context) (expr: Expression) =
   match expr with
@@ -89,22 +94,74 @@ and evaluate (ctx: Context) (expr: Expression) =
 type ExecCtx =
   { values: Map<Identifier, Value>
     data: SetDeclaration list
-    procedures: Proc list
-    statements: Statement array
-    current: int
-    returnVars: Identifier list }
+    procedures: Proc list }
 
-let execute (ctx: ExecCtx) =
-  let current = ctx.statements[ctx.current]
+let execAssignment ctx (vars: Identifier list) (expressions: Expression list) =
+  let values = ctx.values
 
+  if vars.Length = expressions.Length then
+    expressions
+    |> List.map (evaluate { varValues = values })
+    |> List.zip vars
+    |> List.fold
+      (fun acc (id, e) ->
+        match e with
+        | Literal v -> Map.add id v acc
+        | _ -> ExpectingValue e |> EvalErrorEx |> raise)
+      values
+    |> fun vs -> { ctx with values = vs }
+  else
+    MalformedAssigment(vars, expressions) |> ExecException |> raise
+
+let chooseStatement ctx (xs: Guarded list) =
+  xs
+  |> List.choose (fun (guard, statement) ->
+    match evaluate ctx guard with
+    | Literal(Bool true) -> Some statement
+    | Literal(Bool false) -> None
+    | e -> ExpectingValue e |> EvalErrorEx |> raise)
+  |> List.tryHead
+
+let evalAssertion ctx ident e =
+  // TODO reduce scope
+  match evaluate { varValues = ctx.values } e with
+  | Literal (Bool true) ->
+    ()
+  | e ->
+    AssertionFailed (ident, e) |> ExecException |> raise
+
+let rec execAlternative ctx (xs: Guarded list) =
+  match chooseStatement { varValues = ctx.values } xs with
+  | Some s -> execute ctx s
+  | None -> AltGuardFailure |> ExecException |> raise
+
+and execRepetition (xs: Guarded list) ctx =
+  match chooseStatement { varValues = ctx.values } xs with
+  | Some s -> execute ctx s |> execRepetition xs
+  | None -> ctx
+
+and execProc ctx (p: Proc) =
+  evalAssertion ctx p.name p.input
+  let ctx' = execute ctx p.body
+  evalAssertion ctx' p.name p.output
+  ctx'
+
+and callProc ctx p =
+  ctx.procedures
+  |> List.tryFind (fun x -> x.name = p)
+  |> function
+    | Some p -> execProc ctx p
+    | None -> FindProcFailure p |> ExecException |> raise
+
+and execute (ctx: ExecCtx) (s: SourceStatement) =
   // TODO
-  match current with
-  | Assignment(vars, exprs) -> ctx
-  | Alternative guards -> ctx
-  | Repetition guards -> ctx
+  match s.statement with
+  | Assignment(vars, xs) -> execAssignment ctx vars xs
+  | Alternative guards -> execAlternative ctx guards
+  | Repetition guards -> execRepetition guards ctx
   | Skip -> ctx
   | SetDeclaration d -> ctx
   | SetTransformation exp -> ctx
-  | Call p -> ctx
-  | Composition xs -> ctx
+  | Call p -> callProc ctx p
+  | Composition xs -> xs |> List.fold execute ctx
   | Proc p -> ctx

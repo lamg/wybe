@@ -50,7 +50,7 @@ and Proc =
   { name: Identifier
     input: Expression // restricted to StateExpr
     output: Expression // restricted to StateExpr
-    body: SourceStatement list }
+    body: SourceStatement }
 
 and Statement =
   | Alternative of Guarded list
