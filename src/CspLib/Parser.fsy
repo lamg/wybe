@@ -1,0 +1,37 @@
+%{
+    open Language
+%}
+
+%start start
+
+%token LEFT_PAREN
+%token RIGHT_PAREN
+
+%token LEFT_BRACE
+%token RIGHT_BRACE
+
+%token EQUAL
+%token ARROW
+%token MU
+%token ALPHA
+%token BULLET
+
+%token <string> IDENT
+
+%token MODULE
+%token OPEN
+
+%token EOF
+
+%type <CspModule> start
+
+%%
+
+imports:
+    | { [] }
+    | open IDENT imports { $2::$3 }
+
+module:
+    | MODULE IDENT imports definitions { {name = $2; imports = List.rev $3; definitions = $4 } }
+
+start: module { $1 }
