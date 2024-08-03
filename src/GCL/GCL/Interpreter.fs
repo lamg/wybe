@@ -78,7 +78,7 @@ and evalUnary (ctx: Context) (op: UnaryOp) (right: Expression) =
   match op, evaluate ctx right with
   | Not, Literal(Bool v) -> Literal(Bool(not v))
   | UnaryMinus, Literal(Int64 v) -> Literal(Int64 -v)
-  | _, Literal x -> CannotApplyUnaryOp (op,x) |> EvalErrorEx |> raise
+  | _, Literal x -> CannotApplyUnaryOp(op, x) |> EvalErrorEx |> raise
   | _, v -> ExpectingValue v |> EvalErrorEx |> raise
 
 and evaluate (ctx: Context) (expr: Expression) =
@@ -125,10 +125,8 @@ let chooseStatement ctx (xs: Guarded list) =
 let evalAssertion ctx ident e =
   // TODO reduce scope
   match evaluate { varValues = ctx.values } e with
-  | Literal (Bool true) ->
-    ()
-  | e ->
-    AssertionFailed (ident, e) |> ExecException |> raise
+  | Literal(Bool true) -> ()
+  | e -> AssertionFailed(ident, e) |> ExecException |> raise
 
 let rec execAlternative ctx (xs: Guarded list) =
   match chooseStatement { varValues = ctx.values } xs with
