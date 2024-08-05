@@ -1,4 +1,4 @@
-module Tests
+module ParserTests
 
 open Xunit
 open FSharp.Text.Lexing
