@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Language.fs" />
+    <Compile Include="Compiler.fs" />
+    <Compile Include="Interpreter.fs" />
+    <Compile Include="TypeChecker.fs" />
+  </ItemGroup>
+
+</Project>

@@ -22,11 +22,15 @@
 %token PUB
 %token MODULE
 
-%token TYPE
+%token SET
 %token EQUAL
 %token BAR
 %token TYPEOF
 %token ARROW
+
+%token MU
+%token ALPHA
+%token BULLET
 
 %token <string> IDENT
 
@@ -72,10 +76,10 @@ open:
 
 valueList:
     | IDENT { [Value $1] }
-    | valueList BAR IDENT { (Value $3) :: $1 }
+    | valueList COMMA IDENT { (Value $3) :: $1 }
 
-typeDecl:
-    | TYPE IDENT EQUAL valueList { {name = $2; values = List.rev $4} }
+setDecl:
+    | SET IDENT EQUAL LEFT_BRACE valueList RIGHT_BRACE { {name = $2; values = List.rev $5} }
 
 signature:
     | IDENT { [$1] }
@@ -93,8 +97,9 @@ statement:
     | open { $1 }
     | law { Law $1 }
     | proof { Proof $1 }
-    | typeDecl { TypeDecl $1 }
+    | setDecl { SetDecl $1 }
     | typeOfDecl { TypeOfDecl $1 }
+    
 
 statements:
     | { [] }

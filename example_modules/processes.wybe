@@ -1,0 +1,28 @@
+module processes
+
+desc coin: the insertion of a coin.
+desc choc: the extraction of a chocolate.
+
+desc in1p: the insertion of a penny.
+desc in2p: the insertion of a two penny coin.
+desc small: the extraction of a small biscuit or cookie.
+desc large: the extraction of a large biscuit or cookie.
+desc out1p: the extraction of one penny in change.
+
+desc VMS: the simple vending machine.
+desc VMC: the complex vending machine.
+
+
+αVMS = { coin, choc }
+proc VMS = coin → choc → VMS
+proc VMS_broken = coin → STOP_VMS
+
+
+αVMC = { in1p, in2p, small, large, out1p }
+
+proc VMC = 
+    in1p → small → VMC 
+    | in2p → large → VMC 
+    | in2p → out1p → large → VMC
+
+proc VMC_broken = inp1 → STOP_VMC | in2p → STOP_VMC

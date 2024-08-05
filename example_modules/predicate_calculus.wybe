@@ -1,4 +1,4 @@
-module core
+module predicate_calculus
 
 pub eq_assoc
 pub eq_symmetry
@@ -9,7 +9,7 @@ pub false_def
 pub negation_over_equivales
 pub differs_def
 
-type bool = true | false
+set bool = {true, false}
 
 typeof ≡ = bool → bool → bool
 
@@ -34,7 +34,6 @@ typeof ≢ = bool → bool → bool
 
 ax differs_def
 p ≢ q ≡ ¬(p ≡ q)
-
 
 th true_th
 true

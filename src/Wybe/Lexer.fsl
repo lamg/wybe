@@ -39,7 +39,7 @@ let openModule = "open"
 let pub = "pub"
 let declModule = "module"
 
-let typeDecl = "type"
+let setDecl = "set"
 let equal = '='
 let bar = '|'
 let typeof = "typeof"
@@ -73,7 +73,7 @@ rule read =
     | pub { PUB }
     | declModule { MODULE }
 
-    | typeDecl { TYPE }
+    | setDecl { SET }
     | equal { EQUAL }
     | bar { BAR }
     | typeof { TYPEOF }

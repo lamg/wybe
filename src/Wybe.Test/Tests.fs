@@ -99,10 +99,10 @@ let ``laws`` () =
 
 [<Fact>]
 let ``type declaration`` () =
-  [ "module x type bool = true | false",
+  [ "module x set bool = { true, false }",
     { name = "x"
       statements =
-        [ TypeDecl
+        [ SetDecl
             { name = "bool"
               values = [ Value "true"; Value "false" ] } ] } ]
   |> List.iter (fun (source, res) -> Assert.Equal(res, parse source))
