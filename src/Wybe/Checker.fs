@@ -43,7 +43,7 @@ let matchByType (matcher: TypedExpr) (target: TypedExpr) =
   loop [] (matcher, target) |> List.rev
 
 
-// for each free var x, all expressions e bound to x are equal
+// for each free identifier x, all expressions e bound to x are equal
 let okFree free freeBindings =
   free
   |> List.forall (fun (x, _) ->
@@ -55,17 +55,20 @@ let okFree free freeBindings =
       | [] -> false
       | e :: rs -> rs |> List.forall (fun r -> e = r))
 
-// each non-free identifier is bound to an identifier equal to itself
+// each non-free identifier is bound to a variable with an identifier equal to itself
 let okNonFree nonFreeBindings =
   nonFreeBindings
   |> List.forall (function
     | x, Leaf(y, _) -> x = y
     | _ -> false)
 
-let splitMatched free matchedTypes =
+// splits the matched bindings between free and non-free identifiers
+let splitMatched (free: TypedVar list) (matchedTypes: Binding list) =
   matchedTypes
   |> List.partition (fun (x, _) -> free |> List.exists (fun (y, _) -> x = y))
 
+// given a list of free variables says if there's a match or not between the matcher and the target
+// expressions. For example `a ∧ a` matches `(x ≡ y) ∧ (x ≡ y)` with a ≔ x ≡ y
 let matchFree (free: TypedVar list) (matcher: TypedExpr) (target: TypedExpr) =
   let matchedTypes = matchByType matcher target
 

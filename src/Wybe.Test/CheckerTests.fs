@@ -5,8 +5,14 @@ open Checker
 
 let boolT = ResultType "bool"
 let boolVar x = Leaf(Identifier x, boolT)
-let freeA = Identifier "a", boolT
-let freeB = Identifier "b", boolT
+let trueConst = boolVar "true"
+let falseConst = boolVar "false"
+let trueIdent = Identifier "true"
+let falseIdent = Identifier "false"
+let aIdent = Identifier "a"
+let bIdent = Identifier "b"
+let freeA = aIdent, boolT
+let freeB = bIdent, boolT
 let a = boolVar "a"
 let b = boolVar "b"
 
@@ -24,11 +30,11 @@ let op o x y : TypedExpr =
 let ``full match a with x ∧ y`` () =
   let target = op andOp x y
 
-  let expected = [ fst freeA, target ]
+  let expected = [ aIdent, target ]
 
   let r = matchByType a target
   Assert.Equal<Binding list>(expected, r)
-  matchFree [freeA] a target |> Assert.True
+  matchFree [ freeA ] a target |> Assert.True
 
 [<Fact>]
 let ``full match a ∧ b with (x ≡ y) ∧ (z ≡ w)`` () =
@@ -38,11 +44,11 @@ let ``full match a ∧ b with (x ≡ y) ∧ (z ≡ w)`` () =
   let zEqW = op eqOp z w
   let target = op andOp xEqY zEqW
 
-  let expectedBounds = [ fst freeA, xEqY; fst freeB, zEqW ]
+  let expectedBindings = [ aIdent, xEqY; bIdent, zEqW ]
 
   let rs = matchByType matcher target
 
-  Assert.Equal<Binding list>(expectedBounds, rs)
+  Assert.Equal<Binding list>(expectedBindings, rs)
 
   matchFree [ freeA; freeB ] matcher target |> Assert.True
 
@@ -54,16 +60,44 @@ let ``a ∧ a matches (x ≡ y) ∧ (z ≡ w) by type, but binding has conflicts
   let zEqW = op eqOp z w
   let target = op andOp xEqY zEqW
 
-  let expectedBounds = [ fst freeA, xEqY; fst freeA, zEqW ]
+  let expectedBindings = [ aIdent, xEqY; aIdent, zEqW ]
 
   let rs = matchByType matcher target
 
-  Assert.Equal<Binding list>(expectedBounds, rs)
+  Assert.Equal<Binding list>(expectedBindings, rs)
 
   let free, nonFree = splitMatched [ freeA ] rs
 
-  Assert.Equal<Binding list>([ fst freeA, xEqY; fst freeA, zEqW ], free)
+  Assert.Equal<Binding list>([ aIdent, xEqY; aIdent, zEqW ], free)
   Assert.Empty nonFree
 
   okFree [ freeA ] free |> Assert.False
   okNonFree nonFree |> Assert.True
+
+[<Fact>]
+let ``full match a ∧ true with x ∧ true`` () =
+  let matcher = op andOp a trueConst
+  let target = op andOp x trueConst
+  let expectedBindings = [ aIdent, x; trueIdent, trueConst ]
+  let rs = matchByType matcher target
+  Assert.Equal<Binding list>(expectedBindings, rs)
+
+  let free, nonFree = splitMatched [ freeA ] rs
+  Assert.Equal<Binding list>([ aIdent, x ], free)
+  Assert.Equal<Binding list>([ trueIdent, trueConst ], nonFree)
+  okFree [ freeA ] free |> Assert.True
+  okNonFree nonFree |> Assert.True
+
+[<Fact>]
+let ``a ∧ true matches x ∧ false, but binding has a conflict in true ≔ false`` () =
+  let matcher = op andOp a trueConst
+  let target = op andOp x falseConst
+  let expectedBindings = [ aIdent, x; trueIdent, falseConst ]
+  let rs = matchByType matcher target
+  Assert.Equal<Binding list>(expectedBindings, rs)
+
+  let free, nonFree = splitMatched [ freeA ] rs
+  Assert.Equal<Binding list>([ aIdent, x ], free)
+  Assert.Equal<Binding list>([ trueIdent, falseConst ], nonFree)
+  okFree [ freeA ] free |> Assert.True
+  okNonFree nonFree |> Assert.False
