@@ -5,6 +5,7 @@
         <RootNamespace>Checker</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
+        <Compile Include="Tree.fs"/>
         <Compile Include="Language.fs"/>
 
 
