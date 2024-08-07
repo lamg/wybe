@@ -12,6 +12,8 @@ desc out1p: the extraction of one penny in change.
 desc VMS: the simple vending machine.
 desc VMC: the complex vending machine.
 
+desc STOP_VMS: the STOP process for the VMS alphabet.
+desc STOP_VMC: the STOP process for the VMC alphabet.
 
 αVMS = { coin, choc }
 proc VMS = coin → choc → VMS
@@ -26,3 +28,68 @@ proc VMC =
     | in2p → out1p → large → VMC
 
 proc VMC_broken = inp1 → STOP_VMC | in2p → STOP_VMC
+
+ax choice_alphabet
+{x,y} ⊆ αP  ∧  αP = αQ
+⇒ α( x → P | y → Q) = αP
+
+desc VMCT: a machine that serves either chocolate or toffee on each transaction
+
+αVMCT = { coin, choc, toffee }
+proc VMCT = μX ∙ coin → (choc → X | toffee → X)
+
+desc VMCX: a complex vending machine with a design flaw: it breaks when inserting three pennies in a row.
+
+αVMCX = { in2p, large, small, out1p, in1p }
+
+proc VMCX =
+    in2p → (large → VMCX | small → out1p → VMCX)
+    | in1p → (small → VMC | in1p → (large → VMCX | in1p → STOP_VMCX))
+
+desc in.N: write N to channel's input.
+desc out.N: read N from a channel's input.
+desc COPYBIT: a process that given a channel with an input and an output, copies the bits read from input to output.
+
+COPYBIT = μX ∙ in.0 → out.0 → X | in.1 → out.1 → X
+
+desc RUN_A: a process that at all times can engage in any event of its alphabet A.
+
+αRUN_A = A
+proc RUN_A = A → RUN_A
+
+th process_menu_with_single_item
+A = {e} ⇒ RUN_A = e → RUN_A
+
+th process_menu_with_two_items
+A = {x, y} ⇒ RUN_A = x → RUN_A | y → RUN_A
+
+th process_with_empty_menu
+A = {} ⇒ RUN_A = STOP_A
+
+desc DD: a drink dispenser process.
+desc set_orange: press the choose orange button.
+desc set_lemon: press the choose lemon button.
+desc orange: take an orange drink.
+desc lemon: take a lemon drink.
+
+αDD = { set_orange, set_lemon, orange, lemon }
+αO = αDD
+αL = αDD
+
+proc DD = set_orange → O | set_lemon → L
+proc O = orange → O | set_lemon → L | set_orange → O
+proc L = lemon → L | set_orange → O | set_lemon → L
+
+desc N: N ∈ ℕ
+desc CT.N: a process defined by an arbitrary number of equations.
+
+αCT.N = { up, around, down }
+proc CT.0 = up → CT.1 | around → CT.0
+proc CT.N = up → CT.(N+1) | down → CT.(N-1)
+
+desc process_equality: if two process have the same initial choices, and after them they behave the same, then they
+are equal.
+
+ax process_equality
+αP = A  ∧  αQ = B ∧  x ∈ A  ∧  y ∈ B  ⇒
+x → P.x = y → Q.y  ≡  A = B ∧ P.x = Q.x
