@@ -37,7 +37,7 @@ let ``full match a with x ∧ y`` () =
   let r = matchByType a target
   Assert.Equal<Binding list>(expected, r)
 
-  findBindings { freeVars = [ freeA ]; expr = a } target
+  bindByTypeAtRoot { freeVars = [ freeA ]; expr = a } target
   |> _.free.conflicts
   |> Assert.Empty
 
@@ -56,7 +56,7 @@ let ``full match a ∧ b with (x ≡ y) ∧ (z ≡ w)`` () =
   Assert.Equal<Binding list>(expectedBindings, rs)
 
   target
-  |> findBindings
+  |> bindByTypeAtRoot
     { freeVars = [ freeA; freeB ]
       expr = matcher }
   |> _.free.conflicts
@@ -81,7 +81,7 @@ let ``a ∧ a matches (x ≡ y) ∧ (z ≡ w) by type, but binding has conflicts
   Assert.Equal<Binding list>([ aIdent, xEqY; aIdent, zEqW ], free)
   Assert.Empty nonFree
 
-  let { valid = valid; conflicts = conflicts } = splitFreeConflicts [ freeA ] free
+  let { valid = valid; conflicts = conflicts } = splitFreeConflicts free
 
   valid |> Assert.Empty
   Assert.Equal<Binding list>(expectedBindings, conflicts)
@@ -98,7 +98,7 @@ let ``full match a ∧ true with x ∧ true`` () =
   let free, nonFree = splitMatched [ freeA ] rs
   Assert.Equal<Binding list>([ aIdent, x ], free)
   Assert.Equal<Binding list>([ trueIdent, trueConst ], nonFree)
-  let { conflicts = conflicts } = splitFreeConflicts [ freeA ] free
+  let { conflicts = conflicts } = splitFreeConflicts free
   conflicts |> Assert.Empty
   splitNonFreeConflicts nonFree |> _.conflicts |> Assert.Empty
 
@@ -113,18 +113,33 @@ let ``a ∧ true matches x ∧ false, but binding has a conflict in true ≔ fal
   let free, nonFree = splitMatched [ freeA ] rs
   Assert.Equal<Binding list>([ aIdent, x ], free)
   Assert.Equal<Binding list>([ trueIdent, falseConst ], nonFree)
-  splitFreeConflicts [ freeA ] free |> _.conflicts |> Assert.Empty
+  splitFreeConflicts free |> _.conflicts |> Assert.Empty
   splitNonFreeConflicts nonFree |> _.conflicts |> Assert.NotEmpty
 
 [<Fact>]
-let ``a ∧ a bindings in (x ∨ y) ∧ (x ∨ y) ∧ z ∧ z`` () =
-  let matcher = op andOp a a
+let ``rewrite `a ∧ a` with binding `a, x ∨ y` `` () =
   let xOrY = op orOp x y
-  let target = op andOp (op andOp xOrY xOrY) (op andOp z z)
+  let target = op andOp a a
 
-  let rs =
-    allRootsFreeBindings { freeVars = [ freeA ]; expr = matcher } target
-    |> Seq.toList
+  [ [ aIdent, xOrY; aIdent, xOrY ], op andOp xOrY xOrY
+    [ aIdent, z ], op andOp z z ]
+  |> List.iter (fun (bindings, expected) ->
+    let r = rewriteWith target bindings
 
-  let expected = [ [ aIdent, xOrY; aIdent, xOrY ]; [ aIdent, z; aIdent, z ] ]
-  Assert.Equal<Binding list>(expected, rs)
+    match diffTrees (expected, r) with
+    | None -> ()
+    | Some d -> Assert.Fail $"{exprToString expected}  ≠  {exprToString r}\n{d}")
+
+[<Fact>]
+let ``transform z ∧ (x ≡ y) ∧ (x ≡ y)`` () =
+  let xEqY = op eqOp x y
+  let target = op andOp z (op andOp xEqY xEqY)
+
+  let transformer =
+    { freeVars = [ freeA ]
+      lhs = op andOp a a
+      rhs = a }
+
+  let r = transformations (transformer, target)
+  printfn $"{printTree transformationsTreePrinter r}"
+  printfn $"\n{r}"
