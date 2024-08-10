@@ -116,3 +116,18 @@ let printTree (ctx: PrinterContext<'a, 'b>) (t: Tree<'a, 'b>) =
 
   let r, chl = treeToLines t
   r :: chl |> String.concat "\n"
+
+// each element produces a sequence of alternatives
+// each alternative determines an array where it appears with the rest of the original elements unchanged
+let alternativeSequences (f: 'a -> ('b * 'a) seq) (xs: 'a seq) =
+  let alts = xs |> Seq.mapi (fun i x -> i, f x)
+  let axs = xs |> Seq.toArray
+
+  alts
+  |> Seq.choose (function
+    | _, ys when Seq.length ys = 1 -> None
+    | i, ys ->
+      let bs, zs = ys |> Seq.toList |> List.unzip
+      let rs = zs |> Seq.map (fun y -> Array.updateAt i y axs)
+      Seq.zip bs rs |> Some)
+  |> Seq.concat

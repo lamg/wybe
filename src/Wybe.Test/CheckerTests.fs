@@ -131,6 +131,20 @@ let ``rewrite `a ∧ a` with binding `a, x ∨ y` `` () =
     | Some d -> Assert.Fail $"{exprToString expected}  ≠  {exprToString r}\n{d}")
 
 [<Fact>]
+
+let ``alternative sequences`` () =
+  let xs = [ 0; 1 ]
+
+  let f n =
+    seq {
+      n, n * n
+      n, n
+    }
+
+  let r = alternativeSequences f xs |> Seq.toList
+  printfn $"r = {r}"
+
+[<Fact>]
 let ``transform z ∧ (x ≡ y) ∧ (x ≡ y)`` () =
   let xEqY = op eqOp x y
   let target = op andOp z (op andOp xEqY xEqY)
@@ -140,6 +154,15 @@ let ``transform z ∧ (x ≡ y) ∧ (x ≡ y)`` () =
       lhs = op andOp a a
       rhs = a }
 
-  let r = transformations (transformer, target)
-  printfn $"{printTree transformationsTreePrinter r}"
-  printfn $"\n{r}"
+  let rs = transformations transformer target
+
+
+  //let rs = transformations transformer target
+  Assert.NotEmpty rs
+
+  rs
+  |> Seq.iter (fun (bs, t) ->
+    printfn $"{printBindings bs}"
+
+
+    printfn $"{printTree typedExprStringer t}")

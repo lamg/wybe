@@ -115,47 +115,30 @@ type Transformer =
     lhs: TypedExpr
     rhs: TypedExpr }
 
-type TransformationResult =
-  { original: TypedExpr
-    transformed: TypedExpr option
-    bindings: Binding list }
+let printBindings (xs: Binding list) =
+  xs
+  |> List.map (fun (Identifier x, expr) -> $"{x} ≔ {treeToString typedExprStringer expr}")
 
-let transformationsTreePrinter =
-  { new PrinterContext<TransformationResult, TransformationResult> with
-      member _.branchToString r =
-        match r with
-        | { transformed = Some x } ->
-          let xs =
-            r.bindings
-            |> List.map (fun (Identifier x, expr) -> $"{x} ≔ {treeToString typedExprStringer expr}")
-
-          $"{treeToString typedExprStringer r.original} with {xs} → {treeToString typedExprStringer x}"
-        | _ -> $"{treeToString typedExprStringer r.original}"
-
-      member this.leafToString e = this.branchToString e }
-
-let rec transformations (t: Transformer, target: TypedExpr) =
+// returns a sequence of trees each one with a single transformation applied to the original,
+// and the corresponding bindings
+let rec transformations (t: Transformer) (target: TypedExpr) =
   let v =
     match bindByTypeAtRoot { freeVars = t.freeVars; expr = t.lhs } target with
-    | { free = { valid = [] } } ->
-      { original = target
-        transformed = None
-        bindings = [] }
+    | { free = { valid = [] } } -> None
     | { free = { valid = bindings; conflicts = [] }
         nonFree = { conflicts = [] } } ->
-      { original = target
-        transformed = Some(rewriteWith t.rhs bindings)
-        bindings = bindings }
-    | _ ->
-      { original = target
-        transformed = None
-        bindings = [] }
+      printfn $"{printBindings bindings}"
+      Some(rewriteWith t.rhs bindings, bindings)
+    | _ -> None
 
-  match target with
-  | Branch { children = xs } ->
-    Branch
-      { value = v
-        children = xs |> Seq.map (fun x -> transformations (t, x)) }
-  | _ -> Leaf v
+  seq {
+    match v with
+    | Some(r, bs) -> yield (bs, r)
+    | _ -> ()
 
-// TODO create a sequence of trees with all possible transformations resulting of applying a transformer
+    match target with
+    | Branch { value = a; children = xs } ->
+      let rs = xs |> alternativeSequences (transformations t)
+      yield! rs |> Seq.map (fun (bs, ys) -> bs, Branch { value = a; children = ys })
+    | _ -> ()
+  }
