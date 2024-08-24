@@ -28,6 +28,11 @@ let eqOp = TypedOperator("≡", boolT)
 let op o x y : TypedExpr =
   Branch { value = o; children = [ x; y ] }
 
+let andIdempotency =
+  { freeVars = [ freeA ]
+    lhs = op andOp a a
+    rhs = a }
+
 [<Fact>]
 let ``full match a with x ∧ y`` () =
   let target = op andOp x y
@@ -153,18 +158,26 @@ let ``transform z ∧ (x ≡ y) ∧ (x ≡ y)`` () =
   let xEqY = op eqOp x y
   let target = op andOp z (op andOp xEqY xEqY)
 
-  let transformer =
-    { freeVars = [ freeA ]
-      lhs = op andOp a a
-      rhs = a }
-
-  let rs = transformations transformer target
+  let rs = transformations target andIdempotency
 
   Assert.NotEmpty rs
 
   rs
-  |> Seq.iter (fun (bs, t) ->
-    printfn $"{printBindings bs}"
+  |> Seq.iter (fun r ->
+    printfn $"{printBindings r.bindings}"
 
 
-    printfn $"{printTree typedExprStringer t}")
+    printfn $"{exprToString r.transformResult}")
+
+[<Fact>]
+let ``transformations sequence`` () =
+  let target = op andOp z (op andOp z z)
+
+  let r = transformationTree target [ andIdempotency; andIdempotency ]
+  printfn $"{printTree bindingsTrStringer r}"
+
+[<Fact>]
+let ``check expression and collect intermediate transformations`` () =
+  let target = op andOp z (op andOp z z)
+  let r = checkExpression (target, z) [ andIdempotency; andIdempotency ]
+  printfn $"{printTransformationChain r}"

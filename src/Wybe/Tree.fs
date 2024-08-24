@@ -87,6 +87,7 @@ type StringerContext<'a, 'b> =
   inherit SameLeveler<'a>
   inherit PrinterContext<'a, 'b>
 
+// flattens a tree into a string representation
 let treeToString (ctx: StringerContext<'a, 'b>) (t: Tree<'a, 'b>) =
   let rec loop (t: Tree<'a, 'b>) =
     match t with
@@ -107,6 +108,7 @@ let treeToString (ctx: StringerContext<'a, 'b>) (t: Tree<'a, 'b>) =
 
   loop t
 
+// creates a string that represents the tree structure
 let printTree (ctx: PrinterContext<'a, 'b>) (t: Tree<'a, 'b>) =
   let connectIndent (isLast: bool) (child: string, grandChild: string list) =
     let childConn, colConn = if isLast then "└── ", "   " else "├── ", "│   "
@@ -132,3 +134,28 @@ let printTree (ctx: PrinterContext<'a, 'b>) (t: Tree<'a, 'b>) =
 
   let r, chl = treeToLines t
   r :: chl |> String.concat "\n"
+
+let findValuePaths (t: Tree<'a, 'a>) (ok: 'a -> bool) =
+  t
+  |> roots
+  |> Seq.choose (function
+    | (Branch { value = a }, path) when ok a -> Some(a, path)
+    | (Leaf a, path) when ok a -> Some(a, path)
+    | _ -> None)
+
+let collectPath (t: Tree<'a, 'a>) (path: list<int>) =
+  let treeValue t =
+    match t with
+    | Branch b -> b.value, b.children
+    | Leaf v -> v, []
+
+  let v, chl = treeValue t
+
+  path
+  |> List.fold
+    (fun (vs, children) i ->
+      let v, chl = children |> Seq.item i |> treeValue
+      v :: vs, chl)
+    ([ v ], chl)
+  |> fst
+  |> List.rev

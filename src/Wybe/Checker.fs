@@ -29,8 +29,7 @@ let typedExprStringer =
       member _.leafToString((Identifier i, _)) = i }
 
 
-let rec exprToString (t: TypedExpr) = treeToString typedExprStringer t
-
+let exprToString (t: TypedExpr) = treeToString typedExprStringer t
 
 // matches two roots if they have the same operator or, in case of an identifier as matcher and a root as target,
 // they match if their result types are the same
@@ -129,12 +128,62 @@ let tryBindRoot (t: Transformer) (target: TypedExpr) =
     Some(bindings, rewriteWith t.rhs bindings)
   | _ -> None
 
+type BindingsTR =
+  { bindings: Binding list
+    transformResult: TypedExpr }
+
 // returns a sequence of trees
 // each one has a list of bindings if one of its subtrees was transformed
 // in the sequence each tree has a single subtree transformation
-let transformations (t: Transformer) (target: TypedExpr) =
+let transformations (target: TypedExpr) (t: Transformer) =
   roots target
   |> Seq.choose (fun (r, path) ->
     match tryBindRoot t r with
-    | Some(bs, v) -> Some(bs, replaceAt target (v, path))
+    | Some(bs, v) ->
+      Some
+        { bindings = bs
+          transformResult = replaceAt target (v, path) }
     | _ -> None)
+
+
+
+let transformationTree (target: TypedExpr) (ts: Transformer list) =
+  let rec loop rs t =
+    match rs with
+    | [] -> Leaf t
+    | x :: xs ->
+      let ns = transformations t.transformResult x
+
+      Branch
+        { value = t
+          children = ns |> Seq.map (loop xs) }
+
+  loop
+    ts
+    { bindings = []
+      transformResult = target }
+
+let bindingsTrStringer =
+  let format b =
+    let bs = printBindings b.bindings
+    let e = exprToString b.transformResult
+    $"{e} {bs}"
+
+  { new PrinterContext<BindingsTR, BindingsTR> with
+      member _.leafToString x = format x
+      member _.branchToString x = format x }
+
+let checkExpression (target: TypedExpr, expected: TypedExpr) (ts: Transformer list) =
+  let t = transformationTree target ts
+
+  let _, paths =
+    findValuePaths t (fun bindings -> bindings.transformResult = expected)
+    |> Seq.toList
+    |> List.unzip
+
+  paths |> List.map (collectPath t)
+
+let printTransformationChain (xss: list<list<BindingsTR>>) =
+  xss
+  |> List.map (List.map bindingsTrStringer.branchToString >> String.concat "  -->  ")
+  |> String.concat "\n"
