@@ -1,5 +1,6 @@
 module Tree
 
+open FSharpPlus
 
 type Branch<'a, 'b> =
   { value: 'a
@@ -19,16 +20,31 @@ let rec lazyTree (f: 'a -> 'a seq) (value: 'a) =
       { value = value
         children = xs |> Seq.map (lazyTree f) }
 
-let rec roots expr =
-  seq {
-    yield expr
+let roots expr =
+  let rec loop t path =
+    seq {
+      yield t, path
 
-    match expr with
-    | Leaf _ -> ()
-    | Branch { children = xs } ->
-      for x in xs do
-        yield! roots x
-  }
+      match t with
+      | Leaf _ -> ()
+      | Branch { children = xs } -> yield! xs |> Seq.mapi (fun i x -> loop x (path @ [ i ])) |> Seq.concat
+    }
+
+  loop expr []
+
+let rec replaceAt root (t, path) =
+  match path with
+  | [] -> t
+  | x :: xs ->
+    match root with
+    | Branch { value = a; children = ys } ->
+      let newAtX = replaceAt (ys |> Seq.item x) (t, xs)
+
+      Branch
+        { value = a
+          children = Seq.updateAt x newAtX ys }
+
+    | _ -> failwith "invalid path"
 
 let rec mapLeafs (f: 'b -> Tree<'a, 'b>) (t: Tree<'a, 'b>) =
   match t with
@@ -116,18 +132,3 @@ let printTree (ctx: PrinterContext<'a, 'b>) (t: Tree<'a, 'b>) =
 
   let r, chl = treeToLines t
   r :: chl |> String.concat "\n"
-
-// each element produces a sequence of alternatives
-// each alternative determines an array where it appears with the rest of the original elements unchanged
-let alternativeSequences (f: 'a -> ('b * 'a) seq) (xs: 'a seq) =
-  let alts = xs |> Seq.mapi (fun i x -> i, f x)
-  let axs = xs |> Seq.toArray
-
-  alts
-  |> Seq.choose (function
-    | _, ys when Seq.length ys = 1 -> None
-    | i, ys ->
-      let bs, zs = ys |> Seq.toList |> List.unzip
-      let rs = zs |> Seq.map (fun y -> Array.updateAt i y axs)
-      Seq.zip bs rs |> Some)
-  |> Seq.concat

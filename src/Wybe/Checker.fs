@@ -119,26 +119,22 @@ let printBindings (xs: Binding list) =
   xs
   |> List.map (fun (Identifier x, expr) -> $"{x} ≔ {treeToString typedExprStringer expr}")
 
-// returns a sequence of trees each one with a single transformation applied to the original,
-// and the corresponding bindings
-let rec transformations (t: Transformer) (target: TypedExpr) =
-  let v =
-    match bindByTypeAtRoot { freeVars = t.freeVars; expr = t.lhs } target with
-    | { free = { valid = [] } } -> None
-    | { free = { valid = bindings; conflicts = [] }
-        nonFree = { conflicts = [] } } ->
-      printfn $"{printBindings bindings}"
-      Some(rewriteWith t.rhs bindings, bindings)
-    | _ -> None
 
-  seq {
-    match v with
-    | Some(r, bs) -> yield (bs, r)
-    | _ -> ()
+let tryBindRoot (t: Transformer) (target: TypedExpr) =
+  match bindByTypeAtRoot { freeVars = t.freeVars; expr = t.lhs } target with
+  | { free = { valid = [] } } -> None
+  | { free = { valid = bindings; conflicts = [] }
+      nonFree = { conflicts = [] } } ->
 
-    match target with
-    | Branch { value = a; children = xs } ->
-      let rs = xs |> alternativeSequences (transformations t)
-      yield! rs |> Seq.map (fun (bs, ys) -> bs, Branch { value = a; children = ys })
-    | _ -> ()
-  }
+    Some(bindings, rewriteWith t.rhs bindings)
+  | _ -> None
+
+// returns a sequence of trees
+// each one has a list of bindings if one of its subtrees was transformed
+// in the sequence each tree has a single subtree transformation
+let transformations (t: Transformer) (target: TypedExpr) =
+  roots target
+  |> Seq.choose (fun (r, path) ->
+    match tryBindRoot t r with
+    | Some(bs, v) -> Some(bs, replaceAt target (v, path))
+    | _ -> None)

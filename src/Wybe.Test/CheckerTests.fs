@@ -131,18 +131,22 @@ let ``rewrite `a ∧ a` with binding `a, x ∨ y` `` () =
     | Some d -> Assert.Fail $"{exprToString expected}  ≠  {exprToString r}\n{d}")
 
 [<Fact>]
+let ``all roots`` () =
+  let xEqY = op eqOp x y
+  let target = op andOp z (op andOp xEqY xEqY)
 
-let ``alternative sequences`` () =
-  let xs = [ 0; 1 ]
+  roots target
+  |> Seq.iter (fun (r, path) ->
+    printfn $"path {path}"
+    printfn $"{printTree typedExprStringer r}")
 
-  let f n =
-    seq {
-      n, n * n
-      n, n
-    }
+[<Fact>]
+let ``replace at path`` () =
+  let xEqY = op eqOp x y
+  let target = op andOp z (op andOp xEqY xEqY)
 
-  let r = alternativeSequences f xs |> Seq.toList
-  printfn $"r = {r}"
+  let r = replaceAt target (z, [ 1 ])
+  printfn $"{printTree typedExprStringer r}"
 
 [<Fact>]
 let ``transform z ∧ (x ≡ y) ∧ (x ≡ y)`` () =
@@ -156,8 +160,6 @@ let ``transform z ∧ (x ≡ y) ∧ (x ≡ y)`` () =
 
   let rs = transformations transformer target
 
-
-  //let rs = transformations transformer target
   Assert.NotEmpty rs
 
   rs
