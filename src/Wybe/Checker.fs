@@ -172,6 +172,9 @@ let bindingsTrStringer =
       member _.leafToString x = format x
       member _.branchToString((x, t)) = $"{format x} {t.name}" }
 
+// applies the transformers to target generating a tree of transformations
+// then finds the expected expression in that tree
+// finally returning all paths of expressions and transformers that lead to it
 let checkExpression (target: TypedExpr, expected: TypedExpr) (ts: Transformer list) =
   let t = transformationTree target ts
 
