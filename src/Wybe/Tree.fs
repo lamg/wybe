@@ -135,19 +135,24 @@ let printTree (ctx: PrinterContext<'a, 'b>) (t: Tree<'a, 'b>) =
   let r, chl = treeToLines t
   r :: chl |> String.concat "\n"
 
-let findValuePaths (t: Tree<'a, 'a>) (ok: 'a -> bool) =
+
+type Either<'a, 'b> =
+  | Left of 'a
+  | Right of 'b
+
+let findValuePaths (t: Tree<'a, 'b>) (ok: Either<'a, 'b> -> bool) =
   t
   |> roots
   |> Seq.choose (function
-    | (Branch { value = a }, path) when ok a -> Some(a, path)
-    | (Leaf a, path) when ok a -> Some(a, path)
+    | (Branch { value = a }, path) when ok (Left a) -> Some(Left a, path)
+    | (Leaf a, path) when ok (Right a) -> Some(Right a, path)
     | _ -> None)
 
-let collectPath (t: Tree<'a, 'a>) (path: list<int>) =
+let collectPath (t: Tree<'a, 'b>) (path: list<int>) =
   let treeValue t =
     match t with
-    | Branch b -> b.value, b.children
-    | Leaf v -> v, []
+    | Branch b -> Left b.value, b.children
+    | Leaf v -> Right v, []
 
   let v, chl = treeValue t
 

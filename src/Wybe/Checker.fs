@@ -110,7 +110,8 @@ let rewriteWith (expr: TypedExpr) (bindings: Binding list) : TypedExpr =
   mapLeafs rewriteLeaf expr
 
 type Transformer =
-  { freeVars: TypedVar list
+  { name: string
+    freeVars: TypedVar list
     lhs: TypedExpr
     rhs: TypedExpr }
 
@@ -145,8 +146,6 @@ let transformations (target: TypedExpr) (t: Transformer) =
           transformResult = replaceAt target (v, path) }
     | _ -> None)
 
-
-
 let transformationTree (target: TypedExpr) (ts: Transformer list) =
   let rec loop rs t =
     match rs with
@@ -155,7 +154,7 @@ let transformationTree (target: TypedExpr) (ts: Transformer list) =
       let ns = transformations t.transformResult x
 
       Branch
-        { value = t
+        { value = (t, x)
           children = ns |> Seq.map (loop xs) }
 
   loop
@@ -169,21 +168,28 @@ let bindingsTrStringer =
     let e = exprToString b.transformResult
     $"{e} {bs}"
 
-  { new PrinterContext<BindingsTR, BindingsTR> with
+  { new PrinterContext<BindingsTR * Transformer, BindingsTR> with
       member _.leafToString x = format x
-      member _.branchToString x = format x }
+      member _.branchToString((x, t)) = $"{format x} {t.name}" }
 
 let checkExpression (target: TypedExpr, expected: TypedExpr) (ts: Transformer list) =
   let t = transformationTree target ts
 
   let _, paths =
-    findValuePaths t (fun bindings -> bindings.transformResult = expected)
+    findValuePaths t (function
+      | Left(bindings, _) -> bindings.transformResult = expected
+      | Right bindings -> bindings.transformResult = expected)
     |> Seq.toList
     |> List.unzip
 
   paths |> List.map (collectPath t)
 
-let printTransformationChain (xss: list<list<BindingsTR>>) =
+let printTransformationChain (xss: list<list<Either<BindingsTR * Transformer, BindingsTR>>>) =
+  let eitherToStr =
+    function
+    | Left x -> bindingsTrStringer.branchToString x
+    | Right x -> bindingsTrStringer.leafToString x
+
   xss
-  |> List.map (List.map bindingsTrStringer.branchToString >> String.concat "  -->  ")
+  |> List.map (List.map eitherToStr >> String.concat "  -->  ")
   |> String.concat "\n"

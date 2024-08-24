@@ -29,7 +29,8 @@ let op o x y : TypedExpr =
   Branch { value = o; children = [ x; y ] }
 
 let andIdempotency =
-  { freeVars = [ freeA ]
+  { name = "idempotency of ∧"
+    freeVars = [ freeA ]
     lhs = op andOp a a
     rhs = a }
 
