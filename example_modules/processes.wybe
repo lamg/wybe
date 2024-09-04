@@ -16,7 +16,9 @@ desc STOP_VMS: the STOP process for the VMS alphabet.
 desc STOP_VMC: the STOP process for the VMC alphabet.
 
 αVMS = { coin, choc }
+
 proc VMS = coin → choc → VMS
+
 proc VMS_broken = coin → STOP_VMS
 
 
@@ -58,13 +60,13 @@ desc RUN_A: a process that at all times can engage in any event of its alphabet 
 proc RUN_A = A → RUN_A
 
 th process_menu_with_single_item
-A = {e} ⇒ RUN_A = e → RUN_A
+A = {e}  ⇒  RUN_A = e → RUN_A
 
 th process_menu_with_two_items
-A = {x, y} ⇒ RUN_A = x → RUN_A | y → RUN_A
+A = {x, y}  ⇒  RUN_A = x → RUN_A | y → RUN_A
 
 th process_with_empty_menu
-A = {} ⇒ RUN_A = STOP_A
+A = {}  ⇒  RUN_A = STOP_A
 
 desc DD: a drink dispenser process.
 desc set_orange: press the choose orange button.
@@ -87,8 +89,7 @@ desc CT.N: a process defined by an arbitrary number of equations.
 proc CT.0 = up → CT.1 | around → CT.0
 proc CT.N = up → CT.(N+1) | down → CT.(N-1)
 
-desc process_equality: if two process have the same initial choices, and after them they behave the same, then they
-are equal.
+desc process_equality: if two process have the same initial choices, and after them they behave the same, then they are equal.
 
 ax process_equality
 αP = A  ∧  αQ = B ∧  x ∈ A  ∧  y ∈ B  ⇒

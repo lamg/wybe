@@ -1,0 +1,40 @@
+module gcl
+
+fun factorial =
+  { n ∈ Nat } // state description
+  // check the input value belongs to the set described by the precondition
+  r, i := 1, 0
+  do
+  | i ≠ n → r := r * i
+  od
+  { r } // state description
+
+{ 5 } // state description where the variable name is implicit
+factorial
+{ 120 } // state description where the variable name is implicit
+
+{ n ∈ Nat }
+factorial
+{ r = <* i: 1 ≤ i ≤ n: i> }
+// the compiler checks in compile time if the state description before the factorial call
+// matches the internal factorial precondition
+
+// a set can be described by an expression, which can be a list of elements
+// set matching happens implicitly in statement composition and function call
+
+// a formatter tool converts from ascii to unicode equivalents
+
+desc gcd x y: Greatest Common Divisor between two natural numbers both greater than 0
+
+fun gcd =
+  pre: { x in Nat && y in Nat && x != 0 && y != 0 }
+  do
+  | x > y -> x := x - y
+  | y > x -> y := y - x
+  od
+  { x = y && gcd pre.x pre.y = x }
+
+// some descriptions are in natural language others could be formal
+
+// states can have names so their values can be referenced from other states like in the above case
+// with `pre`
