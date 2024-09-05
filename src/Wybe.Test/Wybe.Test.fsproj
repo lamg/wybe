@@ -12,6 +12,7 @@
     <ItemGroup>
         <Compile Include="ParserTests.fs"/>
         <Compile Include="CheckerTests.fs"/>
+        <Compile Include="EvalExpressionTest.fs" />
         <Compile Include="Program.fs"/>
     </ItemGroup>
 

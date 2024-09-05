@@ -26,4 +26,10 @@
         <PackageReference Include="FsharpPlus" Version="1.6.1" />
         <PackageReference Include="FsLexYacc" Version="11.3.0" />
     </ItemGroup>
+    <ItemGroup>
+      <Compile Include="GCL\Interpreter.fs" />
+      <Compile Include="GCL\Language.fs" />
+      <Compile Include="GCL\TypeChecker.fs" />
+      <Compile Include="GCL\Compiler.fs" />
+    </ItemGroup>
 </Project>
