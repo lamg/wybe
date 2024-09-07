@@ -38,8 +38,8 @@ let matchByType (matcher: TypedExpr) (target: TypedExpr) =
     let sameResultType x y = x = y
 
     match matcher, target with
-    | Branch x, Branch y when x.value = y.value && Seq.length x.children = Seq.length y.children ->
-      Seq.zip x.children y.children |> Seq.fold loop acc
+    | Branch x, Branch y when x.value = y.value && x.children.Length = y.children.Length ->
+      Seq.zip x.children y.children |> Seq.fold loop acc |> Seq.toList
     | Leaf(v, r0), Branch { value = TypedOperator(_, r1) } when sameResultType r0 r1 -> (v, target) :: acc
     | Leaf(x, r0), Leaf(_, r1) when sameResultType r0 r1 -> (x, target) :: acc
     | _ -> acc
@@ -151,11 +151,11 @@ let transformationTree (target: TypedExpr) (ts: Transformer list) =
     match rs with
     | [] -> Leaf t
     | x :: xs ->
-      let ns = transformations t.transformResult x
+      let ns = transformations t.transformResult x |> Seq.toArray
 
       Branch
         { value = (t, x)
-          children = ns |> Seq.map (loop xs) }
+          children = ns |> Array.map (loop xs) }
 
   loop
     ts
@@ -172,10 +172,12 @@ let bindingsTrStringer =
       member _.leafToString x = format x
       member _.branchToString((x, t)) = $"{format x} {t.name}" }
 
+type TransformPath = Path<BindingsTR * Transformer, BindingsTR>
+
 // applies the transformers to target generating a tree of transformations
 // then finds the expected expression in that tree
 // finally returning all paths of expressions and transformers that lead to it
-let checkExpression (target: TypedExpr, expected: TypedExpr) (ts: Transformer list) =
+let checkExpression (target: TypedExpr, expected: TypedExpr) (ts: Transformer list) : TransformPath list =
   let t = transformationTree target ts
 
   let _, paths =
@@ -187,7 +189,7 @@ let checkExpression (target: TypedExpr, expected: TypedExpr) (ts: Transformer li
 
   paths |> List.map (collectPath t)
 
-let printTransformationChain (xss: list<list<Either<BindingsTR * Transformer, BindingsTR>>>) =
+let printTransformationChain (xss: TransformPath list) =
   let eitherToStr =
     function
     | Left x -> bindingsTrStringer.branchToString x

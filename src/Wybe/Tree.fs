@@ -4,21 +4,11 @@ open FSharpPlus
 
 type Branch<'a, 'b> =
   { value: 'a
-    children: Tree<'a, 'b> seq }
+    children: Tree<'a, 'b> array }
 
 and Tree<'a, 'b> =
   | Branch of Branch<'a, 'b>
   | Leaf of 'b
-
-let rec lazyTree (f: 'a -> 'a seq) (value: 'a) =
-  let xs = f value
-
-  if xs = Seq.empty then
-    Leaf value
-  else
-    Branch
-      { value = value
-        children = xs |> Seq.map (lazyTree f) }
 
 let roots expr =
   let rec loop t path =
@@ -42,7 +32,7 @@ let rec replaceAt root (t, path) =
 
       Branch
         { value = a
-          children = Seq.updateAt x newAtX ys }
+          children = Array.updateAt x newAtX ys }
 
     | _ -> failwith "invalid path"
 
@@ -51,7 +41,7 @@ let rec mapLeafs (f: 'b -> Tree<'a, 'b>) (t: Tree<'a, 'b>) =
   | Branch({ children = xs } as r) ->
     Branch
       { r with
-          children = xs |> Seq.map (mapLeafs f) }
+          children = xs |> Array.map (mapLeafs f) }
   | Leaf x -> f x
 
 type ValueLength<'a> = { value: 'a; length: int }
@@ -148,11 +138,13 @@ let findValuePaths (t: Tree<'a, 'b>) (ok: Either<'a, 'b> -> bool) =
     | (Leaf a, path) when ok (Right a) -> Some(Right a, path)
     | _ -> None)
 
-let collectPath (t: Tree<'a, 'b>) (path: list<int>) =
+type Path<'a, 'b> = Either<'a, 'b> list
+
+let collectPath (t: Tree<'a, 'b>) (path: list<int>) : Path<'a, 'b> =
   let treeValue t =
     match t with
     | Branch b -> Left b.value, b.children
-    | Leaf v -> Right v, []
+    | Leaf v -> Right v, [||]
 
   let v, chl = treeValue t
 

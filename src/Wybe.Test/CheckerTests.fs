@@ -26,7 +26,7 @@ let orOp = TypedOperator("∨", boolT)
 let eqOp = TypedOperator("≡", boolT)
 
 let op o x y : TypedExpr =
-  Branch { value = o; children = [ x; y ] }
+  Branch { value = o; children = [| x; y |] }
 
 let andIdempotency =
   { name = "idempotency of ∧"
@@ -179,6 +179,26 @@ let ``transformations sequence`` () =
 
 [<Fact>]
 let ``check expression and collect intermediate transformations`` () =
-  let target = op andOp z (op andOp z z)
-  let r = checkExpression (target, z) [ andIdempotency; andIdempotency ]
-  printfn $"{printTransformationChain r}"
+  let andZ = op andOp z z
+  let target = op andOp z andZ
+  let paths = checkExpression (target, z) [ andIdempotency; andIdempotency ]
+
+  let expected =
+    [ [ Left(
+          { bindings = []
+            transformResult = target },
+          andIdempotency
+        )
+        Left(
+          { bindings = [ aIdent, z; aIdent, z ]
+            transformResult = andZ },
+          andIdempotency
+        )
+        Right
+          { bindings = [ aIdent, z; aIdent, z ]
+            transformResult = z } ] ]
+
+  // printfn $"{printTransformationChain expected}"
+  // printfn $"{printTransformationChain paths}"
+  // FIXME seq of children in expression vs list of children
+  Assert.Equal<TransformPath list>(expected, paths)
