@@ -38,3 +38,8 @@ fun gcd =
 
 // states can have names so their values can be referenced from other states like in the above case
 // with `pre`
+
+// convenience syntax and semantics for
+// - matching and transforming states
+// - encode data structures in relations
+// - represent a diverse set of problems
