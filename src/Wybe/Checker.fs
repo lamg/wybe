@@ -172,6 +172,8 @@ let bindingsTrStringer =
       member _.leafToString x = format x
       member _.branchToString((x, t)) = $"{format x} {t.name}" }
 
+// a sequence of transformations where each element contains the transformation
+// result, the bindings found on the prevoious element and the transformer used to do so
 type TransformPath = Path<BindingsTR * Transformer, BindingsTR>
 
 // applies the transformers to target generating a tree of transformations
