@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Test/Test.fsproj" />
+  <Project Path="Wybe/Wybe.fsproj" />
+</Solution>

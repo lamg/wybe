@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RootNamespace>Wybe</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ExpressionMatch.fs" />
+    <Compile Include="StepExpansion.fs" />
+    <Compile Include="TypedExpression.fs" />
+    <Compile Include="Inference.fs" />
+    <Compile Include="Inspect\ColorMessages.fs" />
+    <Compile Include="Inspect\Formatters.fs" />
+    <Compile Include="Inspect\Inspect.fs" />
+    <Compile Include="CalculationCE.fs" />
+    <Compile Include="GriesSchneider\Axioms.fs" />
+    <Compile Include="GriesSchneider\Theorems.fs" />
+    
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharpPlus"  />
+    <PackageReference Include="FsToolkit.ErrorHandling"  />
+  </ItemGroup>
+
+</Project>
