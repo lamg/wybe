@@ -78,6 +78,8 @@ let printAndClear (n: Inspection) =
   n.accumulated |> Array.iter (printfn "%s")
   { n with accumulated = [||] }
 
+let printToResult (n: Inspection) = n |> print |> _.calc |> Ok
+
 let calculationSummary (calc: CheckedCalculation) =
   let theorem = calc.calculation.demonstrandum.expr |> printTypedExpr
   let theoremName = calc.calculation.demonstrandum.id
