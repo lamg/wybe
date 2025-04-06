@@ -36,13 +36,24 @@ let ``≡ assoc`` =
   let rhs = x === (y === z)
   lhs === rhs |> law "≡ assoc"
 
-let sym x =
-  match x with
-  | { expr = { node = n; subtrees = [ x; y ] }
-      id = id } ->
-    { expr = { node = n; subtrees = [ y; x ] }
-      id = $"sym {id}" }
+let sym (r: obj) =
+  let symLaw =
+    function
+    | { expr = { node = n; subtrees = [ x; y ] }
+        id = id } ->
+      { expr = { node = n; subtrees = [ y; x ] }
+        id = $"sym {id}" }
 
-  | _ -> failwith $"no symmetric law for {x}"
+    | _ -> failwith $"no symmetric law for {x}"
+
+  match r with
+  | :? Result<CheckedCalculation, CalculationCE.CalcError> as r ->
+    match r with
+    | Ok x -> symLaw x.calculation.demonstrandum
+
+    | Error e -> failwith $"cannot get symmetric, failed proof: {e}"
+  | :? Law as x -> symLaw x
+  | _ -> failwith $"cannot get symmetric, unsupported value {r}"
+
 
 let twice x = [ x; x ]

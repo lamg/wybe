@@ -21,7 +21,7 @@ let ``inspect a calculation`` () =
        "  true"
        "▢" |]
 
-  trueTheoremInspection |> calculation |> accEqual expected
+  trueTheorem |> inspect |> calculation |> accEqual expected
 
 [<Fact>]
 let ``inspect a step`` () =
@@ -39,7 +39,7 @@ let ``inspect a step`` () =
        "   └── p ≡ ((q ≡ q) ≡ p) ✅0"
        "      └── p ≡ (true ≡ p) ✅0" |]
 
-  trueTheoremInspection |> stepAt 0 |> accEqual expected
+  trueTheorem |> inspect |> stepAt 0 |> accEqual expected
 
 [<Fact>]
 let ``inspect rewriters at step`` () =
@@ -50,7 +50,7 @@ let ``inspect rewriters at step`` () =
        "x ≡ (y ≡ z) ↦ (x ≡ y) ≡ z"
        "x ≡ x ↦ true" |]
 
-  trueTheoremInspection |> rewritersAt 0 |> accEqual expected
+  trueTheorem |> inspect |> rewritersAt 0 |> accEqual expected
 
 [<Fact>]
 let ``inspect expansions at step`` () =
@@ -63,7 +63,7 @@ let ``inspect expansions at step`` () =
        "   └── p ≡ ((q ≡ q) ≡ p) ✅0"
        "      └── p ≡ (true ≡ p) ✅0" |]
 
-  trueTheoremInspection |> expansionsAt 0 |> accEqual expected
+  trueTheorem |> inspect |> expansionsAt 0 |> accEqual expected
 
 [<Fact>]
 let ``inspect step alternative rewriters and expansion`` () =
@@ -81,14 +81,14 @@ let ``inspect step alternative rewriters and expansion`` () =
        "   └── p ≡ ((q ≡ q) ≡ p) ✅0"
        "      └── p ≡ (true ≡ p) ✅0" |]
 
-  trueTheoremInspection |> alternativeAt 0 0 |> accEqual expected
+  trueTheorem |> inspect |> alternativeAt 0 0 |> accEqual expected
 
 [<Fact>]
 let ``inspect hint`` () =
   let expected =
     [| ColorMessages.info "hint_0" "≡ { ≡ assoc, sym ≡ assoc, ≡ ident }" |]
 
-  trueTheoremInspection |> hintAt 0 |> accEqual expected
+  trueTheorem |> inspect |> hintAt 0 |> accEqual expected
 
 [<Fact>]
 let ``composite inspection`` () =
@@ -107,32 +107,46 @@ let ``composite inspection`` () =
        "   └── p ≡ ((q ≡ q) ≡ p) ✅0"
        "      └── p ≡ (true ≡ p) ✅0" |]
 
-  trueTheoremInspection |> hintAt 0 |> stepAt 0 |> accEqual expected
+  trueTheorem |> inspect |> hintAt 0 |> stepAt 0 |> accEqual expected
 
 [<Fact>]
 let ``proofTrue summary`` () =
   let expected =
-    [| ColorMessages.info "theorem" "true"
+    [| "theorem true"
+       "  (p ≡ q) ≡ (q ≡ p)"
+       "≡ { ≡ assoc, sym ≡ assoc, ≡ ident }"
+       "  p ≡ (true ≡ p)"
+       "≡ { ≡ sym, sym ≡ assoc, ≡ ident, ≡ ident }"
+       "  true"
+       "▢"
+       ColorMessages.info "theorem" "true_theorem"
        ColorMessages.info "ok proof" "True"
        ColorMessages.info "ok steps" "True"
        ColorMessages.info "ok transitivity" "True"
        ColorMessages.info "ok evidence" "True" |]
 
-  trueTheoremInspection |> summary |> accEqual expected
+  trueTheorem |> inspect |> summary |> accEqual expected
 
 [<Fact>]
 let ``failed proof summary`` () =
   let x, y, z = Var "x", Var "y", Var "z"
 
   let expected =
-    [| ColorMessages.info "theorem" "x ≡ y"
+    [| "theorem x ≡ y"
+       "  x"
+       "≡ {  }"
+       "  y"
+       "≡ {  }"
+       "  z"
+       "▢"
+       ColorMessages.info "theorem" "x ≡ y"
        ColorMessages.error "ok proof" "False"
        ColorMessages.error "ok steps" "False"
        ColorMessages.error "failed steps" "0, 1"
        ColorMessages.info "ok transitivity" "True"
        ColorMessages.error "ok evidence" "False" |]
 
-  inspectCalc () {
+  proof () {
     Theorem("x ≡ y", x === y)
     x
     ``≡`` { }
@@ -140,5 +154,6 @@ let ``failed proof summary`` () =
     ``≡`` { }
     z
   }
+  |> inspect
   |> summary
   |> accEqual expected

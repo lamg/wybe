@@ -25,7 +25,7 @@ let trueTheorem =
 let ``GS 3.11`` =
   proof () {
     Theorem("GS 3.11", (!x === y) === (x === !y))
-    WithLaws [ trueTheorem ]
+    withLaws { trueTheorem }
 
     (!x === y) === (x === !y)
 
@@ -48,7 +48,7 @@ let ``GS 3.11`` =
 let ``double negation`` =
   proof () {
     Theorem("double negation", !(!x) === x)
-    WithLaws [ trueTheorem ]
+    withLaws { trueTheorem }
     !(!x) === x
     ``≡`` { ``GS 3.11`` }
     !x === !x
@@ -59,7 +59,7 @@ let ``double negation`` =
 let ``negation of false`` =
   proof () {
     Theorem("negation of false", !False === True)
-    WithLaws [ ``false def`` ]
+    withLaws { ``false def`` }
     !False === True
 
     ``≡`` {
@@ -91,7 +91,7 @@ let ``GS 3.14`` =
 let ``symmetry of ≢`` =
   proof () {
     Theorem("symmetry of ≢", (x !== y) === (y !== x))
-    WithLaws [ trueTheorem ]
+    withLaws { trueTheorem }
     (x !== y) === (y !== x)
 
     ``≡`` {

@@ -17,9 +17,11 @@ type Expected =
   | ExpectingHint
   | ExpectingTheorem
 
-type ProofBuildError<'a when 'a: equality and 'a :> ITypedExpr> =
-  { expected: Expected
-    line: ProofLine<'a> option }
+type ParseError = { expected: Expected } // TODO leave a trace to help finding out where it happened
+
+type CalcError =
+  | FailedParsing of ParseError
+  | FailedCompilation of CompilationError
 
 let buildBasic (lines: ProofLine<'a> list) =
   let rec fixedPoint (f: 'b -> 'b option) (state: 'b) =
@@ -31,16 +33,10 @@ let buildBasic (lines: ProofLine<'a> list) =
   result {
     let! (name, theorem), withLaws, lines =
       match lines with
-      | [] ->
-        Error
-          { expected = ExpectingTheorem
-            line = None }
+      | [] -> Error { expected = ExpectingTheorem }
       | Theorem(name, t) :: WithLaws ls :: lines -> Ok((name, t), ls, lines)
       | Theorem(name, t) :: lines -> Ok((name, t), [], lines)
-      | l :: _ ->
-        Error
-          { expected = ExpectingTheorem
-            line = Some l }
+      | l :: _ -> Error { expected = ExpectingTheorem }
 
     let steps, lines =
       fixedPoint
@@ -67,14 +63,8 @@ let buildBasic (lines: ProofLine<'a> list) =
     do!
       match lines with
       | [] -> Ok()
-      | Pred s :: _ ->
-        Error
-          { expected = ExpectingHint
-            line = Some(Pred s) }
-      | l :: _ ->
-        Error
-          { expected = ExpectingStep
-            line = Some l }
+      | Pred s :: _ -> Error { expected = ExpectingHint }
+      | l :: _ -> Error { expected = ExpectingStep }
     // x ≡ y  ⇒  f.x ≡ f.y
     let eqLeibniz =
       let x, y, fx, fy = Var "x", Var "y", Var "fx", Var "fy"
@@ -94,10 +84,7 @@ let buildBasic (lines: ProofLine<'a> list) =
         steps = steps |> List.rev |> List.toArray }
   }
 
-let buildAndCheck p = p |> buildBasic |> Result.get |> check
-
-
-type CalculationCE<'a, 'runRes when 'a: equality and 'a :> ITypedExpr>(runner: ProofLine<'a> list -> 'runRes) =
+type CalculationCE<'a when 'a: equality and 'a :> ITypedExpr>() =
   member _.Bind(l: ProofLine<'a>, f: ProofLine<'a> -> ProofLine<'a> list) = f l
 
   member _.Zero() = []
@@ -113,34 +100,16 @@ type CalculationCE<'a, 'runRes when 'a: equality and 'a :> ITypedExpr>(runner: P
 
   member _.Delay(f: unit -> ProofLine<'a> list) = f ()
 
-  member _.Run(xs: ProofLine<'a> list) = runner xs
+  member _.Run(xs: ProofLine<'a> list) =
+    match buildBasic xs with
+    | Ok calc ->
+      match check calc with
+      | Ok r -> Ok r
+      | Error e -> Error(FailedCompilation e)
+    | Error e -> Error(FailedParsing e)
 
-let checkRunner (xs: ProofLine<'a> list) =
-  match buildBasic xs with
-  | Ok calc ->
-    match check calc with
-    | Ok r when r.check.isOk -> r.calculation.demonstrandum
-    | Ok r ->
-      r.calculation
-      |> Inspect.Inspect.inspect
-      |> Inspect.Inspect.summary
-      |> _.accumulated
-      |> String.concat "\n"
-      |> failwith
-    | Error e -> failwith (e.ToString())
-  | Error e -> failwith (e.ToString())
 
-let proof () = CalculationCE checkRunner
-
-let inspectRunner (xs: ProofLine<'a> list) =
-  match buildBasic xs with
-  | Ok calc ->
-    match check calc with
-    | Ok r -> Inspect.Inspect.inspect r.calculation
-    | Error e -> failwith (e.ToString())
-  | Error e -> failwith (e.ToString())
-
-let inspectCalc () = CalculationCE inspectRunner
+let proof () = CalculationCE()
 
 let singleAltHint op (laws: Law list) =
   let generator _ _ = seq { Seq.ofList laws }
@@ -155,8 +124,20 @@ let singleAltHint op (laws: Law list) =
             { maxAlternatives = 1
               maxAlternativeLength = 7 } } }
 
+let extractLaw (x: Result<CheckedCalculation, CalcError>) =
+  match x with
+  | Ok r when r.check.isOk -> r.calculation.demonstrandum
+  | Ok r ->
+    let details = r |> Inspect.Inspect.calculationSummary |> String.concat "\n"
+
+    failwith $"cannot exctract law from calculation with error:\n{details}"
+  | Error e -> failwith $"cannot extract law from calculation with error: {e}"
+
 type LawsCE(op) =
   member _.Yield(x: Law) = [ x ]
+
+  member _.Yield(x: Result<CheckedCalculation, CalcError>) = [ extractLaw x ]
+
   member _.Combine(xs: Law list, ys: Law list) = xs @ ys
   member _.Run(xs: Law list) = singleAltHint op xs
   member _.Zero() = []
@@ -166,3 +147,16 @@ type LawsCE(op) =
 let ``≡`` = LawsCE equivSymbol
 let ``⇒`` = LawsCE impliesSymbol
 let ``⇐`` = LawsCE followsSymbol
+
+type WithLawsCE() =
+  member _.Yield(x: Law) = [ x ]
+
+  member _.Yield(x: Result<CheckedCalculation, CalcError>) = [ extractLaw x ]
+  member _.Run(xs: Law list) = WithLaws xs
+
+  member _.Combine(xs: Law list, ys: Law list) = xs @ ys
+  member _.Zero() = []
+  member _.Return(x: Law) = [ x ]
+  member _.Delay(f: unit -> Law list) = f ()
+
+let withLaws = WithLawsCE()

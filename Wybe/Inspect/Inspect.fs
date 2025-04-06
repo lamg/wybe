@@ -11,25 +11,10 @@ type Inspection =
   { accumulated: string array
     calc: CheckedCalculation }
 
-let inspect (calc: Calculation) =
-  match check calc with
+let inspect (r: Result<CheckedCalculation, 'a>) =
+  match r with
   | Ok calc -> { accumulated = [||]; calc = calc }
-  | Error e ->
-    { accumulated = [| e.ToString() |]
-      calc =
-        { calculation = calc
-          check =
-            { transitiveReduction =
-                0,
-                { node =
-                    { symbol = Fixed ""
-                      signature = boolId }
-                  subtrees = [] }
-              expandedSteps = [||]
-              evidence = None
-              okReduction = false
-              okSteps = false
-              isOk = false } } }
+  | Error e -> failwith $"failed to build calculation: {e}"
 
 let private addLines (n: Inspection) xs =
   { n with
@@ -93,8 +78,9 @@ let printAndClear (n: Inspection) =
   n.accumulated |> Array.iter (printfn "%s")
   { n with accumulated = [||] }
 
-let summary (n: Inspection) =
-  let theorem = n.calc.calculation.demonstrandum.expr |> printTypedExpr
+let calculationSummary (calc: CheckedCalculation) =
+  let theorem = calc.calculation.demonstrandum.expr |> printTypedExpr
+  let theoremName = calc.calculation.demonstrandum.id
 
   let boolMessage ok item =
     if ok then
@@ -103,8 +89,8 @@ let summary (n: Inspection) =
       error item (ok.ToString())
 
   let failedSteps =
-    if not n.calc.check.okSteps then
-      n.calc.check.expandedSteps
+    if not calc.check.okSteps then
+      calc.check.expandedSteps
       |> Array.choosei (fun i xs ->
         let notOk = xs |> Seq.exists (fun x -> x.expansion.node.path.IsNone)
         if notOk then Some i else None)
@@ -112,18 +98,21 @@ let summary (n: Inspection) =
       [||]
 
 
-  [ info "theorem" theorem
-    boolMessage n.calc.check.isOk "ok proof"
-    boolMessage n.calc.check.okSteps "ok steps"
+  [ info "theorem" theoremName
+    boolMessage calc.check.isOk "ok proof"
+    boolMessage calc.check.okSteps "ok steps"
     if failedSteps.Length <> 0 then
       error "failed steps" (failedSteps |> Array.map _.ToString() |> String.concat ", ")
     else
       ()
-    boolMessage n.calc.check.okReduction "ok transitivity"
-    boolMessage n.calc.check.evidence.IsSome "ok evidence"
-    if n.calc.check.expandedSteps.Length = 0 then
+    boolMessage calc.check.okReduction "ok transitivity"
+    boolMessage calc.check.evidence.IsSome "ok evidence"
+    if calc.check.expandedSteps.Length = 0 then
       boolMessage false "non-empty proof"
     else
       () ]
   |> List.toArray
-  |> addLines n
+  |> Array.append (printCalculation calc.calculation)
+
+let summary (n: Inspection) =
+  n.calc |> calculationSummary |> addLines n

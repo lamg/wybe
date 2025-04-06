@@ -13,6 +13,7 @@
     <Compile Include="InferenceTest.fs" />
     <Compile Include="ProofTest.fs" />
     <Compile Include="InspectTest.fs" />
+    <Compile Include="CheckAllTheorems.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

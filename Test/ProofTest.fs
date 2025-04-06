@@ -1,8 +1,6 @@
 module ProofTest
 
-open Inspect
 open GriesSchneider.Axioms
-open Xunit
 open TypedExpression
 open Inference
 open CalculationCE
@@ -64,8 +62,8 @@ let proofTrueNoCE () : Calculation =
     applyToResult = [ ``≡ sym`` ]
     steps = steps }
 
-let trueTheoremInspection =
-  inspectCalc () {
+let trueTheorem =
+  proof () {
     Theorem("true_theorem", True)
     WithLaws [ ``≡ sym`` ]
     (p === q) === (q === p)
