@@ -13,7 +13,8 @@ let accEqual (expected: string array) (n: Inspection) = n.accumulated |> equal e
 [<Fact>]
 let ``inspect a calculation`` () =
   let expected =
-    [| "theorem true"
+    [| ColorMessages.section "calculation"
+       ColorMessages.info "demonstrandum" "true"
        "  (p ≡ q) ≡ (q ≡ p)"
        "≡ { ≡ assoc, sym ≡ assoc, ≡ ident }"
        "  p ≡ (true ≡ p)"
@@ -26,25 +27,25 @@ let ``inspect a calculation`` () =
 [<Fact>]
 let ``inspect a step`` () =
   let expected =
-    [| ColorMessages.info "step" "0"
+    [| ColorMessages.sectionBody "step at" "0"
        ColorMessages.info "alt_0" ""
-       ColorMessages.info "rewriter" ""
-       "(x ≡ y) ≡ z ↦ x ≡ (y ≡ z)"
-       "x ≡ (y ≡ z) ↦ (x ≡ y) ≡ z"
-       "x ≡ x ↦ true"
-       ColorMessages.info "expansion" ""
-       "(p ≡ q) ≡ (q ≡ p) ✅0"
-       "└── p ≡ (q ≡ (q ≡ p)) ✅0"
-       "   ├── (p ≡ q) ≡ (q ≡ p) ❌"
-       "   └── p ≡ ((q ≡ q) ≡ p) ✅0"
-       "      └── p ≡ (true ≡ p) ✅0" |]
+       Formatters.indentLine 2 (ColorMessages.info "rewriter" "")
+       "  (x ≡ y) ≡ z ↦ x ≡ (y ≡ z)"
+       "  x ≡ (y ≡ z) ↦ (x ≡ y) ≡ z"
+       "  x ≡ x ↦ true"
+       Formatters.indentLine 2 (ColorMessages.info "expansion" "")
+       "  (p ≡ q) ≡ (q ≡ p) ✅0"
+       "  └── p ≡ (q ≡ (q ≡ p)) ✅0"
+       "     ├── (p ≡ q) ≡ (q ≡ p) ❌"
+       "     └── p ≡ ((q ≡ q) ≡ p) ✅0"
+       "        └── p ≡ (true ≡ p) ✅0" |]
 
   trueTheorem |> inspect |> stepAt 0 |> accEqual expected
 
 [<Fact>]
 let ``inspect rewriters at step`` () =
   let expected =
-    [| ColorMessages.info "step" "0"
+    [| ColorMessages.sectionBody "rewriters at" "0"
        ColorMessages.info "rewriter_0" ""
        "(x ≡ y) ≡ z ↦ x ≡ (y ≡ z)"
        "x ≡ (y ≡ z) ↦ (x ≡ y) ≡ z"
@@ -55,7 +56,7 @@ let ``inspect rewriters at step`` () =
 [<Fact>]
 let ``inspect expansions at step`` () =
   let expected =
-    [| ColorMessages.info "step" "0"
+    [| ColorMessages.sectionBody "expansions at" "0"
        ColorMessages.info "expansion_0" ""
        "(p ≡ q) ≡ (q ≡ p) ✅0"
        "└── p ≡ (q ≡ (q ≡ p)) ✅0"
@@ -68,7 +69,7 @@ let ``inspect expansions at step`` () =
 [<Fact>]
 let ``inspect step alternative rewriters and expansion`` () =
   let expected =
-    [| ColorMessages.info "step" "0"
+    [| ColorMessages.sectionBody "alternatives at" "0"
        ColorMessages.info "alternative_0" ""
        ColorMessages.info "rewriter_0" ""
        "(x ≡ y) ≡ z ↦ x ≡ (y ≡ z)"
@@ -86,33 +87,36 @@ let ``inspect step alternative rewriters and expansion`` () =
 [<Fact>]
 let ``inspect hint`` () =
   let expected =
-    [| ColorMessages.info "hint_0" "≡ { ≡ assoc, sym ≡ assoc, ≡ ident }" |]
+    [| ColorMessages.sectionBody "hint at" "0"
+       "≡ { ≡ assoc, sym ≡ assoc, ≡ ident }" |]
 
   trueTheorem |> inspect |> hintAt 0 |> accEqual expected
 
 [<Fact>]
 let ``composite inspection`` () =
   let expected =
-    [| ColorMessages.info "hint_0" "≡ { ≡ assoc, sym ≡ assoc, ≡ ident }"
-       ColorMessages.info "step" "0"
+    [| ColorMessages.sectionBody "hint at" "0"
+       "≡ { ≡ assoc, sym ≡ assoc, ≡ ident }"
+       ColorMessages.sectionBody "step at" "0"
        ColorMessages.info "alt_0" ""
-       ColorMessages.info "rewriter" ""
-       "(x ≡ y) ≡ z ↦ x ≡ (y ≡ z)"
-       "x ≡ (y ≡ z) ↦ (x ≡ y) ≡ z"
-       "x ≡ x ↦ true"
-       ColorMessages.info "expansion" ""
-       "(p ≡ q) ≡ (q ≡ p) ✅0"
-       "└── p ≡ (q ≡ (q ≡ p)) ✅0"
-       "   ├── (p ≡ q) ≡ (q ≡ p) ❌"
-       "   └── p ≡ ((q ≡ q) ≡ p) ✅0"
-       "      └── p ≡ (true ≡ p) ✅0" |]
+       Formatters.indentLine 2 (ColorMessages.info "rewriter" "")
+       "  (x ≡ y) ≡ z ↦ x ≡ (y ≡ z)"
+       "  x ≡ (y ≡ z) ↦ (x ≡ y) ≡ z"
+       "  x ≡ x ↦ true"
+       Formatters.indentLine 2 (ColorMessages.info "expansion" "")
+       "  (p ≡ q) ≡ (q ≡ p) ✅0"
+       "  └── p ≡ (q ≡ (q ≡ p)) ✅0"
+       "     ├── (p ≡ q) ≡ (q ≡ p) ❌"
+       "     └── p ≡ ((q ≡ q) ≡ p) ✅0"
+       "        └── p ≡ (true ≡ p) ✅0" |]
 
   trueTheorem |> inspect |> hintAt 0 |> stepAt 0 |> accEqual expected
 
 [<Fact>]
-let ``proofTrue summary`` () =
+let ``proof of true summary`` () =
   let expected =
-    [| "theorem true"
+    [| ColorMessages.section "summary"
+       ColorMessages.info "demonstrandum" "true"
        "  (p ≡ q) ≡ (q ≡ p)"
        "≡ { ≡ assoc, sym ≡ assoc, ≡ ident }"
        "  p ≡ (true ≡ p)"
@@ -132,7 +136,8 @@ let ``failed proof summary`` () =
   let x, y, z = Var "x", Var "y", Var "z"
 
   let expected =
-    [| "theorem x ≡ y"
+    [| ColorMessages.section "summary"
+       ColorMessages.info "demonstrandum" "x ≡ y"
        "  x"
        "≡ {  }"
        "  y"

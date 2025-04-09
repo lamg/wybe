@@ -79,7 +79,7 @@ let ``negation of false`` =
 
 let ``GS 3.14`` =
   proof () {
-    Theorem("GS 3.14", (x !== y) === (!x === y))
+    Theorem("GS 3.14", x !== y === (!x === y))
     x !== y
     ``≡`` { ``≢ def`` }
     !(x === y)
@@ -90,9 +90,9 @@ let ``GS 3.14`` =
 
 let ``symmetry of ≢`` =
   proof () {
-    Theorem("symmetry of ≢", (x !== y) === (y !== x))
+    Theorem("symmetry of ≢", x !== y === (y !== x))
     withLaws { trueTheorem }
-    (x !== y) === (y !== x)
+    x !== y === (y !== x)
 
     ``≡`` {
       ``≢ def``
@@ -112,8 +112,8 @@ let ``symmetry of ≢`` =
 
 let ``associativity of ≢`` =
   proof () {
-    Theorem("associativity of ≢", ((x !== y) !== z) === (x !== (y !== z)))
-    (x !== y) !== z
+    Theorem("associativity of ≢", x !== y !== z === (x !== (y !== z)))
+    x !== y !== z
 
     ``≡`` {
       ``GS 3.14``
@@ -139,8 +139,8 @@ let ``associativity of ≢`` =
 
 let ``mutual associativity`` =
   proof () {
-    Theorem("mutual associativity", ((x !== y) === z) === (x !== (y === z)))
-    (x !== y) === z
+    Theorem("mutual associativity", x !== y === z === (x !== (y === z)))
+    x !== y === z
 
     ``≡`` {
       ``GS 3.14``
@@ -154,7 +154,7 @@ let ``mutual associativity`` =
 
 let ``mutual interchangeability`` =
   proof () {
-    Theorem("mutual interchangeability", ((x !== y) === z) === (x === (y !== z)))
+    Theorem("mutual interchangeability", x !== y === z === (x === (y !== z)))
     x !== y === z
 
     ``≡`` {

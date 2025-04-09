@@ -21,14 +21,18 @@ let private addLines (n: Inspection) xs =
       accumulated = Array.append n.accumulated xs }
 
 let calculation (n: Inspection) =
-  n.calc.calculation |> printCalculation |> addLines n
+  n.calc.calculation
+  |> printCalculation
+  |> Array.append [| section "calculation" |]
+  |> addLines n
 
 let private mapStepExpansion
+  (sectionName: string)
   (f: StepExpansion.StepExpansion<TypedSymbol> -> array<string>)
   (step: int)
   (n: Inspection)
   =
-  let withHeader = [| info "step" $"{step}" |] |> addLines n
+  let withHeader = [| sectionBody sectionName $"{step}" |] |> addLines n
 
   n.calc.check.expandedSteps
   |> function
@@ -41,18 +45,18 @@ let private mapStepExpansion
     | _ -> [| error $"step_{step}" "None" |]
   |> addLines withHeader
 
-let expansionsAt = mapStepExpansion expansionToStrList
-let rewritersAt = mapStepExpansion rewritersToStrList
+let expansionsAt = mapStepExpansion "expansions at" expansionToStrList
+let rewritersAt = mapStepExpansion "rewriters at" rewritersToStrList
 
-let stepAt = mapStepExpansion alternativesToStrList
+let stepAt = mapStepExpansion "step at" alternativesToStrList
 
 let hintAt (step: int) (n: Inspection) =
   let hint =
     n.calc.calculation.steps
     |> Array.tryItem step
     |> function
-      | Some s -> [| info $"hint_{step}" (printHint s.hint) |]
-      | None -> [| error $"hint_{step}" "None" |]
+      | Some s -> [| sectionBody "hint at" $"{step}"; printHint s.hint |]
+      | None -> [| error $"hint at {step}" "None" |]
 
   addLines n hint
 
@@ -68,7 +72,7 @@ let alternativeAt (step: int) (alt: int) (n: Inspection) =
         |> Array.concat
       | _ -> [| colorizeString BrightRed $"No alternative {alt}" |]
 
-  mapStepExpansion f step n
+  mapStepExpansion "alternatives at" f step n
 
 let print (n: Inspection) =
   n.accumulated |> Array.iter (printfn "%s")
@@ -81,7 +85,6 @@ let printAndClear (n: Inspection) =
 let printToResult (n: Inspection) = n |> print |> _.calc |> Ok
 
 let calculationSummary (calc: CheckedCalculation) =
-  let theorem = calc.calculation.demonstrandum.expr |> printTypedExpr
   let theoremName = calc.calculation.demonstrandum.id
 
   let boolMessage ok item =
@@ -99,6 +102,8 @@ let calculationSummary (calc: CheckedCalculation) =
     else
       [||]
 
+  let calculation =
+    Array.append [| section "summary" |] (printCalculation calc.calculation)
 
   [ info "theorem" theoremName
     boolMessage calc.check.isOk "ok proof"
@@ -114,7 +119,7 @@ let calculationSummary (calc: CheckedCalculation) =
     else
       () ]
   |> List.toArray
-  |> Array.append (printCalculation calc.calculation)
+  |> Array.append calculation
 
 let summary (n: Inspection) =
   n.calc |> calculationSummary |> addLines n

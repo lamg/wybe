@@ -14,7 +14,7 @@ let printHint =
   | Hint.Law h -> $"{h.op.symbol} " + "{ " + h.lawGenerator.id + " }"
 
 let printCalculation (c: Calculation) =
-  let header = $"theorem {c.demonstrandum.expr |> printTypedExpr}"
+  let header = info "demonstrandum" (c.demonstrandum.expr |> printTypedExpr)
 
   c.steps
   |> Array.collect (fun x -> [| $"  {printTypedExpr x.expr}"; printHint x.hint |])
@@ -78,8 +78,8 @@ let rewritersToStrList (xs: StepExpansion.StepExpansion<TypedSymbol>) =
 let formatAlternative (i: int) (m: ExprExpansion<TypedSymbol>) =
   let exp = info "expansion" "" |> prepend (printExpansion m.expansion)
   let rw = info "rewriter" "" |> prepend (printRewriters m.rewriters)
-
-  info $"alt_{i}" "" |> prepend (Array.append rw exp)
+  let body = Array.append rw exp |> Array.map (indentLine 2)
+  info $"alt_{i}" "" |> prepend body
 
 let alternativesToStrList (xs: StepExpansion.StepExpansion<TypedSymbol>) =
   xs |> Seq.mapi formatAlternative |> Seq.toArray |> Array.concat

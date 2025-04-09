@@ -2,6 +2,7 @@ module CheckAllTheorems
 
 open Xunit
 open GriesSchneider
+open Inspect.Inspect
 
 [<Fact>]
 let ``check all theorems`` () =
@@ -16,3 +17,7 @@ let ``check all theorems`` () =
     Theorems.trueTheorem ]
   |> List.map CalculationCE.extractLaw
   |> ignore
+
+[<Fact>]
+let ``inspect theorems`` () =
+  Theorems.``mutual associativity`` |> inspect |> stepAt 0 |> summary |> ignore

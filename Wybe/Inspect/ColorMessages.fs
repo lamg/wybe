@@ -25,3 +25,6 @@ let message (c: Color) (head: string) (body: string) = $"{colorizeString c head}
 
 let info head body = message BrightBlue head body
 let error head body = message BrightRed head body
+
+let section head = $"{colorizeString BrightYellow head}"
+let sectionBody head body = message BrightYellow head body
