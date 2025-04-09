@@ -4,13 +4,13 @@ open CalculationCE
 open Axioms
 open TypedExpression
 
-let trueTheorem =
+let ``true theorem`` =
   let p, q = Var "p", Var "q"
 
   proof () {
-    Theorem("True", True)
+    Theorem("true theorem", True)
     WithLaws [ ``≡ sym`` ]
-    (p === q) === (q === p)
+    p === q === (q === p)
 
     ``≡`` {
       ``≡ sym``
@@ -24,10 +24,10 @@ let trueTheorem =
 // GS = "A Logical Approach to Discrete Math, by David Gries and Fred B. Schneider"
 let ``GS 3.11`` =
   proof () {
-    Theorem("GS 3.11", (!x === y) === (x === !y))
-    withLaws { trueTheorem }
+    Theorem("GS 3.11", !x === y === (x === !y))
+    withLaws { ``true theorem`` }
 
-    (!x === y) === (x === !y)
+    !x === y === (x === !y)
 
     ``≡`` {
       sym ``¬ over ≡``
@@ -48,7 +48,7 @@ let ``GS 3.11`` =
 let ``double negation`` =
   proof () {
     Theorem("double negation", !(!x) === x)
-    withLaws { trueTheorem }
+    withLaws { ``true theorem`` }
     !(!x) === x
     ``≡`` { ``GS 3.11`` }
     !x === !x
@@ -91,7 +91,7 @@ let ``GS 3.14`` =
 let ``symmetry of ≢`` =
   proof () {
     Theorem("symmetry of ≢", x !== y === (y !== x))
-    withLaws { trueTheorem }
+    withLaws { ``true theorem`` }
     x !== y === (y !== x)
 
     ``≡`` {

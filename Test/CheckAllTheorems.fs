@@ -14,7 +14,7 @@ let ``check all theorems`` () =
     Theorems.``mutual interchangeability``
     Theorems.``negation of false``
     Theorems.``symmetry of ≢``
-    Theorems.trueTheorem ]
+    Theorems.``true theorem`` ]
   |> List.map CalculationCE.extractLaw
   |> ignore
 
