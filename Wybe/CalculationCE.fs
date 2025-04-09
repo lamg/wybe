@@ -68,16 +68,16 @@ let buildBasic (lines: ProofLine<'a> list) =
     // x ≡ y  ⇒  f.x ≡ f.y
     let eqLeibniz =
       let x, y, fx, fy = Var "x", Var "y", Var "fx", Var "fy"
-      (x === y) ==> (fx === fy) |> law "leibniz"
+      (x === y) ==> (fx === fy) |> axiom "leibniz"
 
 
     // (x ≡ y) ∧ (y ≡ z)  ⇒  (x ≡ z)
     let eqTrans =
       let x, y, z = Var "x", Var "y", Var "z"
-      ((x === y) <&&> (y === z)) ==> (x === z) |> law "≡-transitivity"
+      ((x === y) <&&> (y === z)) ==> (x === z) |> axiom "≡-transitivity"
 
     return
-      { demonstrandum = theorem |> law name
+      { demonstrandum = theorem |> axiom name
         leibniz = [ eqLeibniz ]
         transitivity = [ eqTrans ]
         applyToResult = withLaws

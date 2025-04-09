@@ -56,7 +56,7 @@ let proofTrueNoCE () : Calculation =
        { expr = p === (True === p) |> getTypedExpr
          hint = Hint.End } |]
 
-  { demonstrandum = True |> law "true-theorem"
+  { demonstrandum = True |> axiom "true-theorem"
     leibniz = [ ``≡ leibniz`` ]
     transitivity = [ ``≡ transitivity`` ]
     applyToResult = [ ``≡ sym`` ]

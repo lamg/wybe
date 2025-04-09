@@ -264,4 +264,4 @@ let check (c: Calculation) =
         check = checkSteps compiled }
   }
 
-let law id (e: Pred<'a>) : Law = { expr = getTypedExpr e; id = id }
+let axiom id (e: Pred<'a>) : Law = { expr = getTypedExpr e; id = id }
