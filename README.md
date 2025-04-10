@@ -1,5 +1,7 @@
 # Wybe
 
+![Wybe](./documents/images/wybe_logo.png)
+
 A proof checker embedded in F#'s computation expressions
 
 ## Features and progress:
@@ -13,7 +15,7 @@ A proof checker embedded in F#'s computation expressions
 
 ## Examples
 
-![Double Negation](./images/double_negation.png)
+![Double Negation](./documents//images/double_negation.png)
 
 [0]: https://www.cs.utexas.edu/users/EWD/transcriptions/EWD13xx/EWD1300.html
 [1]: https://books.google.de/books/about/A_Logical_Approach_to_Discrete_Math.html?id=ZWTDQ6H6gsUC
