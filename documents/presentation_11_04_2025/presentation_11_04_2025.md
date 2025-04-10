@@ -90,9 +90,9 @@ backgroundImage: url('https://marp.app/assets/hero-background.svg')
 
 # 10 years ago
 
-![height:500px](./10_years_ago.png)
-
 https://eltoque.com/programar-sin-computadora
+
+![height:450px](./10_years_ago.png)
 
 ---
 
