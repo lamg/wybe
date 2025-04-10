@@ -29,13 +29,10 @@ let timeFunction (f: unit -> 'a) : TimeSpan =
 
 [<Fact>]
 let ``make leibniz from ≡-assoc `` () =
-  let r =
-    makeLeibnizRule ``≡ leibniz``
-    |> Result.get
-    |> (fun f -> f equivSymbol ``≡ assoc``)
+  let r = (makeLeibnizRule ``≡ leibniz`` |> Result.get) equivSymbol ``≡ assoc``
 
   Assert.True r.IsSome
-  let lhs = getTypedExpr ((x === y) === z)
+  let lhs = getTypedExpr (x === y === z)
   let rhs = getTypedExpr (x === (y === z))
 
   Assert.Equal(lhs, r.Value.lhs)
@@ -45,8 +42,7 @@ let ``make leibniz from ≡-assoc `` () =
 let ``count fits of a matcher expression in a target`` () =
   let p, q = Var "p", Var "q"
 
-  [ (p === q) === (q === p), (x === y) === z, 1
-    (p === q) === (q === p), x === x, 2 ]
+  [ p === q === (q === p), x === y === z, 1; p === q === (q === p), x === x, 2 ]
   |> List.iter (fun (target, matcher, expected) ->
     let m = getTypedExpr matcher
     let t = getTypedExpr target
@@ -62,7 +58,7 @@ let ``apply rewriters and mark path to solution`` () =
     |> getLeibnizRewriters equivSymbol
 
   let step0 =
-    { expr = getTypedExpr ((p === q) === (q === p))
+    { expr = getTypedExpr (p === q === (q === p))
       rewriters = [ rewriters ]
       limits = limits }
 
