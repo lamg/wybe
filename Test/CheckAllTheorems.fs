@@ -14,10 +14,28 @@ let ``check all theorems`` () =
     Theorems.``mutual interchangeability``
     Theorems.``negation of false``
     Theorems.``symmetry of ≢``
-    Theorems.``true theorem`` ]
-  |> List.map CalculationCE.extractLaw
+    Theorems.``true theorem``
+    Theorems.``∨ zero`` ]
+  |> List.map (fun th -> th () |> CalculationCE.extractLaw)
   |> ignore
 
 [<Fact>]
+let ``building law from equivalent laws`` () =
+  let actual =
+    Axioms.eqLaws Theorems.``true theorem`` Axioms.``excluded middle``
+    |> _.expr
+    |> TypedExpression.printTypedExpr
+
+  Assert.Equal("true ≡ (x ∨ ¬x)", actual)
+
+[<Fact>]
 let ``inspect theorems`` () =
-  Theorems.``mutual associativity`` |> inspect |> stepAt 0 |> summary |> ignore
+  Theorems.``∨ identity`` ()
+  |> inspect
+  |> stepAt 1
+  |> stepAt 2
+  |> stepAt 3
+  |> stepAt 4
+  |> summary
+  |> print
+  |> ignore

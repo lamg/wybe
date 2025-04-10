@@ -137,6 +137,7 @@ type LawsCE(op) =
   member _.Yield(x: Law) = [ x ]
 
   member _.Yield(x: Result<CheckedCalculation, CalcError>) = [ extractLaw x ]
+  member this.Yield(x: unit -> Result<CheckedCalculation, CalcError>) = x () |> this.Yield
 
   member _.Combine(xs: Law list, ys: Law list) = xs @ ys
   member _.Run(xs: Law list) = singleAltHint op xs
@@ -152,6 +153,7 @@ type WithLawsCE() =
   member _.Yield(x: Law) = [ x ]
 
   member _.Yield(x: Result<CheckedCalculation, CalcError>) = [ extractLaw x ]
+  member this.Yield(x: unit -> Result<CheckedCalculation, CalcError>) = x () |> this.Yield
   member _.Run(xs: Law list) = WithLaws xs
 
   member _.Combine(xs: Law list, ys: Law list) = xs @ ys

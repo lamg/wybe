@@ -33,7 +33,9 @@ let makeLeibnizRule (leibniz: Law) : Result<Leibniz, CompilationError> =
     let rule stepOp (hint: Law) =
       match stepOp with
       | { signature = Fun [ _; _; last ] } when fxEqFy.node.symbol = stepOp.symbol && last = boolId ->
-        match matchTree matchSymbol xEqY hint.expr with
+        let m = matchTree matchSymbol xEqY hint.expr
+
+        match m with
         | (_, fx) :: (_, fy) :: _ ->
           Some
             { lhs = fx
@@ -204,10 +206,10 @@ let compileCalculation (c: Calculation) =
                 // alternative sequences of laws that could check the step
                 let nextExpr = None
 
-                Some l.op,
-                l.lawGenerator.generator s.expr nextExpr |> Seq.map (getLeibnizRewriters l.op),
-                l.lawGenerator.limits
+                let rs =
+                  l.lawGenerator.generator s.expr nextExpr |> Seq.map (getLeibnizRewriters l.op)
 
+                Some l.op, rs, l.lawGenerator.limits
 
             { step =
                 { rewriters = rewriters

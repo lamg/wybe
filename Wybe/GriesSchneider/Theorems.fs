@@ -4,7 +4,7 @@ open CalculationCE
 open Axioms
 open TypedExpression
 
-let ``true theorem`` =
+let ``true theorem`` () =
   let p, q = Var "p", Var "q"
 
   proof () {
@@ -22,7 +22,7 @@ let ``true theorem`` =
 
 
 // GS = "A Logical Approach to Discrete Math, by David Gries and Fred B. Schneider"
-let ``GS 3.11`` =
+let ``GS 3.11`` () =
   proof () {
     Theorem("GS 3.11", !x === y === (x === !y))
     withLaws { ``true theorem`` }
@@ -45,7 +45,7 @@ let ``GS 3.11`` =
     True
   }
 
-let ``double negation`` =
+let ``double negation`` () =
   proof () {
     Theorem("double negation", !(!x) === x)
     withLaws { ``true theorem`` }
@@ -56,7 +56,7 @@ let ``double negation`` =
     True
   }
 
-let ``negation of false`` =
+let ``negation of false`` () =
   proof () {
     Theorem("negation of false", !False === True)
     withLaws { ``false def`` }
@@ -77,7 +77,7 @@ let ``negation of false`` =
     False === !True
   }
 
-let ``GS 3.14`` =
+let ``GS 3.14`` () =
   proof () {
     Theorem("GS 3.14", x !== y === (!x === y))
     x !== y
@@ -88,7 +88,7 @@ let ``GS 3.14`` =
   }
 
 
-let ``symmetry of ≢`` =
+let ``symmetry of ≢`` () =
   proof () {
     Theorem("symmetry of ≢", x !== y === (y !== x))
     withLaws { ``true theorem`` }
@@ -110,7 +110,7 @@ let ``symmetry of ≢`` =
   }
 
 
-let ``associativity of ≢`` =
+let ``associativity of ≢`` () =
   proof () {
     Theorem("associativity of ≢", x !== y !== z === (x !== (y !== z)))
     x !== y !== z
@@ -137,7 +137,7 @@ let ``associativity of ≢`` =
     x !== (y !== z)
   }
 
-let ``mutual associativity`` =
+let ``mutual associativity`` () =
   proof () {
     Theorem("mutual associativity", x !== y === z === (x !== (y === z)))
     x !== y === z
@@ -152,7 +152,7 @@ let ``mutual associativity`` =
     x !== (y === z)
   }
 
-let ``mutual interchangeability`` =
+let ``mutual interchangeability`` () =
   proof () {
     Theorem("mutual interchangeability", x !== y === z === (x === (y !== z)))
     x !== y === z
@@ -168,3 +168,49 @@ let ``mutual interchangeability`` =
     ``≡`` { sym ``≢ def`` }
     x === (y !== z)
   }
+
+// GS 3.4 Disjunction
+
+let ``∨ zero`` () =
+  let excludedMiddle = eqLaws ``true theorem`` ``excluded middle``
+
+  proof () {
+    Theorem("∨ zero", x <||> True === True)
+    x <||> True
+
+    ``≡`` { excludedMiddle }
+
+    x <||> (x <||> !x)
+
+    ``≡`` {
+      sym ``∨ assoc``
+      ``∨ idempotency``
+    }
+
+    x <||> !x
+    ``≡`` { sym excludedMiddle }
+    True
+  }
+
+let ``∨ identity`` () =
+  proof () {
+    Theorem("∨ identity", x <||> False === x)
+    withLaws { ``excluded middle`` }
+    x <||> False === x
+    ``≡`` { sym ``∨ idempotency`` }
+    x <||> False === (x <||> x)
+    ``≡`` { sym ``∨ over ≡`` }
+    x <||> (False === x)
+    ``≡`` { ``false def`` }
+    x <||> (!True === x)
+    ``≡`` { ``¬ over ≡`` }
+    x <||> !(True === x)
+    ``≡`` { sym ``≡ ident`` }
+    x <||> !x
+  }
+
+let ``∨ over ∨`` () =
+  proof () { Theorem("∨ over ∨", x <||> (y <||> z) === (x <||> y) <||> (x <||> z)) }
+
+let ``GS 3.32`` () =
+  proof () { Theorem("GS 3.32", x <||> y === x <||> !y === x) }

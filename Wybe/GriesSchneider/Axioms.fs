@@ -1,5 +1,6 @@
 module GriesSchneider.Axioms
 
+open ExpressionMatch
 open TypedExpression
 open Inference
 
@@ -36,6 +37,16 @@ let ``≡ assoc`` =
   let rhs = x === (y === z)
   lhs === rhs |> axiom "≡ assoc"
 
+let rec extractLaw (x: obj) =
+  match x with
+  | :? (unit -> Result<CheckedCalculation, CalculationCE.CalcError>) as r -> r () |> extractLaw
+  | :? Result<CheckedCalculation, CalculationCE.CalcError> as r ->
+    match r with
+    | Ok x -> x.calculation.demonstrandum
+    | Error e -> failwith $"cannot get symmetric, failed proof: {e}"
+  | :? Law as x -> x
+  | _ -> failwith $"cannot get law, unsupported value {x}"
+
 let sym (r: obj) =
   let symLaw =
     function
@@ -46,14 +57,31 @@ let sym (r: obj) =
 
     | _ -> failwith $"no symmetric law for {x}"
 
-  match r with
-  | :? Result<CheckedCalculation, CalculationCE.CalcError> as r ->
-    match r with
-    | Ok x -> symLaw x.calculation.demonstrandum
-
-    | Error e -> failwith $"cannot get symmetric, failed proof: {e}"
-  | :? Law as x -> symLaw x
-  | _ -> failwith $"cannot get symmetric, unsupported value {r}"
+  r |> extractLaw |> symLaw
 
 
 let twice x = [ x; x ]
+
+// GS 3.4 Disjunction
+let ``∨ sym`` = x <||> y === y <||> x |> axiom "∨ sym"
+
+let ``∨ assoc`` = x <||> y <||> z === (x <||> (y <||> z)) |> axiom "∨ assoc"
+
+let ``∨ idempotency`` = x <||> x === x |> axiom "∨ idempotency"
+
+let ``∨ over ≡`` =
+  x <||> (y === z) === (x <||> y) === (x <||> z) |> axiom "∨ over ≡"
+
+let ``excluded middle`` = x <||> !x |> axiom "excluded middle"
+
+// any two laws are equivalent
+let eqLaws th0 th1 =
+  let l0 = extractLaw th0
+  let l1 = extractLaw th1
+
+  let expr =
+    { node = { equivSymbol with signature = boolId }
+      subtrees = [ l0.expr; l1.expr ] }
+
+  { id = $"{l0.id} ≡ {l1.id}"
+    expr = expr }
