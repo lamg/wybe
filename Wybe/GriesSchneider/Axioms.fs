@@ -8,18 +8,18 @@ let x, y, z = Var "x", Var "y", Var "z"
 // x ≡ y  ⇒  f.x ≡ f.y
 let ``≡ leibniz`` =
   let fx, fy = Var "fx", Var "fy"
-  (x === y) ==> (fx === fy) |> axiom "≡ leibniz"
+  x === y ==> (fx === fy) |> axiom "≡ leibniz"
 
 
 // (x ≡ y) ∧ (y ≡ z)  ⇒  (x ≡ z)
 let ``≡ transitivity`` =
-  ((x === y) <&&> (y === z)) ==> (x === z) |> axiom "≡ transitivity"
+  x === y <&&> y === z ==> (x === z) |> axiom "≡ transitivity"
 
 // x ≡ y ≡ y ≡ x
-let ``≡ sym`` = (x === y) === (y === x) |> axiom "≡ sym"
+let ``≡ sym`` = x === y === (y === x) |> axiom "≡ sym"
 
 // (x ≡ x) ≡ true
-let ``≡ ident`` = (x === x) === True |> axiom "≡ ident"
+let ``≡ ident`` = x === x === True |> axiom "≡ ident"
 
 // false ≡ ¬true
 let ``false def`` = False === !True |> axiom "false def"
@@ -28,11 +28,11 @@ let ``false def`` = False === !True |> axiom "false def"
 let ``¬ over ≡`` = !(x === y) === (!x === y) |> axiom "¬ over ≡"
 
 // x ≢ y ≡ ¬(x ≡ y)
-let ``≢ def`` = (x !== y) === !(x === y) |> axiom "≢ def"
+let ``≢ def`` = x !== y === !(x === y) |> axiom "≢ def"
 
 // (x ≡ y) ≡ z  ≡  x ≡ (y ≡ z)
 let ``≡ assoc`` =
-  let lhs = (x === y) === z
+  let lhs = x === y === z
   let rhs = x === (y === z)
   lhs === rhs |> axiom "≡ assoc"
 
