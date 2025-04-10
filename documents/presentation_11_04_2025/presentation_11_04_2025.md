@@ -48,6 +48,8 @@ backgroundImage: url('https://marp.app/assets/hero-background.svg')
 
 ![width:300px](./formal_land_logo.png)
 
+https://formal.land
+
 ---
 
 # Why it's not used more?
@@ -90,9 +92,9 @@ backgroundImage: url('https://marp.app/assets/hero-background.svg')
 
 # 10 years ago
 
-https://eltoque.com/programar-sin-computadora
+![height:350px](./10_years_ago.png)
 
-![height:450px](./10_years_ago.png)
+https://eltoque.com/programar-sin-computadora
 
 ---
 
