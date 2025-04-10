@@ -1,6 +1,6 @@
 # Wybe
 
-![Wybe](./documents/images/wybe_transparent_background.png)
+![Wybe](./documents/images/wybe_logo.png)
 
 A proof checker embedded in F#'s computation expressions
 
