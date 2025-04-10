@@ -80,7 +80,7 @@ let ``transitive reduction`` () =
   let p, q = Var "p", Var "q"
 
   let steps =
-    [| (p === q) === (q === p), Some equivSymbol; True, None |]
+    [| p === q === (q === p), Some equivSymbol; True, None |]
     |> Array.map (fun (p, op) ->
       { step =
           { expr = getTypedExpr p
@@ -90,7 +90,7 @@ let ``transitive reduction`` () =
 
   let transitivity = [ makeTransitivityRule ``≡ transitivity`` |> Result.get ]
   let ok, (n, s) = transitiveReduction transitivity steps
-  let expected = (p === q) === (q === p) === True |> getTypedExpr
+  let expected = p === q === (q === p) === True |> getTypedExpr
 
   Assert.Equal(expected, s)
   Assert.True ok

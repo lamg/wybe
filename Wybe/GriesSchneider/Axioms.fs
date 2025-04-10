@@ -13,7 +13,7 @@ let ``≡ leibniz`` =
 
 // (x ≡ y) ∧ (y ≡ z)  ⇒  (x ≡ z)
 let ``≡ transitivity`` =
-  x === y <&&> y === z ==> (x === z) |> axiom "≡ transitivity"
+  x === y <&&> (y === z) ==> (x === z) |> axiom "≡ transitivity"
 
 // x ≡ y ≡ y ≡ x
 let ``≡ sym`` = x === y === (y === x) |> axiom "≡ sym"
