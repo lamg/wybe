@@ -162,3 +162,11 @@ let ``failed proof summary`` () =
   |> inspect
   |> summary
   |> accEqual expected
+
+[<Fact>]
+let ``out of bounds step`` () =
+  let expected =
+    [| ColorMessages.sectionBody "step at" "19"
+       ColorMessages.error "index out of range" "19 not in 0 ≤ i < 2" |]
+
+  trueTheorem |> inspect |> stepAt 19 |> accEqual expected

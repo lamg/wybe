@@ -36,13 +36,13 @@ let private mapStepExpansion
 
   n.calc.check.expandedSteps
   |> function
-    | steps when 0 >= step && step < steps.Length ->
+    | steps when 0 <= step && step < steps.Length ->
       let xs = steps[step] |> f
 
       match true with
       | _ when Seq.isEmpty xs -> [| error $"expansion_{step}" "None" |]
       | _ -> xs
-    | _ -> [| error $"step_{step}" "None" |]
+    | steps -> [| error "index out of range" $"{step} not in 0 ≤ i < {steps.Length}" |]
   |> addLines withHeader
 
 let expansionsAt = mapStepExpansion "expansions at" expansionToStrList
