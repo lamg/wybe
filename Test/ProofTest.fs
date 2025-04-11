@@ -66,7 +66,7 @@ let trueTheorem =
   proof () {
     Theorem("true_theorem", True)
     WithLaws [ ``≡ sym`` ]
-    (p === q) === (q === p)
+    p === q === (q === p)
 
     ``≡`` {
       ``≡ assoc``
