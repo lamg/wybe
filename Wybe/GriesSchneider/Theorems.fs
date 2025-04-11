@@ -193,6 +193,20 @@ let ``∨ zero`` () =
   }
 
 let ``∨ identity`` () =
+  let assocSymEqIdent =
+    proof () {
+      Theorem("assoc sym ≡ ident", True === x === x)
+      withLaws { ``≡ ident`` }
+      x === x === True
+
+      ``≡`` {
+        ``≡ sym``
+        sym ``≡ assoc``
+      }
+
+      True === x === x
+    }
+
   proof () {
     Theorem("∨ identity", x <||> False === x)
     withLaws { ``excluded middle`` }
@@ -203,9 +217,9 @@ let ``∨ identity`` () =
     x <||> (False === x)
     ``≡`` { ``false def`` }
     x <||> (!True === x)
-    ``≡`` { ``¬ over ≡`` }
+    ``≡`` { sym ``¬ over ≡`` }
     x <||> !(True === x)
-    ``≡`` { sym ``≡ ident`` }
+    ``≡`` { assocSymEqIdent }
     x <||> !x
   }
 

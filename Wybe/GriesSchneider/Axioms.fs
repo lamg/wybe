@@ -52,6 +52,7 @@ let sym (r: obj) =
     function
     | { expr = { node = n; subtrees = [ x; y ] }
         id = id } ->
+      // TODO check there's a symmetry law for this expression
       { expr = { node = n; subtrees = [ y; x ] }
         id = $"sym {id}" }
 
@@ -70,7 +71,7 @@ let ``∨ assoc`` = x <||> y <||> z === (x <||> (y <||> z)) |> axiom "∨ assoc"
 let ``∨ idempotency`` = x <||> x === x |> axiom "∨ idempotency"
 
 let ``∨ over ≡`` =
-  x <||> (y === z) === (x <||> y) === (x <||> z) |> axiom "∨ over ≡"
+  x <||> (y === z) === (x <||> y === (x <||> z)) |> axiom "∨ over ≡"
 
 let ``excluded middle`` = x <||> !x |> axiom "excluded middle"
 

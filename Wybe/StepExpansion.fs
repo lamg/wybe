@@ -64,11 +64,12 @@ type GenerationLimits =
 let mapExpansions (limits: GenerationLimits) (prev: Expression<'a>) (curr: Expression<'a>) (xss: Rewriter<'a> seq seq) =
   xss
   |> Seq.truncate limits.maxAlternatives
-  |> Seq.map (fun xs ->
+  |> Seq.mapi (fun i xs ->
     let xs = xs |> Seq.truncate limits.maxAlternativeLength |> Seq.toList
+    let expansion = expandAndMarkPathToSolution (prev, curr) xs
 
     { rewriters = xs
-      expansion = expandAndMarkPathToSolution (prev, curr) xs })
+      expansion = expansion })
 
 // each step contains a list of alternative rewriters, one of them could validate the
 // transition from one step to the next in a calculation

@@ -137,6 +137,7 @@ type LawsCE(op) =
   member _.Yield(x: Law) = [ x ]
 
   member _.Yield(x: Result<CheckedCalculation, CalcError>) = [ extractLaw x ]
+  member _.Yield(xs: Result<CheckedCalculation, CalcError> list) = xs
   member this.Yield(x: unit -> Result<CheckedCalculation, CalcError>) = x () |> this.Yield
 
   member _.Combine(xs: Law list, ys: Law list) = xs @ ys
