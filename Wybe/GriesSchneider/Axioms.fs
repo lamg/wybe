@@ -52,7 +52,6 @@ let sym (r: obj) =
     function
     | { expr = { node = n; subtrees = [ x; y ] }
         id = id } ->
-      // TODO check there's a symmetry law for this expression
       { expr = { node = n; subtrees = [ y; x ] }
         id = $"sym {id}" }
 
@@ -64,7 +63,7 @@ let sym (r: obj) =
 let twice x = [ x; x ]
 
 // GS 3.4 Disjunction
-let ``∨ sym`` = x <||> y === y <||> x |> axiom "∨ sym"
+let ``∨ sym`` = x <||> y === (y <||> x) |> axiom "∨ sym"
 
 let ``∨ assoc`` = x <||> y <||> z === (x <||> (y <||> z)) |> axiom "∨ assoc"
 

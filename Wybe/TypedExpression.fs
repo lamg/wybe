@@ -77,7 +77,6 @@ let typedTree symbol (args: TypingResult list) : TypingResult =
         subtrees = xs }
   }
 
-// TODO merge Pred with Bool
 type Pred<'a when 'a: equality and 'a :> ITypedExpr> =
   | True
   | False

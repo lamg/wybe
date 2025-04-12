@@ -123,7 +123,7 @@ let provesTheorem (availableLaws: Law list) (expectedTheorem: Law) (transitivity
   let matchesLaw x =
     laws |> List.exists (fun l -> matchTree matchSymbol l x |> _.IsEmpty |> not)
 
-  let impliesDemonstrandum = false // TODO implement
+  let impliesDemonstrandum = false
 
   match transitivityReduction with
   | _ when transitivityReduction = demonstrandum -> Some ReductionEqualTheorem
@@ -132,6 +132,16 @@ let provesTheorem (availableLaws: Law list) (expectedTheorem: Law) (transitivity
   | { node = { symbol = Fixed "≡" }
       subtrees = [ x; y ] } when y = demonstrandum && matchesLaw x -> Some(DemonstrandumEqualLaw(y, x))
   | _ when impliesDemonstrandum -> Some(ReductionImpliesDemonstrandum transitivityReduction)
+  | { node = { symbol = Fixed "≡"; signature = s }
+      subtrees = [ x; y ] } ->
+    let symmetric =
+      { node = { symbol = Fixed "≡"; signature = s }
+        subtrees = [ y; x ] }
+
+    if symmetric = demonstrandum then
+      Some ReductionEqualTheorem
+    else
+      None
   | _ -> None
 
 
@@ -201,9 +211,6 @@ let compileCalculation (c: Calculation) =
                 { maxAlternatives = 0
                   maxAlternativeLength = 0 }
               | Hint.Law l ->
-                // TODO pass the next expression if no end, instead of always None
-                // with the current and next expression the generator can use a tactic to propose
-                // alternative sequences of laws that could check the step
                 let nextExpr = None
 
                 let rs =

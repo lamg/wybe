@@ -224,7 +224,37 @@ let ``∨ identity`` () =
   }
 
 let ``∨ over ∨`` () =
-  proof () { Theorem("∨ over ∨", x <||> (y <||> z) === (x <||> y) <||> (x <||> z)) }
+  proof () {
+    Theorem("∨ over ∨", x <||> (y <||> z) === (x <||> y <||> (x <||> z)))
+    x <||> y <||> (x <||> z)
+    ``≡`` { sym ``∨ assoc`` }
+    x <||> y <||> x <||> z
+    ``≡`` { ``∨ sym`` }
+    y <||> x <||> x <||> z
+    ``≡`` { ``∨ assoc`` }
+    y <||> (x <||> x) <||> z
+    ``≡`` { ``∨ idempotency`` }
+    y <||> x <||> z
+    ``≡`` { ``∨ sym`` }
+    x <||> y <||> z
+    ``≡`` { ``∨ assoc`` }
+    x <||> (y <||> z)
+  }
 
 let ``GS 3.32`` () =
-  proof () { Theorem("GS 3.32", x <||> y === x <||> !y === x) }
+  proof () {
+    Theorem("GS 3.32", x <||> y === (x <||> !y) === x)
+    x <||> y === (x <||> !y)
+    ``≡`` { sym ``∨ over ≡`` }
+    x <||> (y === !y)
+    ``≡`` { ``≡ sym`` }
+    x <||> (!y === y)
+    ``≡`` { sym ``¬ over ≡`` }
+    x <||> !(y === y)
+    ``≡`` { ``≡ ident`` }
+    x <||> !True
+    ``≡`` { sym ``false def`` }
+    x <||> False
+    ``≡`` { ``∨ identity`` }
+    x
+  }
