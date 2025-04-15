@@ -8,17 +8,33 @@ step
 next_expression
 ```
 
-checking a step consists in splitting a law by the current hint operator, in this case `≡`, to create a rewriter which is composed of a left hand side `lhs` and right hand side `rhs`. The `lhs` is used to match the expression tree in `step`, once a match is found `rhs` is transformed and replaced in the original expression tree. If one of the many generated expressions is `next_expression` then the step is checked. Let's examine an example:
+To check a step we apply a Leibniz inference rule derived from a law like `x = y ⇒ f.x = f.y`. Thus the above step, seen through the lens of a Leibniz inference rule is:
 
-```wybe
-  x ∧ ((a ≡ b) ∨ true)
-≡ { ∨ symmetry }
-  x ∧ (true ∨ (a ≡ b))
+```
+f.x
+= { x = y }
+f.y
 ```
 
-`∨ symmetry` is `x ∨ y ≡ y ∨ x`, which is splitted by `≡` since it's the hint's operator. The generated rewriter is `{ lhs = x ∨ y; rhs = y ∨ x }`.
+The implementation consists in splitting the law, an expression like `x = y`, by the operator `=` and creating a rewritter, which has a left hand side and a right hand side expressions. It's a value that looks like `{lhs = x; rhs = y}`.
 
-The result of matching `x ∨ y` in the first expression binds the free variables `x` and `y` as follows: `x: a ≡ b`, `y: true`. Now with those bindings `rhs` results in `true ∨ (a ≡ b)`. Then `rhs` is substituted where the match was found and we get  `x ∧ (true ∨ (a ≡ b))` which is the expected expression.
+Then we find matches of the rewriter's `lhs` in the expression `f.x`. Each match binds a list of free variables in the `lhs` expression, i.e. a list that looks like `[ {freeVar = x; expr = p ∧ q}; {freeVar = y; expr = p ∧ q} ]`. Each free variable with its expression is then substituted in `rhs`.
+
+At this point in every match of `lhs` in `f.x` we can replace our transformed `rhs` to obtain `f.y`. Since the match can happen in many places of the expression `f.x`, there is a list of alternative `f.y` expressions. If the one appearing in the step exists in that list, then the step is checked correctly.
+
+Let's see a detailed example:
+
+```wybe
+  p ∧ ((a ≡ b) ∨ true)
+≡ { ∨ symmetry }
+  q ∧ (true ∨ (a ≡ b))
+```
+
+For checking this step we have the Leibniz inference rule derived from `x ≡ y ⇒ f.x ≡ f.y`, which is applicable to this step because of the hint operator `≡`.
+
+`∨ symmetry` is defined as `x ∨ y ≡ y ∨ x`, which is splitted by `≡` as determined in the above Leibniz inference rule, in the subexpression `x ≡ y`. The generated rewriter is `{ lhs = x ∨ y; rhs = y ∨ x }`.
+
+The result of matching `x ∨ y` in the first expression binds the free variables `x` and `y` as follows: `x: a ≡ b`, `y: true`. Now with those bindings, rewritting `rhs` results in `true ∨ (a ≡ b)`. Then `rhs` is substituted where the match was found and we get  `x ∧ (true ∨ (a ≡ b))` which is the expected expression.
 
 Using F# it's possible to visualize this process by inspecting the steps of a calculation. Let's do it for the following proof:
 
@@ -79,3 +95,7 @@ Now the rewritter `x ≡ x ↦ true` is applied to each children. For the last t
 (p ≡ q) ≡ (p ≡ q) ✅1
 └── true ✅1
 ```
+
+## Checking transitivity between steps
+
+## Checking ransitivity result as evidence for proving theorem
