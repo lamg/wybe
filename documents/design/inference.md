@@ -80,10 +80,9 @@ Now the rewriter `x ≡ x ↦ true` is applied to each children. The final expre
 (p ≡ q) ≡ (q ≡ p) ✅0
   ├── (q ≡ p) ≡ (p ≡ q) ❌
   ├── (q ≡ p) ≡ (q ≡ p) ✅0
-  |   └── true ✅0
+  │   └── true ✅0
   └── (p ≡ q) ≡ (p ≡ q) ✅1
-
-(q ≡ p) ≡ (q ≡ p) ✅0
+     └── true ✅1
 ```
 
 
