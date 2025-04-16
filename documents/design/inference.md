@@ -3,7 +3,7 @@
 Each step is composed of an expression and a hint that connects it to the next step's expression:
 
 ```
-step
+current_expression
 ≡ { law }
 next_expression
 ```
@@ -16,27 +16,17 @@ f.x
 f.y
 ```
 
-The implementation consists in splitting the law, an expression like `x = y`, by the operator `=` and creating a rewritter, which has a left hand side and a right hand side expressions. It's a value that looks like `{lhs = x; rhs = y}`.
-
-Then we find matches of the rewriter's `lhs` in the expression `f.x`. Each match binds a list of free variables in the `lhs` expression, i.e. a list that looks like `[ {freeVar = x; expr = p ∧ q}; {freeVar = y; expr = p ∧ q} ]`. Each free variable with its expression is then substituted in `rhs`.
-
-At this point in every match of `lhs` in `f.x` we can replace our transformed `rhs` to obtain `f.y`. Since the match can happen in many places of the expression `f.x`, there is a list of alternative `f.y` expressions. If the one appearing in the step exists in that list, then the step is checked correctly.
-
-Let's see a detailed example:
+In order to apply Leibniz correctly we need to identify `x` in the original expression, which would lead to defining `f.x` as the surrounding expression of `x`. For example in an expression `(a ≡ b) ∧ (a ≡ b)` we can identify `x` as `a ≡ b`, thus we would get the definition `f.x = x ∧ x`. If we have a law like `x ∧ x ≡ x` in the hint, then we rewrite `x ∧ x` as `x`, giving the new definition `f.x = x`. In conjuction with our identification of `x` as `a ≡ b`, the resulting expression would be `a ≡ b`. See the step below for more clarity:
 
 ```wybe
-  p ∧ ((a ≡ b) ∨ true)
-≡ { ∨ symmetry }
-  q ∧ (true ∨ (a ≡ b))
+  (a ≡ b) ∧ (a ≡ b) // f.x = x ∧ x
+≡ { x ∧ x ≡ x } // x = a ≡ b
+  a ≡ b // f.x = x
 ```
 
-For checking this step we have the Leibniz inference rule derived from `x ≡ y ⇒ f.x ≡ f.y`, which is applicable to this step because of the hint operator `≡`.
+The implementation consists in splitting the law by the hint operator, in this case `≡`. This creates a rewriter, a value that has two internal fields `lhs = x ∧ x` and `rhs = x`, which is used to match `lhs` against the original expression giving a list of bindings for each matched free variable like `x = a ≡ b`. The bindings are then used to rewrite the `rhs` component, resulting in `a ≡ b` in this case. This is then substituted in the subtree where the `lhs` match was found to get the final expression. Since this match can happen in several places in the original expression, then checking a step consist in finding the next step's expression among the list of possible rewrites.
 
-`∨ symmetry` is defined as `x ∨ y ≡ y ∨ x`, which is splitted by `≡` as determined in the above Leibniz inference rule, in the subexpression `x ≡ y`. The generated rewriter is `{ lhs = x ∨ y; rhs = y ∨ x }`.
-
-The result of matching `x ∨ y` in the first expression binds the free variables `x` and `y` as follows: `x: a ≡ b`, `y: true`. Now with those bindings, rewritting `rhs` results in `true ∨ (a ≡ b)`. Then `rhs` is substituted where the match was found and we get  `x ∧ (true ∨ (a ≡ b))` which is the expected expression.
-
-Using F# it's possible to visualize this process by inspecting the steps of a calculation. Let's do it for the following proof:
+A hint can produce more than one rewritter, when you have more than one law, thus rewritting the original expression creates a tree and checking the step consists in finding a path to the next step's expression. Using F# it's possible to visualize this process by inspecting the steps of a calculation. Let's do it for the following proof:
 
 ```fsharp
 proof () {
