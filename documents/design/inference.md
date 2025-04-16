@@ -88,4 +88,4 @@ Now the rewriter `x ≡ x ↦ true` is applied to each children. The final expre
 
 ## Checking transitivity between steps
 
-## Checking ransitivity result as evidence for proving theorem
+## Checking transitivity result as evidence for proving theorem
