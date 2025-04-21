@@ -25,22 +25,26 @@ let ``true theorem`` () =
 let ``GS 3.11`` () =
   proof () {
     Theorem("GS 3.11", !x === y === (x === !y))
-    withLaws { ``true theorem`` }
+
+    withLaws {
+      ``true theorem``
+      ``≡ sym``
+    }
 
     !x === y === (x === !y)
 
-    ``≡`` {
-      sym ``¬ over ≡``
-      ``≡ sym``
-      sym ``¬ over ≡``
-    }
+    ``≡`` { ``¬ over ≡`` }
 
-    !(x === y) === !(y === x)
+    !(x === y) === (x === !y)
 
     ``≡`` {
       ``≡ sym``
-      ``≡ ident``
+      ``¬ over ≡``
+      ``≡ sym``
     }
+
+    !(x === y) === !(x === y)
+    ``≡`` { ``≡ ident`` }
 
     True
   }
@@ -59,11 +63,16 @@ let ``double negation`` () =
 let ``negation of false`` () =
   proof () {
     Theorem("negation of false", !False === True)
-    withLaws { ``false def`` }
+
+    withLaws {
+      ``false def``
+      ``≡ sym``
+    }
+
     !False === True
 
     ``≡`` {
-      sym ``¬ over ≡``
+      ``¬ over ≡``
       ``≡ sym``
     }
 
@@ -111,35 +120,55 @@ let ``symmetry of ≢`` () =
 
 
 let ``associativity of ≢`` () =
+  let secondHalf =
+    proof () {
+      Theorem("lemma for proving associativity of ≢ ", x !== (y !== z) === (x === (y === z)))
+      withLaws { ``≡ sym`` }
+      x !== (y !== z)
+      ``≡`` { twice ``GS 3.14`` }
+      !x === (!y === z)
+      ``≡`` { twice ``¬ over ≡`` }
+      !(x === !(y === z))
+
+      ``≡`` {
+        ``≡ sym``
+        ``¬ over ≡``
+      }
+
+      !(!(y === z === x))
+
+      ``≡`` {
+        ``double negation``
+        ``≡ sym``
+      }
+
+      x === (y === z)
+    }
+
   proof () {
     Theorem("associativity of ≢", x !== y !== z === (x !== (y !== z)))
+    withLaws { ``≡ sym`` }
     x !== y !== z
 
-    ``≡`` {
-      ``GS 3.14``
-      ``symmetry of ≢``
-      ``GS 3.14``
-      ``≡ sym``
-    }
+    ``≡`` { twice ``GS 3.14`` }
 
-    !x === y === !z
-    ``≡`` { ``≡ assoc`` }
-    !x === (y === !z)
+    !(!x === y) === z
 
     ``≡`` {
-      sym ``GS 3.14``
-      ``≡ sym``
-      sym ``GS 3.14``
+      ``¬ over ≡``
+      ``double negation``
+      ``≡ assoc``
     }
 
-    x !== (z !== y)
-    ``≡`` { ``symmetry of ≢`` }
+    x === (y === z)
+    ``≡`` { secondHalf }
     x !== (y !== z)
   }
 
 let ``mutual associativity`` () =
   proof () {
     Theorem("mutual associativity", x !== y === z === (x !== (y === z)))
+    withLaws { ``≡ sym`` }
     x !== y === z
 
     ``≡`` {
@@ -148,13 +177,14 @@ let ``mutual associativity`` () =
     }
 
     !x === (y === z)
-    ``≡`` { sym ``GS 3.14`` }
+    ``≡`` { ``GS 3.14`` }
     x !== (y === z)
   }
 
 let ``mutual interchangeability`` () =
   proof () {
     Theorem("mutual interchangeability", x !== y === z === (x === (y !== z)))
+    withLaws { ``≡ sym`` }
     x !== y === z
 
     ``≡`` {
@@ -165,7 +195,7 @@ let ``mutual interchangeability`` () =
     !x === (y === z)
     ``≡`` { ``GS 3.11`` }
     x === !(y === z)
-    ``≡`` { sym ``≢ def`` }
+    ``≡`` { ``≢ def`` }
     x === (y !== z)
   }
 
@@ -176,6 +206,7 @@ let ``∨ zero`` () =
 
   proof () {
     Theorem("∨ zero", x <||> True === True)
+    withLaws { ``≡ sym`` }
     x <||> True
 
     ``≡`` { excludedMiddle }
@@ -183,51 +214,45 @@ let ``∨ zero`` () =
     x <||> (x <||> !x)
 
     ``≡`` {
-      sym ``∨ assoc``
+      ``∨ assoc``
       ``∨ idempotency``
     }
 
     x <||> !x
-    ``≡`` { sym excludedMiddle }
+    ``≡`` { excludedMiddle }
     True
   }
 
 let ``∨ identity`` () =
-  let assocSymEqIdent =
-    proof () {
-      Theorem("assoc sym ≡ ident", True === x === x)
-      withLaws { ``≡ ident`` }
-      x === x === True
-
-      ``≡`` {
-        ``≡ sym``
-        sym ``≡ assoc``
-      }
-
-      True === x === x
-    }
-
   proof () {
     Theorem("∨ identity", x <||> False === x)
-    withLaws { ``excluded middle`` }
+
+    withLaws {
+      ``excluded middle``
+      ``≡ sym``
+      ``≡ sym``
+      ``≡ assoc``
+    }
+
     x <||> False === x
-    ``≡`` { sym ``∨ idempotency`` }
+    ``≡`` { ``∨ idempotency`` }
     x <||> False === (x <||> x)
-    ``≡`` { sym ``∨ over ≡`` }
+    ``≡`` { ``∨ over ≡`` }
     x <||> (False === x)
     ``≡`` { ``false def`` }
     x <||> (!True === x)
-    ``≡`` { sym ``¬ over ≡`` }
+    ``≡`` { ``¬ over ≡`` }
     x <||> !(True === x)
-    ``≡`` { assocSymEqIdent }
+    ``≡`` { ``≡ ident`` }
     x <||> !x
   }
 
 let ``∨ over ∨`` () =
   proof () {
     Theorem("∨ over ∨", x <||> (y <||> z) === (x <||> y <||> (x <||> z)))
+    withLaws { ``≡ sym`` }
     x <||> y <||> (x <||> z)
-    ``≡`` { sym ``∨ assoc`` }
+    ``≡`` { ``∨ assoc`` }
     x <||> y <||> x <||> z
     ``≡`` { ``∨ sym`` }
     y <||> x <||> x <||> z
@@ -244,16 +269,17 @@ let ``∨ over ∨`` () =
 let ``GS 3.32`` () =
   proof () {
     Theorem("GS 3.32", x <||> y === (x <||> !y) === x)
+    withLaws { ``≡ sym`` }
     x <||> y === (x <||> !y)
-    ``≡`` { sym ``∨ over ≡`` }
+    ``≡`` { ``∨ over ≡`` }
     x <||> (y === !y)
     ``≡`` { ``≡ sym`` }
     x <||> (!y === y)
-    ``≡`` { sym ``¬ over ≡`` }
+    ``≡`` { ``¬ over ≡`` }
     x <||> !(y === y)
     ``≡`` { ``≡ ident`` }
     x <||> !True
-    ``≡`` { sym ``false def`` }
+    ``≡`` { ``false def`` }
     x <||> False
     ``≡`` { ``∨ identity`` }
     x

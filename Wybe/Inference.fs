@@ -4,15 +4,62 @@ open ExpressionMatch
 open StepExpansion
 open TypedExpression
 open FsToolkit.ErrorHandling
+open FSharp.Core
 
 type Law = { expr: TypedExpr; id: string }
 
-type CompilationError =
-  | WrongLeibniz of Law
+type CheckError =
+  // expression given for extracting a Leibniz inference rule doesn't match with `x = y ⇒ f.x = f.y`
+  | IncompatibleLawWithLeibniz of Law
+  // expression given for extracting a transitivity inference rule doesn't match with `x = y ∧ y = z ⇒ x = z`
   | WrongTransitivity of Law
   | EmptyCalculation
+  // The RHS in a Leibniz expression `x = y ⇒ f.x = f.y`, has operator `=`, which has to coincide with the operator in a step like
+  //   f.x
+  // = {}
+  //  f.y
+  | NoTransitivityBetween of TypedExpr * TypedExpr
 
-type Leibniz = TypedSymbol -> Law -> Rewriter<TypedSymbol> option
+type CheckWarning =
+  | NoLeibnizLhsHintLawMatch of leibnizLhs: TypedExpr * lawExpr: TypedExpr
+  | NoOperatorLeibnizRhsMatch of op: TypedSymbol * TypedExpr
+
+type CheckResult =
+  { errors: CheckError list
+    warnings: CheckWarning list }
+
+type LeibnizResult =
+  { checkResult: CheckResult
+    leibniz: Rewriter<TypedSymbol> option }
+
+type LeibnizRule =
+  { ``x = y``: TypedExpr
+    ``f.x = f.y``: TypedExpr }
+
+  member this.apply(hintOp: TypedSymbol, hintLaw: Law) =
+    match true with
+    | _ when this.``f.x = f.y``.node = hintOp ->
+      let m = matchTree matchSymbol this.``x = y`` hintLaw.expr
+
+      match m with
+      | (_, x) :: (_, y) :: _ ->
+        { checkResult = { errors = []; warnings = [] }
+          leibniz =
+            Some
+              { lhs = x
+                rhs = y
+                isNodeMatch = matchSymbol
+                id = hintLaw.id } }
+      | _ ->
+        { checkResult =
+            { errors = []
+              warnings = [ NoLeibnizLhsHintLawMatch(this.``x = y``, hintLaw.expr) ] }
+          leibniz = None }
+    | _ ->
+      { checkResult =
+          { errors = []
+            warnings = [ NoOperatorLeibnizRhsMatch(hintOp, this.``f.x = f.y``) ] }
+        leibniz = None }
 
 // leibniz: a predicate like x <eq0> y  ↦  f.x <eq1> f.y
 // stepOp: equal to <eq1>, for the step to match with f.x <eq1> f.y
@@ -22,92 +69,94 @@ type Leibniz = TypedSymbol -> Law -> Rewriter<TypedSymbol> option
 // <eq1> { law0 }
 //   f.y
 // where law0 matches x <eq0> y
-let makeLeibnizRule (leibniz: Law) : Result<Leibniz, CompilationError> =
-  result {
-    let! xEqY, fxEqFy =
-      match leibniz.expr with
-      | { node = { signature = s }
-          subtrees = [ xEqY; fxEqFy ] } when s = boolId -> Ok(xEqY, fxEqFy)
-      | _ -> WrongLeibniz leibniz |> Error
+let makeLeibnizRule (leibnizLaw: Law) : Result<LeibnizRule, CheckError> =
+  match leibnizLaw.expr with
+  | { node = { signature = s }
+      subtrees = [ ``x = y``; ``f.x = f.y`` ] } when s = boolId ->
+    Ok
+      { ``x = y`` = ``x = y``
+        ``f.x = f.y`` = ``f.x = f.y`` }
 
-    let rule stepOp (hint: Law) =
-      match stepOp with
-      | { signature = Fun [ _; _; last ] } when fxEqFy.node.symbol = stepOp.symbol && last = boolId ->
-        let m = matchTree matchSymbol xEqY hint.expr
+  | _ -> Error(IncompatibleLawWithLeibniz leibnizLaw)
 
-        match m with
-        | (_, fx) :: (_, fy) :: _ ->
+type TransitivityResult =
+  { checkResult: CheckResult
+    resultExpr: TypedExpr option }
+
+type TransitivityRule =
+  { ``x = y``: TypedExpr
+    ``y = z``: TypedExpr
+    ``x <op> z``: TypedSymbol }
+
+  // given two expressions like (x <imp0> y), (y <imp1> z)
+  // returns a result expression like x <resultExprOp> z
+  member this.reduceExprs(``x = y``: TypedExpr, ``y = z``: TypedExpr) =
+    let t0 = matchTree matchSymbol this.``x = y`` ``x = y``
+    let t1 = matchTree matchSymbol this.``y = z`` ``y = z``
+
+    match t0, t1 with
+    | [ _, x; _, y ], [ _, y'; _, z ] when y = y' ->
+      { checkResult = { errors = []; warnings = [] }
+        resultExpr =
           Some
-            { lhs = fx
-              rhs = fy
-              isNodeMatch = matchSymbol
-              id = hint.id }
-        | _ -> None
-      | _ -> None
+            { node = this.``x <op> z``
+              subtrees = [ x; z ] } }
+    | _ ->
+      { checkResult =
+          { errors = [ NoTransitivityBetween(``x = y``, ``y = z``) ]
+            warnings = [] }
+        resultExpr = None }
 
-    return rule
-  }
+let makeTransitivityRule (transitivity: Law) : Result<TransitivityRule, CheckError> =
+  match transitivity.expr with
+  | { subtrees = [ { subtrees = [ { subtrees = [ x; y ] } as t0; { subtrees = [ y'; z ] } as t1 ] }
+                   { node = imp2; subtrees = [ x'; z' ] } ] } when x = x' && y = y' && z = z' ->
+    { ``x = y`` = t0
+      ``y = z`` = t1
+      ``x <op> z`` = imp2 }
+    |> Ok
+  | _ -> WrongTransitivity transitivity |> Error
 
-type Transitivity = TypedExpr -> TypedExpr -> TypedExpr option
-
-// transitivity: a predicate in the form (x <imp0> y) ∧ (y <imp1> z) ↦ x <imp2> z
-// returns a function that matches two expressions like (x <imp0> y), (y <imp1> z)
-// and returns a result expression like x <imp2> z
-let makeTransitivityRule (transitivity: Law) : Result<Transitivity, CompilationError> =
-  result {
-    let! t0, t1, imp2 =
-      match transitivity.expr with
-      | { subtrees = [ { subtrees = [ { subtrees = [ x; y ] } as t0; { subtrees = [ y'; z ] } as t1 ] }
-                       { node = imp2; subtrees = [ x'; z' ] } ] } when x = x' && y = y' && z = z' -> Ok(t0, t1, imp2)
-      | _ -> WrongTransitivity transitivity |> Error
-
-    let rule s0 s1 =
-      let t0 = matchTree matchSymbol t0 s0
-      let t1 = matchTree matchSymbol t1 s1
-
-      match t0, t1 with
-      | [ _, x; _, y ], [ _, y'; _, z ] when y = y' -> Some { node = imp2; subtrees = [ x; z ] }
-      | _ -> None
-
-    return rule
-  }
-
-type StepOp =
+type CheckableStep =
   { step: Step<TypedSymbol>
     op: TypedSymbol option }
 
-let fold1Until (f: 'a -> 'a -> 'a option) (xs: 'a list) =
-  let rec loop (acc: 'a) (xs: 'a list) =
-    match xs with
-    | [] -> true, acc
-    | y :: ys ->
-      match f acc y with
-      | Some z -> loop z ys
-      | None -> false, acc
-
-  match xs with
-  | [] -> failwith "expecting non-empty list"
-  | y :: ys -> loop y ys
-
 // creates an expression joining consecutive pairs of steps with the operator of the first
 // expressions are reduced using one of the applicable transitivity rules
-let transitiveReduction (ts: Transitivity list) (steps: StepOp array) =
-  steps
-  |> Array.pairwise
-  |> Array.mapi (fun i (x, y) ->
-    let joined =
-      { node = { x.op.Value with signature = boolId }
-        subtrees = [ x.step.expr; y.step.expr ] }
+let checkTransitivity (ts: TransitivityRule list) (steps: CheckableStep array) =
+  assert (steps.Length > 0)
 
-    i, joined)
-  |> Array.toList
-  |> fold1Until (fun (_, acc) (j, y) ->
-    ts
-    |> List.choose (fun transitivity -> transitivity acc y)
-    |> List.tryHead
-    |> function
-      | Some r -> Some(j, r)
-      | None -> None)
+  let joinedSteps =
+    steps
+    |> Array.pairwise
+    |> Array.map (fun (x, y) ->
+      { node = { x.op.Value with signature = boolId }
+        subtrees = [ x.step.expr; y.step.expr ] })
+  // joinedSteps has the shape: (expr0 op0 expr1)+
+
+  let folder (acc: TransitivityResult) s =
+    match acc with
+    | { resultExpr = Some exp } ->
+      let transitivityResult = ts |> List.map (fun t -> t.reduceExprs (exp, s))
+
+      let errors =
+        transitivityResult |> List.collect (fun { checkResult = { errors = es } } -> es)
+
+      let resultExpr = transitivityResult |> List.tryFind (fun r -> r.resultExpr.IsSome)
+
+      match resultExpr with
+      | Some r -> r
+      | None ->
+        { resultExpr = None
+          checkResult = { errors = errors; warnings = [] } }
+    | _ -> acc
+
+  joinedSteps
+  |> Seq.tail
+  |> Seq.scan
+    folder
+    { resultExpr = Some joinedSteps[0]
+      checkResult = { warnings = []; errors = [] } }
 
 
 type Evidence =
@@ -144,10 +193,13 @@ let provesTheorem (availableLaws: Law list) (expectedTheorem: Law) (transitivity
       None
   | _ -> None
 
+type StepContext =
+  { currentStep: TypedExpr
+    nextStep: TypedExpr }
 
 type LawGenerator =
   { id: string
-    generator: TypedExpr -> TypedExpr option -> Law seq seq
+    generator: StepContext -> Law seq seq
     limits: GenerationLimits }
 
 type LawHint =
@@ -163,82 +215,156 @@ type CalcStep = { expr: TypedExpr; hint: Hint }
 
 type Calculation =
   { leibniz: Law list
-    transitivity: Law list
-    applyToResult: Law list
+    transitivity: Law list // laws used to check the transitivity of steps
+    contextLaws: Law list // these laws are applied between each step and to the expression resulting of joining the calculation steps
     demonstrandum: Law
     steps: CalcStep array }
 
-let countFits (matcher: Expression<'a>) (target: Expression<'a>) =
-  let rec treeHeight t =
-    match t with
-    | { subtrees = [] } -> 1
-    | _ -> t.subtrees |> List.map treeHeight |> List.max |> ((+) 1)
+type CheckContext =
+  { mutable issues: CheckResult list
+    rules: LeibnizRule list
+    contextLaws: Law list }
 
-  let heightTarget = treeHeight target
-  let heightMatcher = treeHeight matcher
+  member this.addIssues(issue: CheckResult) =
+    match issue with
+    | { warnings = []; errors = [] } -> ()
+    | _ -> this.issues <- issue :: this.issues
 
-  match true with
-  | _ when heightMatcher > heightTarget -> 0
-  | _ -> heightTarget - heightMatcher + 1
+  member this.addIssues(issues: CheckResult list) =
+    let xs =
+      issues
+      |> List.filter (function
+        | { warnings = []; errors = [] } -> false
+        | _ -> true)
 
-type CalcChecker<'a when 'a: equality> =
-  { transitivity: Transitivity list
-    steps: StepOp array
-    getEvidence: TypedExpr -> Evidence option }
+    this.issues <- xs @ this.issues
+
+  member this.leibnizRewriter (op: TypedSymbol) (law: Law) =
+    this.rules
+    |> List.choose (fun x ->
+      let r = x.apply (op, law)
+      this.addIssues r.checkResult
+      r.leibniz)
+    |> List.tryHead
+
+
+type CompiledCalculation =
+  { calculation: Calculation
+    transitivity: TransitivityRule list
+    steps: CheckableStep array
+    getEvidence: TypedExpr -> Evidence option
+    checkContext: CheckContext }
+
+let expandGeneratedLaws (ctx: CheckContext) (op: TypedSymbol) (generated: Law seq seq) =
+  // list of alternative versions to lawExpr resulting from transforming it with contextLaws
+  let alternativesTo op (law: Law) =
+    let rewriters = ctx.contextLaws |> List.choose (ctx.leibnizRewriter op)
+
+    rewriters
+    |> appyAllRewritersPermutations law.expr
+    |> List.concat
+    |> Seq.map (fun expr -> { expr = expr; id = law.id })
+
+  let expandWithAlternatives op (hintLaws: Law seq) =
+    // for each alternative found creates a sequence with the original laws and the new alternative replaced
+    hintLaws
+    |> Seq.map (fun l ->
+      let alts = alternativesTo op l
+
+      alts
+      |> Seq.map (fun alt ->
+        hintLaws
+        |> Seq.map (function
+          | hl when hl = l -> alt
+          | hl -> hl)))
+
+  let rss =
+    generated
+    |> Seq.collect (expandWithAlternatives op)
+    |> Seq.concat
+    |> Seq.append generated
+
+  rss
+
+
+let makeCheckableSteps (ctx: CheckContext) (steps: CalcStep array) =
+  let makeCheckable (current: CalcStep, nextExpr: TypedExpr option) =
+    match current.hint with
+    | Hint.End ->
+      { op = None
+        step =
+          { expr = current.expr
+            rewriters = []
+            limits =
+              { maxAlternatives = 0
+                maxAlternativeLength = 0 } } }
+    | Hint.Law l ->
+      let generatedLaws =
+        l.lawGenerator.generator
+          { currentStep = current.expr
+            nextStep = nextExpr |> Option.get }
+
+      let rewriters =
+        generatedLaws
+        |> expandGeneratedLaws ctx l.op
+        |> Seq.mapi (fun i xs ->
+          xs
+          |> Seq.choose (fun x ->
+            let s = ctx.leibnizRewriter l.op x
+            s))
+
+      { op = Some l.op
+        step =
+          { expr = current.expr
+            rewriters = rewriters
+            limits =
+              { maxAlternatives = 10
+                maxAlternativeLength = 10 } } }
+
+  let successors =
+    Array.append (steps |> Array.tail |> Array.map (_.expr >> Some)) [| None |]
+
+  let consecutivePairs = Array.zip steps successors
+  consecutivePairs |> Array.map makeCheckable
 
 let compileCalculation (c: Calculation) =
   result {
     let! leibniz = c.leibniz |> List.map makeLeibnizRule |> List.sequenceResultM
+
+    let ctx =
+      { issues = []
+        contextLaws = c.contextLaws
+        rules = leibniz }
+
     let! transitivity = c.transitivity |> List.map makeTransitivityRule |> List.sequenceResultM
 
-    let getLeibnizRewriters (op: TypedSymbol) (laws: Law seq) =
-      laws |> Seq.collect (fun y -> leibniz |> List.choose (fun l -> l op y))
-
     let getEvidence reduction =
-      provesTheorem c.applyToResult c.demonstrandum reduction
+      provesTheorem c.contextLaws c.demonstrandum reduction
+
+    let steps = makeCheckableSteps ctx c.steps
 
     return
-      { transitivity = transitivity
-        steps =
-          c.steps
-          |> Array.map (fun s ->
-
-            let op, rewriters, limits =
-              match s.hint with
-              | Hint.End ->
-                None,
-                seq { },
-                { maxAlternatives = 0
-                  maxAlternativeLength = 0 }
-              | Hint.Law l ->
-                let nextExpr = None
-
-                let rs =
-                  l.lawGenerator.generator s.expr nextExpr |> Seq.map (getLeibnizRewriters l.op)
-
-                Some l.op, rs, l.lawGenerator.limits
-
-            { step =
-                { rewriters = rewriters
-                  expr = s.expr
-                  limits = limits }
-              op = op })
-        getEvidence = getEvidence }
+      { calculation = c
+        transitivity = transitivity
+        steps = steps
+        getEvidence = getEvidence
+        checkContext = ctx }
   }
 
 
 type Check =
-  { transitiveReduction: int * TypedExpr
+  { transitivityReduction: list<TransitivityResult>
     expandedSteps: StepExpansion<TypedSymbol> array
     evidence: Evidence option
     okReduction: bool
     okSteps: bool
     isOk: bool }
 
-let checkSteps (checker: CalcChecker<'a>) =
-  let okReduction, (stepIndex, reduction) =
-    assert (checker.steps.Length <> 0)
-    transitiveReduction checker.transitivity checker.steps
+let checkSteps (checker: CompiledCalculation) =
+  assert (checker.steps.Length <> 0)
+  let reduction = checkTransitivity checker.transitivity checker.steps |> Seq.toList
+  assert (reduction.Length = checker.steps.Length - 1)
+  let transitivityResult = reduction |> List.last
 
   let expandedAndMarkedSteps =
     applyRewritersAndMarkPathToSolution (checker.steps |> Array.map _.step)
@@ -247,14 +373,14 @@ let checkSteps (checker: CalcChecker<'a>) =
     expandedAndMarkedSteps
     |> Array.forall (fun expansions -> expansions |> Seq.exists _.expansion.node.path.IsSome)
 
-  let evidence = if okReduction then checker.getEvidence reduction else None
+  let evidence = transitivityResult.resultExpr |> Option.bind checker.getEvidence
 
-  let isOk = okReduction && okSteps && evidence.IsSome
+  let isOk = okSteps && evidence.IsSome
 
-  { transitiveReduction = stepIndex, reduction
+  { transitivityReduction = reduction
     expandedSteps = expandedAndMarkedSteps
     evidence = evidence
-    okReduction = okReduction
+    okReduction = transitivityResult.resultExpr.IsSome
     okSteps = okSteps
     isOk = isOk }
 

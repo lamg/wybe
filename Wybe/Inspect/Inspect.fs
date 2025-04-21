@@ -50,6 +50,9 @@ let rewritersAt = mapStepExpansion "rewriters at" rewritersToStrList
 
 let stepAt = mapStepExpansion "step at" alternativesToStrList
 
+let successfulAltAt =
+  mapStepExpansion "successful alternatives at" successfulAlternativesToStrList
+
 let hintAt (step: int) (n: Inspection) =
   let hint =
     n.calc.calculation.steps
@@ -97,7 +100,7 @@ let calculationSummary (calc: CheckedCalculation) =
     if not calc.check.okSteps then
       calc.check.expandedSteps
       |> Array.choosei (fun i xs ->
-        let notOk = xs |> Seq.exists (fun x -> x.expansion.node.path.IsNone)
+        let notOk = xs |> Seq.forall (fun x -> x.expansion.node.path.IsNone)
         if notOk then Some i else None)
     else
       [||]

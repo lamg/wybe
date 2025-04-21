@@ -62,7 +62,9 @@ type Rewriter<'a when 'a: equality> =
 let rewriteTree (r: Rewriter<'a>) (target: Tree<'a>) =
   match matchTree r.isNodeMatch r.lhs target with
   | [] -> None
-  | matches -> Some(rewrite matches r.rhs)
+  | matches ->
+    let t = rewrite matches r.rhs
+    if t <> target then Some t else None
 
 // for each found match creates a tree rewriting that match with the rest of the original
 // tree untouched

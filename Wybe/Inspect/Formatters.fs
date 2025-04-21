@@ -5,6 +5,7 @@ open TypedExpression
 open ExpressionMatch
 open StepExpansion
 open ColorMessages
+open FSharpPlus
 
 let indentLine n line = String.replicate n " " + line
 
@@ -55,10 +56,10 @@ let printExpansion (m: MarkedTree<TypedExpr>) =
 
   printTree printTreeValue m
 
-let printRewriters (xs: Rewriter<TypedSymbol> list) =
+let printRewriters (xs: Rewriter<TypedSymbol> seq) =
   xs
-  |> List.map (fun r -> $"{printTypedExpr r.lhs} ↦ {printTypedExpr r.rhs}")
-  |> List.toArray
+  |> Seq.map (fun r -> $"{printTypedExpr r.lhs} ↦ {printTypedExpr r.rhs}")
+  |> Seq.toArray
 
 let prepend (xs: 'a array) (x: 'a) = Array.append [| x |] xs
 
@@ -81,5 +82,14 @@ let formatAlternative (i: int) (m: ExprExpansion<TypedSymbol>) =
   let body = Array.append rw exp |> Array.map (indentLine 2)
   info $"alt_{i}" "" |> prepend body
 
-let alternativesToStrList (xs: StepExpansion.StepExpansion<TypedSymbol>) =
+let alternativesToStrList (xs: ExprExpansion<TypedSymbol> seq) =
   xs |> Seq.mapi formatAlternative |> Seq.toArray |> Array.concat
+
+let successfulAlternativesToStrList (xs: ExprExpansion<TypedSymbol> seq) =
+  let formatSuccessful (i: int) (m: ExprExpansion<TypedSymbol>) =
+    if m.expansion.node.path.IsSome then
+      formatAlternative i m |> Some
+    else
+      None
+
+  xs |> Seq.choosei formatSuccessful |> Seq.toArray |> Array.concat

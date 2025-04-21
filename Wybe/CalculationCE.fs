@@ -1,6 +1,5 @@
 module CalculationCE
 
-open FSharpPlus
 open FsToolkit.ErrorHandling
 open Inference
 open TypedExpression
@@ -17,11 +16,11 @@ type Expected =
   | ExpectingHint
   | ExpectingTheorem
 
-type ParseError = { expected: Expected } // TODO leave a trace to help finding out where it happened
+type ParseError = { expected: Expected }
 
 type CalcError =
   | FailedParsing of ParseError
-  | FailedCompilation of CompilationError
+  | FailedCompilation of CheckError
 
 let buildBasic (lines: ProofLine<'a> list) =
   let rec fixedPoint (f: 'b -> 'b option) (state: 'b) =
@@ -68,19 +67,19 @@ let buildBasic (lines: ProofLine<'a> list) =
     // x ≡ y  ⇒  f.x ≡ f.y
     let eqLeibniz =
       let x, y, fx, fy = Var "x", Var "y", Var "fx", Var "fy"
-      (x === y) ==> (fx === fy) |> axiom "leibniz"
+      x === y ==> (fx === fy) |> axiom "leibniz"
 
 
     // (x ≡ y) ∧ (y ≡ z)  ⇒  (x ≡ z)
     let eqTrans =
       let x, y, z = Var "x", Var "y", Var "z"
-      ((x === y) <&&> (y === z)) ==> (x === z) |> axiom "≡-transitivity"
+      x === y <&&> (y === z) ==> (x === z) |> axiom "≡-transitivity"
 
     return
       { demonstrandum = theorem |> axiom name
         leibniz = [ eqLeibniz ]
         transitivity = [ eqTrans ]
-        applyToResult = withLaws
+        contextLaws = withLaws
         steps = steps |> List.rev |> List.toArray }
   }
 
@@ -112,7 +111,8 @@ type CalculationCE<'a when 'a: equality and 'a :> ITypedExpr>() =
 let proof () = CalculationCE()
 
 let singleAltHint op (laws: Law list) =
-  let generator _ _ = seq { Seq.ofList laws }
+  let generator (_: StepContext) = seq { Seq.ofList laws }
+
   let id = laws |> Seq.map _.id |> String.concat ", "
 
   Hint
@@ -135,9 +135,14 @@ let extractLaw (x: Result<CheckedCalculation, CalcError>) =
 
 type LawsCE(op) =
   member _.Yield(x: Law) = [ x ]
+  member _.Yield(xs: Law list) = xs
 
   member _.Yield(x: Result<CheckedCalculation, CalcError>) = [ extractLaw x ]
-  member _.Yield(xs: Result<CheckedCalculation, CalcError> list) = xs
+  member _.Yield(xs: Result<CheckedCalculation, CalcError> list) = xs |> List.map extractLaw
+
+  member _.Yield(xs: (unit -> Result<CheckedCalculation, CalcError>) list) =
+    xs |> List.map (fun f -> f () |> extractLaw)
+
   member this.Yield(x: unit -> Result<CheckedCalculation, CalcError>) = x () |> this.Yield
 
   member _.Combine(xs: Law list, ys: Law list) = xs @ ys
@@ -146,9 +151,17 @@ type LawsCE(op) =
   member _.Return(x: Law) = [ x ]
   member _.Delay(f: unit -> Law list) = f ()
 
-let ``≡`` = LawsCE equivSymbol
-let ``⇒`` = LawsCE impliesSymbol
-let ``⇐`` = LawsCE followsSymbol
+let ``≡`` = LawsCE { equivSymbol with signature = boolId }
+
+let ``⇒`` =
+  LawsCE
+    { impliesSymbol with
+        signature = boolId }
+
+let ``⇐`` =
+  LawsCE
+    { followsSymbol with
+        signature = boolId }
 
 type WithLawsCE() =
   member _.Yield(x: Law) = [ x ]

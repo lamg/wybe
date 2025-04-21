@@ -24,7 +24,7 @@ let proofTrueNoCE () : Calculation =
   let idLaws (xs: Law list) =
     xs |> List.map (fun l -> l.id, l) |> List.unzip
 
-  let id0, laws0 = [ ``≡ assoc``; sym ``≡ assoc``; ``≡ ident`` ] |> idLaws
+  let id0, laws0 = [ ``≡ assoc``; ``≡ assoc``; ``≡ ident`` ] |> idLaws
 
   let limits: StepExpansion.GenerationLimits =
     { maxAlternatives = 1
@@ -32,18 +32,18 @@ let proofTrueNoCE () : Calculation =
 
   let generator0 =
     { id = id0 |> String.concat ", "
-      generator = fun _ _ -> seq { laws0 }
+      generator = fun _ -> seq { laws0 }
       limits = limits }
 
-  let id1, laws1 = [ ``≡ sym``; sym ``≡ assoc``; ``≡ ident``; ``≡ ident`` ] |> idLaws
+  let id1, laws1 = [ ``≡ sym``; ``≡ assoc``; ``≡ ident``; ``≡ ident`` ] |> idLaws
 
   let generator1 =
     { id = id1 |> String.concat ", "
-      generator = fun _ _ -> seq { laws1 }
+      generator = fun _ -> seq { laws1 }
       limits = limits }
 
   let steps =
-    [| { expr = (p === q) === (q === p) |> getTypedExpr
+    [| { expr = p === q === (q === p) |> getTypedExpr
          hint =
            Hint.Law
              { op = equivSymbol
@@ -59,7 +59,7 @@ let proofTrueNoCE () : Calculation =
   { demonstrandum = True |> axiom "true-theorem"
     leibniz = [ ``≡ leibniz`` ]
     transitivity = [ ``≡ transitivity`` ]
-    applyToResult = [ ``≡ sym`` ]
+    contextLaws = [ ``≡ sym`` ]
     steps = steps }
 
 let trueTheorem =
@@ -69,17 +69,7 @@ let trueTheorem =
     p === q === (q === p)
 
     ``≡`` {
-      ``≡ assoc``
-      sym ``≡ assoc``
-      ``≡ ident``
-    }
-
-    p === (True === p)
-
-    ``≡`` {
       ``≡ sym``
-      sym ``≡ assoc``
-      ``≡ ident``
       ``≡ ident``
     }
 

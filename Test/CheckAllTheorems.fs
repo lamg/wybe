@@ -33,4 +33,4 @@ let ``building law from equivalent laws`` () =
 
 [<Fact>]
 let ``inspect theorems`` () =
-  Theorems.``GS 3.32`` () |> inspect |> stepAt 3 |> summary |> ignore
+  Theorems.``∨ over ∨`` () |> inspect |> stepAt 0 |> summary |> ignore

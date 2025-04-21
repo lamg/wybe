@@ -86,3 +86,35 @@ let applyRewritersAndMarkPathToSolution (steps: Step<'a> array) : StepExpansion<
   steps
   |> Array.pairwise
   |> Array.map (fun (x, y) -> mapExpansions x.limits x.expr y.expr x.rewriters)
+
+
+// applies rewriters to the expression, yielding all intermediate expressions excluding the original
+let applyRewriters (exp: Expression<'a>) (rewriters: Rewriter<'a> list) =
+  let tree = expand { build = yieldRewrites; extract = id } exp rewriters
+
+  let rec treeToList (t: Tree<Expression<'a>>) =
+    [ yield t.node
+
+      for x in t.subtrees do
+        yield! treeToList x ]
+
+  let lawSet = tree |> treeToList |> Set.ofList
+
+  let withoutOriginal = lawSet - Set [ exp ]
+  withoutOriginal |> Set.toList
+
+let rec permutations list =
+  match list with
+  | [] -> [ [] ]
+  | _ ->
+    list
+    |> List.collect (fun x ->
+      let sublist = List.filter ((<>) x) list
+      permutations sublist |> List.map (fun perm -> x :: perm))
+
+// applies to all permutations of rewriters to the expression
+let appyAllRewritersPermutations (exp: Expression<'a>) (rewriters: Rewriter<'a> list) =
+  let xss = [ 0 .. rewriters.Length - 1 ] |> permutations
+
+  xss
+  |> List.map (fun xs -> rewriters |> List.permute (fun n -> xs[n]) |> applyRewriters exp)

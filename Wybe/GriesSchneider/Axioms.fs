@@ -47,20 +47,6 @@ let rec extractLaw (x: obj) =
   | :? Law as x -> x
   | _ -> failwith $"cannot get law, unsupported value {x}"
 
-let sym (r: obj) =
-  let symLaw =
-    function
-    | { expr = { node = n; subtrees = [ x; y ] }
-        id = id } ->
-      { expr = { node = n; subtrees = [ y; x ] }
-        id = $"sym {id}" }
-
-    | _ -> failwith $"no symmetric law for {x}"
-
-  r |> extractLaw |> symLaw
-
-
-let twice x = [ x; x ]
 
 // GS 3.4 Disjunction
 let ``∨ sym`` = x <||> y === (y <||> x) |> axiom "∨ sym"
@@ -85,3 +71,5 @@ let eqLaws th0 th1 =
 
   { id = $"{l0.id} ≡ {l1.id}"
     expr = expr }
+
+let twice x = [ x; x ]
