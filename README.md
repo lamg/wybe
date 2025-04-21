@@ -23,12 +23,6 @@ A proof checker embedded in F#'s computation expressions
 
 ## Technical debt
 
-- [ ] use names like `∨-over-≡` instead of `∨ over ≡`, since it's getting confusing when formatting proofs, should it be done in the formatter without interfering with the rest of the code, or all names changed for consistency?
-
 - [ ] Leave a trace when parsing calculations in CalculationCE.fs to indicate where the parsing error happened
 
 - [ ] implement evidence of theorem proof when the reduction of transitivity implies demonstrandum
-
-- [ ] when generating rewriters in `compileCalculation` pass a pair of surrounding expressions to the generator, so it can generate alternatives tailored to them
-
-- [ ] use the `withLaws` computation expression to indicate which laws will be used to transform laws appearing in hints,that way `Axioms.sym` is no longer needed. 
