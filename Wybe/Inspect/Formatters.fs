@@ -1,95 +1,72 @@
 module Inspect.Formatters
 
-open Inference
-open TypedExpression
-open ExpressionMatch
-open StepExpansion
+open Z3
 open ColorMessages
-open FSharpPlus
 
 let indentLine n line = String.replicate n " " + line
 
-let printHint =
+
+let printPredicate (p: Pred<'a>) =
+  let rec binaryOpFormat (pred: int) (symbol: string) (left: Pred<'a>) (right: Pred<'a>) =
+    let l, predLeft = loop left
+    let r, predRight = loop right
+
+    let x = if predLeft >= pred then l else $"({l})"
+    let y = if predRight >= pred then r else $"({r})"
+    $"{x} {symbol} {y}", pred
+
+  and loop (p: Pred<'a>) =
+    match p with
+    | Pred.True -> "true", 4
+    | Pred.False -> "false", 4
+    | Pred.Not p ->
+      let notPred = 3
+      let r, childOpPrecedence = loop p
+      let t = if childOpPrecedence > notPred then $"¬{r}" else $"¬({r})"
+      t, notPred
+    | Pred.And(left, right) -> binaryOpFormat 2 "∧" left right
+
+    | Pred.Or(left, right) -> binaryOpFormat 2 "∨" left right
+    | Pred.Implies(left, right) -> binaryOpFormat 1 "⇒" left right
+
+    | Pred.Follows(left, right) -> binaryOpFormat 1 "⇐" left right
+    | Pred.Var v -> v, 4
+    | Pred.Bool _ -> failwith "Not Implemented"
+    | Pred.Equiv(left, right) -> binaryOpFormat 0 "≡" left right
+    | Pred.Differs(left, right) -> binaryOpFormat 0 "≢" left right
+
+  loop p |> fst
+
+//"▢"
+let printOperator =
   function
-  | Hint.End -> "▢"
-  | Hint.Law h -> $"{h.op.symbol} " + "{ " + h.lawGenerator.id + " }"
+  | StepOperator.Equiv -> "≡"
+  | StepOperator.Implies -> "⇒"
+  | StepOperator.Follows -> "⇐"
 
-let printCalculation (c: Calculation) =
-  let header = info "demonstrandum" (c.demonstrandum.expr |> printTypedExpr)
+let printLaws (xs: Pred<'a> list) =
+  xs |> List.map printPredicate |> String.concat ", " |> sprintf "{ %s }"
 
-  c.steps
-  |> Array.collect (fun x -> [| $"  {printTypedExpr x.expr}"; printHint x.hint |])
-  |> Array.append [| header |]
+let printHint (x: Step<'a>) =
+  $"{printOperator x.stepOp} {printLaws x.laws}"
 
-let printTree (f: 'a -> string) (t: Tree<'a>) =
-  let connectIndent (isLast: bool) (child: string, grandChild: string list) =
-    let childConn, colConn = if isLast then "└── ", "   " else "├── ", "│   "
-    let connected = childConn + child
-    let indented = grandChild |> List.map (fun x -> colConn + x)
-    connected :: indented
+let printStep (x: Step<'a>) =
+  [ $"  {printPredicate x.fromExp}"; printHint x; $"  {printPredicate x.toExp}" ]
 
-  let rec treeToLines t =
-    let l = Seq.length t.subtrees
+let printCalculation (c: Calculation<'a>) =
+  let header = info "demonstrandum" (c.demonstrandum |> printPredicate)
 
-    let root = f t.node
+  match c.steps with
+  | [] -> failwith "List is empty"
+  | x :: xs ->
+    let first = printStep x
 
-    let children =
-      t.subtrees
-      |> Seq.mapi (fun i c -> treeToLines c |> connectIndent (i = l - 1))
-      |> Seq.concat
-      |> Seq.toList
+    let nextSteps =
+      xs |> List.collect (fun x -> [ printHint x; $"  {printPredicate x.toExp}" ])
 
-    root, children
+    let lastStep = [ "▢" ]
 
+    header :: (first @ nextSteps @ lastStep)
 
-  let r, chl = treeToLines t
-  r :: chl |> List.toArray
-
-let printExpansion (m: MarkedTree<TypedExpr>) =
-  let printTreeValue x =
-    let pathMarker =
-      match x.path with
-      | Some i -> $"✅{i}"
-      | None -> "❌"
-
-    $"{printTypedExpr x.value} {pathMarker}"
-
-  printTree printTreeValue m
-
-let printRewriters (xs: Rewriter<TypedSymbol> seq) =
-  xs
-  |> Seq.map (fun r -> $"{printTypedExpr r.lhs} ↦ {printTypedExpr r.rhs}")
-  |> Seq.toArray
 
 let prepend (xs: 'a array) (x: 'a) = Array.append [| x |] xs
-
-let formatExpansion i m =
-  info $"expansion_{i}" "" |> prepend (printExpansion m.expansion)
-
-let expansionToStrList xs =
-  xs |> Seq.mapi formatExpansion |> Seq.toArray |> Array.concat
-
-let formatRewrite (i: int) (m: ExprExpansion<TypedSymbol>) =
-  let rws = printRewriters m.rewriters
-  info $"rewriter_{i}" "" |> prepend rws
-
-let rewritersToStrList (xs: StepExpansion.StepExpansion<TypedSymbol>) =
-  xs |> Seq.mapi formatRewrite |> Seq.toArray |> Array.concat
-
-let formatAlternative (i: int) (m: ExprExpansion<TypedSymbol>) =
-  let exp = info "expansion" "" |> prepend (printExpansion m.expansion)
-  let rw = info "rewriter" "" |> prepend (printRewriters m.rewriters)
-  let body = Array.append rw exp |> Array.map (indentLine 2)
-  info $"alt_{i}" "" |> prepend body
-
-let alternativesToStrList (xs: ExprExpansion<TypedSymbol> seq) =
-  xs |> Seq.mapi formatAlternative |> Seq.toArray |> Array.concat
-
-let successfulAlternativesToStrList (xs: ExprExpansion<TypedSymbol> seq) =
-  let formatSuccessful (i: int) (m: ExprExpansion<TypedSymbol>) =
-    if m.expansion.node.path.IsSome then
-      formatAlternative i m |> Some
-    else
-      None
-
-  xs |> Seq.choosei formatSuccessful |> Seq.toArray |> Array.concat

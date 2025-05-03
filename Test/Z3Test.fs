@@ -2,7 +2,7 @@ module Z3Test
 
 open Xunit
 open FsUnit
-open Wybe.Z3
+open Z3
 
 [<Fact>]
 let ``check implication`` () =
@@ -35,4 +35,3 @@ let ``double negation with Z3`` () =
     }
 
   Assert.True calcRes.error.IsNone
-  printfn $"res = {calcRes}"

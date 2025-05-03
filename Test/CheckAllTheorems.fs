@@ -20,14 +20,9 @@ let ``check all theorems`` () =
     Theorems.``∨ over ∨``
     Theorems.``GS 3.32``
     Theorems.``∧ assoc`` ]
-  |> List.map (fun th -> th () |> CalculationCE.extractLaw)
-  |> ignore
-
-[<Fact>]
-let ``building law from equivalent laws`` () =
-  let actual =
-    Axioms.eqLaws Theorems.``true theorem`` Axioms.``excluded middle``
-    |> _.expr
-    |> TypedExpression.printTypedExpr
-
-  Assert.Equal("true ≡ (x ∨ ¬x)", actual)
+  |> List.iter (fun th ->
+    match th () with
+    | { error = None } -> ()
+    | c ->
+      let msg = c |> inspect |> summary |> _.accumulated |> String.concat "\n"
+      failwith msg)

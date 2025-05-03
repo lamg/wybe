@@ -9,15 +9,9 @@
   <ItemGroup>
     <Compile Include="Z3.fs" />
     
-    <Compile Include="ExpressionMatch.fs" />
-    <Compile Include="StepExpansion.fs" />
-
-    <Compile Include="TypedExpression.fs" />
-    <Compile Include="Inference.fs" />
     <Compile Include="Inspect\ColorMessages.fs" />
     <Compile Include="Inspect\Formatters.fs" />
     <Compile Include="Inspect\Inspect.fs" />
-    <Compile Include="CalculationCE.fs" />
     <Compile Include="GriesSchneider\Axioms.fs" />
     <Compile Include="GriesSchneider\Theorems.fs" />
     

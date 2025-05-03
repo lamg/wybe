@@ -1,4 +1,4 @@
-module Wybe.Z3
+module Z3
 
 open Microsoft.Z3
 
@@ -87,7 +87,7 @@ type ParseError = { expected: Expected }
 
 type CalcError<'a when 'a: equality and 'a :> IZ3Bool> =
   | FailedParsing of ParseError
-  | FailedSteps of list<Pred<'a> * CheckResult>
+  | FailedSteps of list<int * Pred<'a> * CheckResult>
   | WrongEvidence of premise: Pred<'a> * consequence: Pred<'a>
 
 let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step<'a> list) (demonstrandum: Pred<'a>) =
@@ -194,12 +194,13 @@ type CalculationCE<'a when 'a: equality and 'a :> IZ3Bool>() =
 
       let failed =
         calc.steps
-        |> List.collect (fun s ->
+        |> List.mapi (fun i s ->
           let p = stepToPred s
 
           match checkPredicate ctx p with
           | Proved -> []
-          | e -> [ p, e ])
+          | e -> [ i, p, e ])
+        |> List.concat
 
       let error =
         match failed with
@@ -226,13 +227,13 @@ type LawsCE(op: StepOperator) =
 
   member _.Yield(x: CheckedCalculation<'a>) =
     match x.error with
-    | None -> x.calculation.demonstrandum
+    | None -> [ x.calculation.demonstrandum ]
     | Some e -> failwith $"cannot extract law from failed proof {e}"
 
-  member this.Yield(xs: CheckedCalculation<'a> list) = xs |> List.map this.Yield
+  member this.Yield(xs: CheckedCalculation<'a> list) = xs |> List.collect this.Yield
 
   member this.Yield(xs: (unit -> CheckedCalculation<'a>) list) =
-    xs |> List.map (fun f -> f () |> this.Yield)
+    xs |> List.collect (fun f -> f () |> this.Yield)
 
   member this.Yield(x: unit -> CheckedCalculation<'a>) = x () |> this.Yield
 
@@ -247,3 +248,17 @@ let ``≡`` = LawsCE StepOperator.Equiv
 let ``⇒`` = LawsCE StepOperator.Implies
 
 let ``⇐`` = LawsCE StepOperator.Follows
+
+let (!) x = Not x
+let (===) x y = Equiv(x, y)
+let (!==) x y = Differs(x, y)
+let (==>) x y = Implies(x, y)
+let (<&&>) x y = And(x, y)
+let (<||>) x y = Or(x, y)
+
+let axiom name pred =
+  { calculation =
+      { demonstrandum = pred
+        steps = []
+        name = name }
+    error = None }
