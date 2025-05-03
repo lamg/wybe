@@ -7,8 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Z3.fs" />
+    
     <Compile Include="ExpressionMatch.fs" />
     <Compile Include="StepExpansion.fs" />
+
     <Compile Include="TypedExpression.fs" />
     <Compile Include="Inference.fs" />
     <Compile Include="Inspect\ColorMessages.fs" />
@@ -21,8 +24,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharpPlus"  />
-    <PackageReference Include="FsToolkit.ErrorHandling"  />
+    <PackageReference Include="FSharpPlus" />
+    <PackageReference Include="FsToolkit.ErrorHandling" />
+    <PackageReference Include="Microsoft.Z3.x64" />
+
   </ItemGroup>
 
 </Project>
