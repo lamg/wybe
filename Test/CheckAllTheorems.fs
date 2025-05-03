@@ -18,7 +18,8 @@ let ``check all theorems`` () =
     Theorems.``∨ zero``
     Theorems.``∨ identity``
     Theorems.``∨ over ∨``
-    Theorems.``GS 3.32`` ]
+    Theorems.``GS 3.32``
+    Theorems.``∧ assoc`` ]
   |> List.map (fun th -> th () |> CalculationCE.extractLaw)
   |> ignore
 
@@ -30,7 +31,3 @@ let ``building law from equivalent laws`` () =
     |> TypedExpression.printTypedExpr
 
   Assert.Equal("true ≡ (x ∨ ¬x)", actual)
-
-[<Fact>]
-let ``inspect theorems`` () =
-  Theorems.``∨ over ∨`` () |> inspect |> stepAt 0 |> summary |> ignore

@@ -73,3 +73,7 @@ let eqLaws th0 th1 =
     expr = expr }
 
 let twice x = [ x; x ]
+
+// GS 3.5
+
+let ``golden rule`` = x <&&> y === (x === y === (x <||> y)) |> axiom "golden rule"
