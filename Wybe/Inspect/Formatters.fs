@@ -15,15 +15,13 @@ let printPredicate (p: Pred<'a>) =
     (child: string)
     =
     if childBindingPower >= parentBindingPower then
-      if
-        childBindingPower = parentBindingPower
-        && childOperator.IsSome
-        && childOperator.Value <> parentOperator
+      match childOperator with
+      | Some childOp when childBindingPower = parentBindingPower && childOp <> parentOperator ->
+        let mutualAssocOps = [ "≡"; "≢" ]
+        let haveMutualAssoc = Set [ childOp; parentOperator ] = Set mutualAssocOps
 
-      then
-        $"({child})"
-      else
-        child
+        if not haveMutualAssoc then $"({child})" else child
+      | _ -> child
     else
       $"({child})"
 

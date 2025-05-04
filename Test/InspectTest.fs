@@ -105,7 +105,7 @@ let ``print predicates`` () =
     x === y === y === x, "x ≡ y ≡ y ≡ x"
     x <&&> y <||> x, "(x ∧ y) ∨ x"
     x <&&> y <&&> x, "x ∧ y ∧ x"
-    x === y !== x, "(x ≡ y) ≢ x"
+    x === y !== x, "x ≡ y ≢ x"
     x <&&> x === y, "x ∧ x ≡ y"
     !x <&&> x, "¬x ∧ x"
     !(x <&&> x), "¬(x ∧ x)"
