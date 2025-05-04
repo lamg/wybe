@@ -65,10 +65,7 @@ let ``true theorem`` () =
     Theorem("true theorem", True)
     p === q === (q === p)
 
-    ``≡`` {
-      ``≡ sym``
-      ``≡ ident``
-    }
+    ``≡`` { ``≡ ident`` }
 
     True
   }
@@ -85,13 +82,10 @@ let ``GS 3.11`` () =
 
     !(x === y) === (x === !y)
 
-    ``≡`` {
-      ``≡ sym``
-      ``¬ over ≡``
-      ``≡ sym``
-    }
+    ``≡`` { ``¬ over ≡`` }
 
     !(x === y) === !(x === y)
+
     ``≡`` { ``≡ ident`` }
 
     True
@@ -113,17 +107,11 @@ let ``negation of false`` () =
 
     !False === True
 
-    ``≡`` {
-      ``¬ over ≡``
-      ``≡ sym``
-    }
+    ``≡`` { ``¬ over ≡`` }
 
     !(True === False)
 
-    ``≡`` {
-      ``¬ over ≡``
-      ``≡ sym``
-    }
+    ``≡`` { ``¬ over ≡`` }
 
     False === !True
   }
@@ -151,10 +139,7 @@ let ``symmetry of ≢`` () =
 
     !(x === y) === !(y === x)
 
-    ``≡`` {
-      ``≡ sym``
-      ``≡ ident``
-    }
+    ``≡`` { ``≡ ident`` }
 
     True
   }
@@ -170,17 +155,11 @@ let ``associativity of ≢`` () =
       ``≡`` { twice ``¬ over ≡`` }
       !(x === !(y === z))
 
-      ``≡`` {
-        ``≡ sym``
-        ``¬ over ≡``
-      }
+      ``≡`` { ``¬ over ≡`` }
 
       !(!(y === z === x))
 
-      ``≡`` {
-        ``double negation``
-        ``≡ sym``
-      }
+      ``≡`` { ``double negation`` }
 
       x === (y === z)
     }
@@ -196,7 +175,6 @@ let ``associativity of ≢`` () =
     ``≡`` {
       ``¬ over ≡``
       ``double negation``
-      ``≡ assoc``
     }
 
     x === (y === z)
@@ -209,10 +187,7 @@ let ``mutual associativity`` () =
     Theorem("mutual associativity", x !== y === z === (x !== (y === z)))
     x !== y === z
 
-    ``≡`` {
-      ``GS 3.14``
-      ``≡ assoc``
-    }
+    ``≡`` { ``GS 3.14`` }
 
     !x === (y === z)
     ``≡`` { ``GS 3.14`` }
@@ -279,13 +254,7 @@ let ``∨ identity`` () =
 let ``∨ over ∨`` () =
   proof () {
     Theorem("∨ over ∨", x <||> (y <||> z) === (x <||> y <||> (x <||> z)))
-    x <||> y <||> (x <||> z)
-    ``≡`` { ``∨ assoc`` }
     x <||> y <||> x <||> z
-    ``≡`` { ``∨ sym`` }
-    y <||> x <||> x <||> z
-    ``≡`` { ``∨ assoc`` }
-    y <||> (x <||> x) <||> z
     ``≡`` { ``∨ idempotency`` }
     y <||> x <||> z
     ``≡`` { ``∨ sym`` }
@@ -300,8 +269,6 @@ let ``GS 3.32`` () =
     x <||> y === (x <||> !y)
     ``≡`` { ``∨ over ≡`` }
     x <||> (y === !y)
-    ``≡`` { ``≡ sym`` }
-    x <||> (!y === y)
     ``≡`` { ``¬ over ≡`` }
     x <||> !(y === y)
     ``≡`` { ``≡ ident`` }
@@ -321,10 +288,7 @@ let ``∧ sym`` () =
     ``≡`` { ``golden rule`` }
     x === y === (x <||> y)
 
-    ``≡`` {
-      ``≡ sym``
-      ``∨ sym``
-    }
+    ``≡`` { }
 
     y === x === (y <||> x)
     ``≡`` { ``golden rule`` }
