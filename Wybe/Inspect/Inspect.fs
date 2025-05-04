@@ -1,6 +1,6 @@
 module Inspect.Inspect
 
-open Z3
+open Core
 open Formatters
 open ColorMessages
 open FSharpPlus

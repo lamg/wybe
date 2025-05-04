@@ -2,11 +2,10 @@ module Z3Test
 
 open Xunit
 open FsUnit
-open Z3
+open Core
 
 [<Fact>]
 let ``check implication`` () =
-  let (==>) x y = Implies(x, y)
   let ctx = new Microsoft.Z3.Context()
 
   [ False, Refuted "false"; True ==> False, Refuted "false" ]
@@ -17,8 +16,6 @@ let ``check implication`` () =
 [<Fact>]
 let ``double negation with Z3`` () =
   let x, y = Var "x", Var "y"
-  let (!) x = Not x
-  let (===) x y = Equiv(x, y)
 
   let ``GS 3.11`` = !x === y === (x === !y)
   let ``≡ ident`` = x === x === True

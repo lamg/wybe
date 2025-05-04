@@ -7,13 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Z3.fs" />
-    
+    <Compile Include="Core.fs" />
     <Compile Include="Inspect\ColorMessages.fs" />
     <Compile Include="Inspect\Formatters.fs" />
     <Compile Include="Inspect\Inspect.fs" />
-    <Compile Include="GriesSchneider\Axioms.fs" />
-    <Compile Include="GriesSchneider\Theorems.fs" />
+    <Compile Include="GriesSchneider\PredicateCalculus.fs" />
     
   </ItemGroup>
 

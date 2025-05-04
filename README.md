@@ -4,12 +4,11 @@
 
 A proof checker embedded in F#'s computation expressions
 
-## Features and progress:
+## Features and progress
 
 - Check proofs written in a syntax inspired by [Dijkstra's predicate calculus][0]
   - [ ] [A Logical Approach to Discrete Math][1]
-    - [ ] [Basic proofs](./Wybe/GriesSchneider/Theorems.fs)
-  - [ ] Lambda calculus interpreter to transform expressions
+    - [ ] [Basic proofs](./Wybe/GriesSchneider/PredicateCalculus.fs)
   - [ ] Sets, ∀, ∃
   - [ ] [Relational calculus][2]
 
@@ -24,5 +23,3 @@ A proof checker embedded in F#'s computation expressions
 ## Technical debt
 
 - [ ] Leave a trace when parsing calculations in CalculationCE.fs to indicate where the parsing error happened
-
-- [ ] implement evidence of theorem proof when the reduction of transitivity implies demonstrandum

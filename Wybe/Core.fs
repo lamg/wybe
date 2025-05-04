@@ -1,4 +1,4 @@
-module Z3
+module Core
 
 open Microsoft.Z3
 
@@ -121,7 +121,7 @@ let buildBasic (lines: ProofLine<'a> list) =
     | Some x -> fixedPoint f x
     | None -> state
 
-  // syntax of lines: theorem with_laws? (expr hint)* expr
+  // syntax of lines: theorem (expr hint)* expr
   result {
     let! (name, theorem), lines =
       match lines with

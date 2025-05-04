@@ -1,7 +1,62 @@
-module GriesSchneider.Theorems
+module GriesSchneider.PredicateCalculus
 
-open Z3
-open Axioms
+open Core
+
+let x, y, z = Var "x", Var "y", Var "z"
+
+// x ≡ y  ⇒  f.x ≡ f.y
+let ``≡ leibniz`` () =
+  let fx, fy = Var "fx", Var "fy"
+  x === y ==> (fx === fy)
+
+
+// (x ≡ y) ∧ (y ≡ z)  ⇒  (x ≡ z)
+let ``≡ transitivity`` () =
+  x === y <&&> (y === z) ==> (x === z) |> axiom "≡ transitivity"
+
+// x ≡ y ≡ y ≡ x
+let ``≡ sym`` () = x === y === (y === x) |> axiom "≡ sym"
+
+// (x ≡ x) ≡ true
+let ``≡ ident`` () = x === x === True |> axiom "≡ ident"
+
+// false ≡ ¬true
+let ``false def`` () = False === !True |> axiom "false def"
+
+// ¬(x ≡ y) ≡ ¬x ≡ y
+let ``¬ over ≡`` () =
+  !(x === y) === (!x === y) |> axiom "¬ over ≡"
+
+// x ≢ y ≡ ¬(x ≡ y)
+let ``≢ def`` () = x !== y === !(x === y) |> axiom "≢ def"
+
+// (x ≡ y) ≡ z  ≡  x ≡ (y ≡ z)
+let ``≡ assoc`` () =
+  let lhs = x === y === z
+  let rhs = x === (y === z)
+  lhs === rhs |> axiom "≡ assoc"
+
+// GS 3.4 Disjunction
+let ``∨ sym`` () =
+  x <||> y === (y <||> x) |> axiom "∨ sym"
+
+let ``∨ assoc`` () =
+  x <||> y <||> z === (x <||> (y <||> z)) |> axiom "∨ assoc"
+
+let ``∨ idempotency`` () = x <||> x === x |> axiom "∨ idempotency"
+
+let ``∨ over ≡`` () =
+  x <||> (y === z) === (x <||> y === (x <||> z)) |> axiom "∨ over ≡"
+
+let ``excluded middle`` () = x <||> !x |> axiom "excluded middle"
+
+
+let twice x = [ x; x ]
+
+// GS 3.5
+
+let ``golden rule`` () =
+  x <&&> y === (x === y === (x <||> y)) |> axiom "golden rule"
 
 let ``true theorem`` () =
   let p, q = Var "p", Var "q"
@@ -286,15 +341,7 @@ let ``∧ assoc`` () =
     ``≡`` { twice ``golden rule`` }
     x === y === (x <||> y) === z === (x === y === (x <||> y) <||> z)
 
-    ``≡`` { ``∨ sym`` }
-
-    x === y === (x <||> y) === z === (z <||> (x === y === (x <||> y)))
-
-
-    ``≡`` {
-      twice ``∨ over ≡``
-      ``∨ over ≡``
-    }
+    ``≡`` { ``∨ over ≡`` }
 
     x
     === y
@@ -302,90 +349,7 @@ let ``∧ assoc`` () =
     === z
     === (z <||> x === (z <||> y) === (z <||> (x <||> y)))
 
-    ``≡`` {
-      ``≡ assoc``
-      ``≡ sym``
-    }
-
-    x
-    === y
-    === (z === (x <||> y))
-    === (z <||> x === (z <||> y) === (z <||> (x <||> y)))
-
-    ``≡`` { ``≡ assoc`` }
-
-    (x === y === z === (x <||> y))
-    === (z <||> x === (z <||> y) === (z <||> (x <||> y)))
-
-
-    ``≡`` { ``≡ assoc`` }
-
-
-    (x === y === z)
-    === ((x <||> y) === (z <||> x === (z <||> y) === (z <||> (x <||> y))))
-
-    ``≡`` { twice ``∨ sym`` }
-
-    (x === y === z)
-    === ((x <||> y) === (x <||> z === (y <||> z) === (z <||> (x <||> y))))
-
-    ``≡`` { ``≡ sym`` }
-
-    (x === y === z)
-    === ((x <||> y) === (y <||> z === (x <||> z) === (z <||> (x <||> y))))
-
-
-    ``≡`` { ``≡ assoc`` }
-
-    (x === y === z)
-    === ((x <||> y) === (y <||> z === ((x <||> z) === (z <||> (x <||> y)))))
-
-    ``≡`` { ``≡ assoc`` }
-
-    (x === y === z)
-    === ((x <||> y) === (y <||> z) === (((x <||> z) === (z <||> (x <||> y)))))
-
-    ``≡`` { ``≡ sym`` }
-
-    (x === y === z)
-    === ((y <||> z) === (x <||> y) === (((x <||> z) === (z <||> (x <||> y)))))
-
-    ``≡`` { ``≡ assoc`` }
-
-    (x === y === z)
-    === ((y <||> z) === ((x <||> y) === (((x <||> z) === (z <||> (x <||> y))))))
-
-    ``≡`` { ``≡ assoc`` }
-
-    (x === y === z)
-    === (y <||> z)
-    === (((x <||> y) === (((x <||> z) === (z <||> (x <||> y))))))
-
-    ``≡`` { twice ``≡ assoc`` }
-
-    x
-    === (y === z === (y <||> z))
-    === (x <||> y === (x <||> z === (z <||> (x <||> y))))
-
-    ``≡`` { ``≡ assoc`` }
-
-    x
-    === (y === z === (y <||> z))
-    === (x <||> y === (x <||> z) === (z <||> (x <||> y)))
-
-    ``≡`` { ``∨ sym`` }
-
-    x
-    === (y === z === (y <||> z))
-    === (x <||> y === (x <||> z) === (z <||> (y <||> x)))
-
-    ``≡`` { ``∨ assoc`` }
-
-    x
-    === (y === z === (y <||> z))
-    === (x <||> y === (x <||> z) === ((z <||> y) <||> x))
-
-    ``≡`` { twice ``∨ sym`` }
+    ``≡`` { }
 
     x
     === (y === z === (y <||> z))

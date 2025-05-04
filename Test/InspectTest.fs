@@ -2,12 +2,9 @@ module InspectTest
 
 open Inspect
 open Inspect.Inspect
-open Z3
+open Core
 open Xunit
 open FsUnit
-
-
-let equal (expected: 'a) (actual: 'a) = should equal expected actual
 
 let accEqual (expected: string list) (n: Inspection<'a>) =
 
@@ -99,3 +96,20 @@ let ``out of bounds step`` () =
       ColorMessages.error "out of range" "0 ≤ 19 < 1" ]
 
   trueTheorem () |> inspect |> stepAt 19 |> accEqual expected
+
+[<Fact>]
+let ``print predicates`` () =
+  let x = Var "x"
+  let y = Var "y"
+
+  [ !(!x), "¬¬x"
+    x === y === y === x, "x ≡ y ≡ y ≡ x"
+    x <&&> y <||> x, "(x ∧ y) ∨ x"
+    x <&&> y <&&> x, "x ∧ y ∧ x"
+    x === y !== x, "(x ≡ y) ≢ x"
+    x <&&> x === y, "x ∧ x ≡ y"
+    !x <&&> x, "¬x ∧ x"
+    !(x <&&> x), "¬(x ∧ x)" ]
+  |> List.iter (fun (p, expected) ->
+    let r = Formatters.printPredicate p
+    r |> should equal expected)

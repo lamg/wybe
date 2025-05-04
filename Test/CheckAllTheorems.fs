@@ -1,25 +1,25 @@
 module CheckAllTheorems
 
 open Xunit
-open GriesSchneider
+open GriesSchneider.PredicateCalculus
 open Inspect.Inspect
 
 [<Fact>]
 let ``check all theorems`` () =
-  [ Theorems.``associativity of ≢``
-    Theorems.``double negation``
-    Theorems.``GS 3.11``
-    Theorems.``GS 3.14``
-    Theorems.``mutual associativity``
-    Theorems.``mutual interchangeability``
-    Theorems.``negation of false``
-    Theorems.``symmetry of ≢``
-    Theorems.``true theorem``
-    Theorems.``∨ zero``
-    Theorems.``∨ identity``
-    Theorems.``∨ over ∨``
-    Theorems.``GS 3.32``
-    Theorems.``∧ assoc`` ]
+  [ ``associativity of ≢``
+    ``double negation``
+    ``GS 3.11``
+    ``GS 3.14``
+    ``mutual associativity``
+    ``mutual interchangeability``
+    ``negation of false``
+    ``symmetry of ≢``
+    ``true theorem``
+    ``∨ zero``
+    ``∨ identity``
+    ``∨ over ∨``
+    ``GS 3.32``
+    ``∧ assoc`` ]
   |> List.iter (fun th ->
     match th () with
     | { error = None } -> ()

@@ -1,43 +1,64 @@
 module Inspect.Formatters
 
-open Z3
+open Core
 open ColorMessages
 
 let indentLine n line = String.replicate n " " + line
 
 
 let printPredicate (p: Pred<'a>) =
-  let rec binaryOpFormat (pred: int) (symbol: string) (left: Pred<'a>) (right: Pred<'a>) =
-    let l, predLeft = loop left
-    let r, predRight = loop right
+  let parenthesize
+    (parentPrecedence: int)
+    (parentOperator: string)
+    (childPrecedence: int)
+    (childOperator: string option)
+    (child: string)
+    =
+    if childPrecedence >= parentPrecedence then
+      if
+        childPrecedence = parentPrecedence
+        && childOperator.IsSome
+        && childOperator.Value <> parentOperator
 
-    let x = if predLeft >= pred then l else $"({l})"
-    let y = if predRight >= pred then r else $"({r})"
-    $"{x} {symbol} {y}", pred
+      then
+        $"({child})"
+      else
+        child
+    else
+      child
+
+  let rec binaryOpFormat (pred: int) (symbol: string) (left: Pred<'a>) (right: Pred<'a>) =
+    let l, symLeft, predLeft = loop left
+    let r, symRight, predRight = loop right
+
+    let x = parenthesize pred symbol predLeft symLeft l
+    let y = parenthesize pred symbol predRight symRight r
+
+    $"{x} {symbol} {y}", Some symbol, pred
 
   and loop (p: Pred<'a>) =
     match p with
-    | Pred.True -> "true", 4
-    | Pred.False -> "false", 4
-    | Pred.Not p ->
+    | True -> "true", None, 4
+    | False -> "false", None, 4
+    | Var v -> v, None, 4
+    | Not p ->
       let notPred = 3
-      let r, childOpPrecedence = loop p
-      let t = if childOpPrecedence > notPred then $"¬{r}" else $"¬({r})"
-      t, notPred
-    | Pred.And(left, right) -> binaryOpFormat 2 "∧" left right
+      let r, _, childOpPrecedence = loop p
+      let t = if childOpPrecedence >= notPred then $"¬{r}" else $"¬({r})"
+      t, Some "¬", notPred
+    | And(left, right) -> binaryOpFormat 2 "∧" left right
 
-    | Pred.Or(left, right) -> binaryOpFormat 2 "∨" left right
-    | Pred.Implies(left, right) -> binaryOpFormat 1 "⇒" left right
+    | Or(left, right) -> binaryOpFormat 2 "∨" left right
+    | Implies(left, right) -> binaryOpFormat 1 "⇒" left right
 
-    | Pred.Follows(left, right) -> binaryOpFormat 1 "⇐" left right
-    | Pred.Var v -> v, 4
-    | Pred.Bool _ -> failwith "Not Implemented"
-    | Pred.Equiv(left, right) -> binaryOpFormat 0 "≡" left right
-    | Pred.Differs(left, right) -> binaryOpFormat 0 "≢" left right
+    | Follows(left, right) -> binaryOpFormat 1 "⇐" left right
+    | Bool _ -> failwith "Not Implemented"
+    | Equiv(left, right) -> binaryOpFormat 0 "≡" left right
+    | Differs(left, right) -> binaryOpFormat 0 "≢" left right
 
-  loop p |> fst
+  let r, _, _ = loop p
+  r
 
-//"▢"
 let printOperator =
   function
   | StepOperator.Equiv -> "≡"
