@@ -8,15 +8,15 @@ let indentLine n line = String.replicate n " " + line
 
 let printPredicate (p: Pred<'a>) =
   let parenthesize
-    (parentPrecedence: int)
+    (parentBindingPower: int)
     (parentOperator: string)
-    (childPrecedence: int)
+    (childBindingPower: int)
     (childOperator: string option)
     (child: string)
     =
-    if childPrecedence >= parentPrecedence then
+    if childBindingPower >= parentBindingPower then
       if
-        childPrecedence = parentPrecedence
+        childBindingPower = parentBindingPower
         && childOperator.IsSome
         && childOperator.Value <> parentOperator
 
@@ -25,7 +25,7 @@ let printPredicate (p: Pred<'a>) =
       else
         child
     else
-      child
+      $"({child})"
 
   let rec binaryOpFormat (pred: int) (symbol: string) (left: Pred<'a>) (right: Pred<'a>) =
     let l, symLeft, predLeft = loop left
@@ -43,8 +43,14 @@ let printPredicate (p: Pred<'a>) =
     | Var v -> v, None, 4
     | Not p ->
       let notPred = 3
-      let r, _, childOpPrecedence = loop p
-      let t = if childOpPrecedence >= notPred then $"¬{r}" else $"¬({r})"
+      let r, _, childOpBindingPower = loop p
+
+      let t =
+        if childOpBindingPower >= notPred then
+          $"¬{r}"
+        else
+          $"¬({r})"
+
       t, Some "¬", notPred
     | And(left, right) -> binaryOpFormat 2 "∧" left right
 
@@ -74,7 +80,31 @@ let printHint (x: Step<'a>) =
 let printStep (x: Step<'a>) =
   [ $"  {printPredicate x.fromExp}"; printHint x; $"  {printPredicate x.toExp}" ]
 
-let printCalculation (c: Calculation<'a>) =
+let printCalculation (calc: Calculation<'a>) =
+  let header = info "demonstrandum" (calc.demonstrandum |> printPredicate)
+
+  match calc.steps with
+  | [] -> failwith "List is empty"
+  | x :: xs ->
+    let first = printStep x
+
+    let nextSteps =
+      xs |> List.collect (fun x -> [ printHint x; $"  {printPredicate x.toExp}" ])
+
+    let lastStep = [ "▢" ]
+
+    header :: (first @ nextSteps @ lastStep)
+
+let printCheckedCalculation (calc: CheckedCalculation<'a>) =
+  let error =
+    match calc.error with
+    | Some(FailedSteps xs) -> ""
+    | Some(WrongEvidence _) -> ""
+    | Some(FailedParsing _) -> failwith "Not Implemented"
+    | None -> ""
+
+  let c = calc.calculation
+
   let header = info "demonstrandum" (c.demonstrandum |> printPredicate)
 
   match c.steps with
@@ -89,5 +119,17 @@ let printCalculation (c: Calculation<'a>) =
 
     header :: (first @ nextSteps @ lastStep)
 
+let printCalculationError (calc: CheckedCalculation<'a>) =
+  match calc.error with
+  | Some(FailedSteps xs) ->
+    error "failed steps" ""
+    :: (xs |> List.map (fun (i, p, _) -> $"{i}: {printPredicate p}"))
+  | Some(WrongEvidence(premise, conclusion)) ->
+    let implication = premise ==> conclusion |> printPredicate
+    let premise = printPredicate premise
 
-let prepend (xs: 'a array) (x: 'a) = Array.append [| x |] xs
+    [ error "invalid evidence" ""
+      $"calculation reduces to: {premise}"
+      $"❌ implication does not hold: {implication}" ]
+  | Some(FailedParsing e) -> [ $"failed parsing: {e}" ]
+  | None -> []

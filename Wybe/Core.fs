@@ -91,12 +91,18 @@ type CalcError<'a when 'a: equality and 'a :> IZ3Bool> =
   | WrongEvidence of premise: Pred<'a> * consequence: Pred<'a>
 
 let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step<'a> list) (demonstrandum: Pred<'a>) =
-  let r = steps |> List.fold (fun acc x -> And(acc, stepToPred x)) True
-  let evidence = Implies(r, demonstrandum)
+  match steps with
+  | [] ->
+    match checkPredicate ctx demonstrandum with
+    | Proved -> Ok()
+    | _ -> Error(WrongEvidence(True, demonstrandum))
+  | x :: xs ->
+    let r = xs |> List.fold (fun acc x -> And(acc, stepToPred x)) (stepToPred x)
+    let evidence = Implies(r, demonstrandum)
 
-  match checkPredicate ctx evidence with
-  | Proved -> Ok()
-  | _ -> Error(WrongEvidence(r, demonstrandum))
+    match checkPredicate ctx evidence with
+    | Proved -> Ok()
+    | _ -> Error(WrongEvidence(r, demonstrandum))
 
 open FsToolkit.ErrorHandling
 

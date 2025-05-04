@@ -64,9 +64,12 @@ let calculationSummary (calc: CheckedCalculation<'a>) =
 
   let ok = if calc.error.IsNone then "✅" else "❌"
 
-  let calculation = section "summary" :: printCalculation calc.calculation
+  let calculation = section "summary" :: printCheckedCalculation calc
 
   calculation @ [ info $"{ok} theorem" theoremName ] @ failed
 
 let summary (n: Inspection<'a>) =
   n.calc |> calculationSummary |> addLines n
+
+let calculationError (n: Inspection<'a>) =
+  n.calc |> printCalculationError |> addLines n

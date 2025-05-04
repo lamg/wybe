@@ -99,8 +99,7 @@ let ``out of bounds step`` () =
 
 [<Fact>]
 let ``print predicates`` () =
-  let x = Var "x"
-  let y = Var "y"
+  let x, y = Var "x", Var "y"
 
   [ !(!x), "¬¬x"
     x === y === y === x, "x ≡ y ≡ y ≡ x"
@@ -109,7 +108,47 @@ let ``print predicates`` () =
     x === y !== x, "(x ≡ y) ≢ x"
     x <&&> x === y, "x ∧ x ≡ y"
     !x <&&> x, "¬x ∧ x"
-    !(x <&&> x), "¬(x ∧ x)" ]
+    !(x <&&> x), "¬(x ∧ x)"
+    x === x ==> (x === y), "(x ≡ x) ⇒ (x ≡ y)"
+    Pred.True, "true"
+    x, "x" ]
   |> List.iter (fun (p, expected) ->
     let r = Formatters.printPredicate p
     r |> should equal expected)
+
+[<Fact>]
+let ``inspect calculation steps with error`` () =
+  let x, y, z = Var "x", Var "y", Var "z"
+  let expected = [ ColorMessages.error "failed steps" ""; "0: x ≡ y"; "1: y ≡ z" ]
+
+  proof () {
+    Theorem("x ≡ y", x === y)
+    x
+    ``≡`` { }
+    y
+    ``≡`` { }
+    z
+  }
+  |> inspect
+  |> calculationError
+  |> accEqual expected
+
+
+[<Fact>]
+let ``inspect calculation with wrong evidence`` () =
+  let x, y = Var "x", Var "y"
+
+  let expected =
+    [ ColorMessages.error "invalid evidence" ""
+      "calculation reduces to: x ≡ x"
+      "❌ implication does not hold: (x ≡ x) ⇒ (x ≡ y)" ]
+
+  proof () {
+    Theorem("x ≡ y", x === y)
+    x
+    ``≡`` { }
+    x
+  }
+  |> inspect
+  |> calculationError
+  |> accEqual expected
