@@ -2,7 +2,7 @@
 
 ![Wybe](./documents/images/wybe_logo.png)
 
-A proof checker embedded in F#'s computation expressions
+A theorem prover embedded in F#'s computation expressions, using [Z3][3] under the hood
 
 ## Features and progress
 
@@ -19,6 +19,7 @@ A proof checker embedded in F#'s computation expressions
 [0]: https://www.cs.utexas.edu/users/EWD/transcriptions/EWD13xx/EWD1300.html
 [1]: https://books.google.de/books/about/A_Logical_Approach_to_Discrete_Math.html?id=ZWTDQ6H6gsUC
 [2]: http://www.mathmeth.com/files/calc_collection.pdf
+[3]: https://github.com/Z3Prover/z3
 
 ## Technical debt
 
