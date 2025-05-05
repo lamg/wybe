@@ -343,5 +343,23 @@ let ``∧ idempotency`` () =
     x
   }
 
+let ``∧ zero`` () =
+  proof { Theorem("∧ zero", x <&&> False === False) }
+
+let ``∧ over ∧`` () =
+  proof { Theorem("∧ over ∧", x <&&> (y <&&> z) === (x <&&> y <&&> (x <&&> z))) }
+
+let contradiction () =
+  proof { Theorem("contradiction", x <&&> !x === False) }
+
+let ``∧ ∨ absorption`` () =
+  proof { Theorem("∧ ∨ absorption", x <&&> (x <||> y) === x) }
+
+
+let ``∨ ∧ absorption`` () =
+  proof { Theorem("∨ ∧ absorption", x <||> (x <&&> y) === x) }
+
+// 3.6 implication
+
 let ``De Morgan`` (p: Pred) =
   !(``∀`` [ x ] p) === ``∃`` [ x ] !p |> axiom "De Morgan"

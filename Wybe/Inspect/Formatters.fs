@@ -105,7 +105,7 @@ let printCheckedCalculation (calc: CheckedCalculation) =
   let header = info "demonstrandum" (c.demonstrandum |> printPredicate)
 
   match c.steps with
-  | [] -> failwith "List is empty"
+  | [] -> [ "▢" ]
   | x :: xs ->
     let first = printStep x
 
