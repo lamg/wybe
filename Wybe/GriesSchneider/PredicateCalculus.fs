@@ -331,5 +331,17 @@ let ``∧ assoc`` () =
 
   }
 
+let ``∧ idempotency`` () =
+  proof {
+    Theorem("∧ idempotency", x <&&> x === x)
+    x <&&> x
+    ``≡`` { ``golden rule`` }
+    x === x === x <||> x
+    ``≡`` { ``≡ ident`` }
+    x <||> x
+    ``≡`` { ``∨ idempotency`` }
+    x
+  }
+
 let ``De Morgan`` (p: Pred) =
   !(``∀`` [ x ] p) === ``∃`` [ x ] !p |> axiom "De Morgan"

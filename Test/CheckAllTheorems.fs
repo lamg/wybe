@@ -19,7 +19,8 @@ let ``check all theorems`` () =
     ``∨ identity``
     ``∨ over ∨``
     ``GS 3.32``
-    ``∧ assoc`` ]
+    ``∧ assoc``
+    ``∧ idempotency`` ]
   |> List.iter (fun th ->
     match th () with
     | { error = None } -> ()
