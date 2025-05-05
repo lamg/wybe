@@ -2,13 +2,9 @@ module GriesSchneider.PredicateCalculus
 
 open Core
 
-let x, y, z = Var "x", Var "y", Var "z"
-
-// x ≡ y  ⇒  f.x ≡ f.y
-let ``≡ leibniz`` () =
-  let fx, fy = Var "fx", Var "fy"
-  x === y ==> (fx === fy)
-
+let x, y, z = Bool(Var "x"), Bool(Var "y"), Bool(Var "z")
+let True = Bool True
+let False = Bool False
 
 // (x ≡ y) ∧ (y ≡ z)  ⇒  (x ≡ z)
 let ``≡ transitivity`` () =
@@ -59,11 +55,9 @@ let ``golden rule`` () =
   x <&&> y === (x === y === (x <||> y)) |> axiom "golden rule"
 
 let ``true theorem`` () =
-  let p, q = Var "p", Var "q"
-
-  proof () {
+  proof {
     Theorem("true theorem", True)
-    p === q === (q === p)
+    x === y === (y === x)
 
     ``≡`` { ``≡ ident`` }
 
@@ -73,7 +67,7 @@ let ``true theorem`` () =
 
 // GS = "A Logical Approach to Discrete Math, by David Gries and Fred B. Schneider"
 let ``GS 3.11`` () =
-  proof () {
+  proof {
     Theorem("GS 3.11", !x === y === (x === !y))
 
     !x === y === (x === !y)
@@ -92,7 +86,7 @@ let ``GS 3.11`` () =
   }
 
 let ``double negation`` () =
-  proof () {
+  proof {
     Theorem("double negation", !(!x) === x)
     !(!x) === x
     ``≡`` { ``GS 3.11`` }
@@ -102,7 +96,7 @@ let ``double negation`` () =
   }
 
 let ``negation of false`` () =
-  proof () {
+  proof {
     Theorem("negation of false", !False === True)
 
     !False === True
@@ -117,7 +111,7 @@ let ``negation of false`` () =
   }
 
 let ``GS 3.14`` () =
-  proof () {
+  proof {
     Theorem("GS 3.14", x !== y === (!x === y))
     x !== y
     ``≡`` { ``≢ def`` }
@@ -128,9 +122,10 @@ let ``GS 3.14`` () =
 
 
 let ``symmetry of ≢`` () =
-  proof () {
+  proof {
     Theorem("symmetry of ≢", x !== y === (y !== x))
     x !== y === (y !== x)
+
 
     ``≡`` {
       ``≢ def``
@@ -147,7 +142,7 @@ let ``symmetry of ≢`` () =
 
 let ``associativity of ≢`` () =
   let secondHalf =
-    proof () {
+    proof {
       Theorem("lemma for proving associativity of ≢ ", x !== (y !== z) === (x === (y === z)))
       x !== (y !== z)
       ``≡`` { twice ``GS 3.14`` }
@@ -164,7 +159,7 @@ let ``associativity of ≢`` () =
       x === (y === z)
     }
 
-  proof () {
+  proof {
     Theorem("associativity of ≢", x !== y !== z === (x !== (y !== z)))
     x !== y !== z
 
@@ -183,7 +178,7 @@ let ``associativity of ≢`` () =
   }
 
 let ``mutual associativity`` () =
-  proof () {
+  proof {
     Theorem("mutual associativity", x !== y === z === (x !== (y === z)))
     x !== y === z
 
@@ -195,7 +190,7 @@ let ``mutual associativity`` () =
   }
 
 let ``mutual interchangeability`` () =
-  proof () {
+  proof {
     Theorem("mutual interchangeability", x !== y === z === (x === (y !== z)))
     x !== y === z
 
@@ -215,7 +210,7 @@ let ``mutual interchangeability`` () =
 
 let ``∨ zero`` () =
 
-  proof () {
+  proof {
     Theorem("∨ zero", x <||> True === True)
     x <||> True
 
@@ -234,7 +229,7 @@ let ``∨ zero`` () =
   }
 
 let ``∨ identity`` () =
-  proof () {
+  proof {
     Theorem("∨ identity", x <||> False === x)
 
 
@@ -252,7 +247,7 @@ let ``∨ identity`` () =
   }
 
 let ``∨ over ∨`` () =
-  proof () {
+  proof {
     Theorem("∨ over ∨", x <||> (y <||> z) === (x <||> y <||> (x <||> z)))
     x <||> y <||> x <||> z
     ``≡`` { ``∨ idempotency`` }
@@ -264,7 +259,7 @@ let ``∨ over ∨`` () =
   }
 
 let ``GS 3.32`` () =
-  proof () {
+  proof {
     Theorem("GS 3.32", x <||> y === (x <||> !y) === x)
     x <||> y === (x <||> !y)
     ``≡`` { ``∨ over ≡`` }
@@ -282,7 +277,7 @@ let ``GS 3.32`` () =
 // GS 3.5 conjuction
 
 let ``∧ sym`` () =
-  proof () {
+  proof {
     Theorem("∧ sym", x <&&> y === (y <&&> x))
     x <&&> y
     ``≡`` { ``golden rule`` }
@@ -296,7 +291,7 @@ let ``∧ sym`` () =
   }
 
 let ``∧ assoc`` () =
-  proof () {
+  proof {
     Theorem("∧ assoc", x <&&> y <&&> z === (x <&&> (y <&&> z)))
 
     x <&&> y <&&> z
@@ -335,3 +330,6 @@ let ``∧ assoc`` () =
     x <&&> (y <&&> z)
 
   }
+
+let ``De Morgan`` (p: Pred) =
+  !(``∀`` [ x ] p) === ``∃`` [ x ] !p |> axiom "De Morgan"

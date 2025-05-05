@@ -3,7 +3,6 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="FSharpPlus" Version="1.7.0" />
     <PackageVersion Include="FsToolkit.ErrorHandling" Version="4.18.0" />
     <PackageVersion Include="Microsoft.Z3.x64" Version="4.8.10" />
   </ItemGroup>

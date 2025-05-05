@@ -6,20 +6,20 @@ open Core
 open Xunit
 open FsUnit
 
-let accEqual (expected: string list) (n: Inspection<'a>) =
-
+let accEqual (expected: string list) (n: Inspection) =
   should equalSeq (List.toArray expected) (List.toArray n.accumulated)
 
-let trueTheorem () =
-  let p, q = Var "p", Var "q"
+let x, y, z = Bool(Var "x"), Bool(Var "y"), Bool(Var "z")
+let True = Bool Bool.True
 
-  proof () {
-    Theorem("true theorem", Pred.True)
-    p === q === (q === p)
+let trueTheorem () =
+  proof {
+    Theorem("true theorem", True)
+    x === y === (y === x)
 
     ``≡`` { }
 
-    Pred.True
+    True
   }
 
 [<Fact>]
@@ -27,7 +27,7 @@ let ``inspect a calculation`` () =
   let expected =
     [ ColorMessages.section "calculation"
       ColorMessages.info "demonstrandum" "true"
-      "  p ≡ q ≡ q ≡ p"
+      "  x ≡ y ≡ y ≡ x"
       "≡ {  }"
       "  true"
       "▢" ]
@@ -36,7 +36,7 @@ let ``inspect a calculation`` () =
 
 [<Fact>]
 let ``inspect a step`` () =
-  let expected = [ "  p ≡ q ≡ q ≡ p"; "≡ {  }"; "  true" ]
+  let expected = [ "  x ≡ y ≡ y ≡ x"; "≡ {  }"; "  true" ]
 
   trueTheorem () |> inspect |> stepAt 0 |> accEqual expected
 
@@ -53,7 +53,7 @@ let ``proof of true summary`` () =
   let expected =
     [ ColorMessages.section "summary"
       ColorMessages.info "demonstrandum" "true"
-      "  p ≡ q ≡ q ≡ p"
+      "  x ≡ y ≡ y ≡ x"
       "≡ {  }"
       "  true"
       "▢"
@@ -63,7 +63,6 @@ let ``proof of true summary`` () =
 
 [<Fact>]
 let ``failed proof summary`` () =
-  let x, y, z = Var "x", Var "y", Var "z"
 
   let expected =
     [ ColorMessages.section "summary"
@@ -77,7 +76,7 @@ let ``failed proof summary`` () =
       ColorMessages.info "❌ theorem" "x ≡ y"
       ColorMessages.error "failed" "0, 1" ]
 
-  proof () {
+  proof {
     Theorem("x ≡ y", x === y)
     x
     ``≡`` { }
@@ -99,7 +98,6 @@ let ``out of bounds step`` () =
 
 [<Fact>]
 let ``print predicates`` () =
-  let x, y = Var "x", Var "y"
 
   [ !(!x), "¬¬x"
     x === y === y === x, "x ≡ y ≡ y ≡ x"
@@ -110,7 +108,7 @@ let ``print predicates`` () =
     !x <&&> x, "¬x ∧ x"
     !(x <&&> x), "¬(x ∧ x)"
     x === x ==> (x === y), "(x ≡ x) ⇒ (x ≡ y)"
-    Pred.True, "true"
+    Bool Bool.True, "true"
     x, "x" ]
   |> List.iter (fun (p, expected) ->
     let r = Formatters.printPredicate p
@@ -118,10 +116,9 @@ let ``print predicates`` () =
 
 [<Fact>]
 let ``inspect calculation steps with error`` () =
-  let x, y, z = Var "x", Var "y", Var "z"
   let expected = [ ColorMessages.error "failed steps" ""; "0: x ≡ y"; "1: y ≡ z" ]
 
-  proof () {
+  proof {
     Theorem("x ≡ y", x === y)
     x
     ``≡`` { }
@@ -136,14 +133,12 @@ let ``inspect calculation steps with error`` () =
 
 [<Fact>]
 let ``inspect calculation with wrong evidence`` () =
-  let x, y = Var "x", Var "y"
-
   let expected =
     [ ColorMessages.error "invalid evidence" ""
       "calculation reduces to: x ≡ x"
       "❌ implication does not hold: (x ≡ x) ⇒ (x ≡ y)" ]
 
-  proof () {
+  proof {
     Theorem("x ≡ y", x === y)
     x
     ``≡`` { }

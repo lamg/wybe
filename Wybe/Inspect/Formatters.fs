@@ -6,7 +6,7 @@ open ColorMessages
 let indentLine n line = String.replicate n " " + line
 
 
-let printPredicate (p: Pred<'a>) =
+let printPredicate (p: Pred) =
   let parenthesize
     (parentBindingPower: int)
     (parentOperator: string)
@@ -25,7 +25,7 @@ let printPredicate (p: Pred<'a>) =
     else
       $"({child})"
 
-  let rec binaryOpFormat (pred: int) (symbol: string) (left: Pred<'a>) (right: Pred<'a>) =
+  let rec binaryOpFormat (pred: int) (symbol: string) (left: Pred) (right: Pred) =
     let l, symLeft, predLeft = loop left
     let r, symRight, predRight = loop right
 
@@ -34,11 +34,9 @@ let printPredicate (p: Pred<'a>) =
 
     $"{x} {symbol} {y}", Some symbol, pred
 
-  and loop (p: Pred<'a>) =
+  and loop (p: Pred) =
     match p with
-    | True -> "true", None, 4
-    | False -> "false", None, 4
-    | Var v -> v, None, 4
+    | Bool x -> $"{x}", None, 4
     | Not p ->
       let notPred = 3
       let r, _, childOpBindingPower = loop p
@@ -56,9 +54,10 @@ let printPredicate (p: Pred<'a>) =
     | Implies(left, right) -> binaryOpFormat 1 "⇒" left right
 
     | Follows(left, right) -> binaryOpFormat 1 "⇐" left right
-    | Bool _ -> failwith "Not Implemented"
     | Equiv(left, right) -> binaryOpFormat 0 "≡" left right
     | Differs(left, right) -> binaryOpFormat 0 "≢" left right
+    | Forall _ -> failwith "not implemented"
+    | Exists(_, _) -> failwith "Not Implemented"
 
   let r, _, _ = loop p
   r
@@ -69,16 +68,16 @@ let printOperator =
   | StepOperator.Implies -> "⇒"
   | StepOperator.Follows -> "⇐"
 
-let printLaws (xs: Pred<'a> list) =
+let printLaws (xs: Pred list) =
   xs |> List.map printPredicate |> String.concat ", " |> sprintf "{ %s }"
 
-let printHint (x: Step<'a>) =
+let printHint (x: Step) =
   $"{printOperator x.stepOp} {printLaws x.laws}"
 
-let printStep (x: Step<'a>) =
+let printStep (x: Step) =
   [ $"  {printPredicate x.fromExp}"; printHint x; $"  {printPredicate x.toExp}" ]
 
-let printCalculation (calc: Calculation<'a>) =
+let printCalculation (calc: Calculation) =
   let header = info "demonstrandum" (calc.demonstrandum |> printPredicate)
 
   match calc.steps with
@@ -93,7 +92,7 @@ let printCalculation (calc: Calculation<'a>) =
 
     header :: (first @ nextSteps @ lastStep)
 
-let printCheckedCalculation (calc: CheckedCalculation<'a>) =
+let printCheckedCalculation (calc: CheckedCalculation) =
   let error =
     match calc.error with
     | Some(FailedSteps xs) -> ""
@@ -117,7 +116,7 @@ let printCheckedCalculation (calc: CheckedCalculation<'a>) =
 
     header :: (first @ nextSteps @ lastStep)
 
-let printCalculationError (calc: CheckedCalculation<'a>) =
+let printCalculationError (calc: CheckedCalculation) =
   match calc.error with
   | Some(FailedSteps xs) ->
     error "failed steps" ""

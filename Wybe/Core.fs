@@ -2,30 +2,85 @@ module Core
 
 open Microsoft.Z3
 
+type IZ3Var =
+  abstract member toZ3Var: Context -> Expr
+
 type IZ3Bool =
   abstract member toZ3Bool: Context -> BoolExpr
 
-and Pred<'a when 'a: equality and 'a :> IZ3Bool> =
-  | True
-  | False
+and Integer =
+  | Integer of int64
   | Var of string
-  | Bool of 'a
-  | Not of right: Pred<'a>
-  | And of left: Pred<'a> * right: Pred<'a>
-  | Or of left: Pred<'a> * right: Pred<'a>
-  | Equiv of left: Pred<'a> * right: Pred<'a>
-  | Differs of left: Pred<'a> * right: Pred<'a>
-  | Implies of left: Pred<'a> * right: Pred<'a>
-  | Follows of left: Pred<'a> * right: Pred<'a>
+  | Eq of Integer * Integer // =
+  | Exceeds of Integer * Integer // >
+  | Lt of Integer * Integer // <
+  | AtLeast of Integer * Integer // ≥
+  | AtMost of Integer * Integer // ≤
 
   interface IZ3Bool with
     member this.toZ3Bool(ctx: Context) : BoolExpr =
-      let toExp (p: IZ3Bool) = p.toZ3Bool ctx
+      match this with
+      | Eq _ -> failwith ""
+      | Exceeds(_, _) -> failwith "Not Implemented"
+      | Lt(_, _) -> failwith "Not Implemented"
+      | AtLeast(_, _) -> failwith "Not Implemented"
+      | AtMost(_, _) -> failwith "Not Implemented"
+      | _ -> failwith $"cannot make {this} a boolean expression"
 
+  interface IZ3Var with
+    member this.toZ3Var(ctx: Context) : Expr =
+      match this with
+      | Var s -> ctx.MkIntConst s
+      | _ -> failwith $"cannot make {this} a var"
+
+
+and Bool =
+  | True
+  | False
+  | Var of string
+
+  override this.ToString() =
+    match this with
+    | True -> "true"
+    | False -> "false"
+    | Var v -> v
+
+  interface IZ3Bool with
+
+    member this.toZ3Bool(ctx: Context) : BoolExpr =
       match this with
       | True -> ctx.MkBool true
       | False -> ctx.MkBool false
       | Var v -> ctx.MkBoolConst v
+
+  interface IZ3Var with
+    member this.toZ3Var(ctx: Context) : Expr =
+      match this with
+      | Var v -> ctx.MkBoolConst v
+      | _ -> failwith $"cannot make {this} a var"
+
+and Pred =
+  | Bool of IZ3Bool
+  | Not of right: Pred
+  | And of left: Pred * right: Pred
+  | Or of left: Pred * right: Pred
+  | Equiv of left: Pred * right: Pred
+  | Differs of left: Pred * right: Pred
+  | Implies of left: Pred * right: Pred
+  | Follows of left: Pred * right: Pred
+  | Forall of IZ3Var list * Pred
+  | Exists of IZ3Var list * Pred
+
+  interface IZ3Var with
+    member _.toZ3Var(_: Context) : Expr =
+      raise (System.NotImplementedException())
+
+  interface IZ3Bool with
+
+    member this.toZ3Bool(ctx: Context) : BoolExpr =
+      let toExp (p: IZ3Bool) = p.toZ3Bool ctx
+
+      match this with
       | Bool b -> b.toZ3Bool ctx
       | Not right -> ctx.MkNot(toExp right)
       | And(left, right) -> ctx.MkAnd(toExp left, toExp right)
@@ -34,6 +89,14 @@ and Pred<'a when 'a: equality and 'a :> IZ3Bool> =
       | Differs(left, right) -> Not(Equiv(left, right)) |> toExp
       | Implies(left, right) -> ctx.MkImplies(toExp left, toExp right)
       | Follows(left, right) -> ctx.MkImplies(toExp right, toExp left)
+      | Forall(vars, body) ->
+        let body = (body :> IZ3Bool).toZ3Bool ctx
+        let vars = vars |> List.map (fun x -> x.toZ3Var ctx) |> List.toArray
+        ctx.MkForall(vars, body)
+      | Exists(vars, body) ->
+        let body = (body :> IZ3Bool).toZ3Bool ctx
+        let vars = vars |> List.map (fun x -> x.toZ3Var ctx) |> List.toArray
+        ctx.MkExists(vars, body)
 
 [<RequireQualifiedAccess>]
 type StepOperator =
@@ -41,32 +104,32 @@ type StepOperator =
   | Implies
   | Follows
 
-type Step<'a when 'a: equality and 'a :> IZ3Bool> =
-  { fromExp: Pred<'a>
-    toExp: Pred<'a>
+type Step =
+  { fromExp: Pred
+    toExp: Pred
     stepOp: StepOperator
-    laws: Pred<'a> list }
+    laws: Pred list }
 
-let stepToPred (s: Step<'a>) =
+let stepToPred (s: Step) =
   match s.stepOp with
   | StepOperator.Equiv -> Equiv(s.fromExp, s.toExp)
   | StepOperator.Follows -> Follows(s.fromExp, s.toExp)
   | StepOperator.Implies -> Implies(s.fromExp, s.toExp)
 
-let stepToImplication (s: Step<'a>) =
-  let ls = s.laws |> List.fold (fun acc x -> And(acc, x)) True
-  let step = stepToPred s
-
-  match ls with
-  | True -> step
-  | _ -> Implies(ls, step)
+let stepToImplication (s: Step) =
+  match s.laws with
+  | [] -> stepToPred s
+  | x :: xs ->
+    let ls = xs |> List.fold (fun acc x -> And(acc, x)) x
+    let step = stepToPred s
+    Implies(ls, step)
 
 type CheckResult =
   | Proved
   | Refuted of string
   | Unknown
 
-let checkPredicate (ctx: Context) (p: Pred<'a>) =
+let checkPredicate (ctx: Context) (p: Pred) =
   let solver = ctx.MkSolver()
   let zp = p :> IZ3Bool
   let exp = zp.toZ3Bool ctx
@@ -85,17 +148,17 @@ type Expected =
 
 type ParseError = { expected: Expected }
 
-type CalcError<'a when 'a: equality and 'a :> IZ3Bool> =
+type CalcError =
   | FailedParsing of ParseError
-  | FailedSteps of list<int * Pred<'a> * CheckResult>
-  | WrongEvidence of premise: Pred<'a> * consequence: Pred<'a>
+  | FailedSteps of list<int * Pred * CheckResult>
+  | WrongEvidence of premise: Pred * consequence: Pred
 
-let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step<'a> list) (demonstrandum: Pred<'a>) =
+let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Pred) =
   match steps with
   | [] ->
     match checkPredicate ctx demonstrandum with
     | Proved -> Ok()
-    | _ -> Error(WrongEvidence(True, demonstrandum))
+    | _ -> Error(WrongEvidence(demonstrandum, demonstrandum))
   | x :: xs ->
     let r = xs |> List.fold (fun acc x -> And(acc, stepToPred x)) (stepToPred x)
     let evidence = Implies(r, demonstrandum)
@@ -106,22 +169,22 @@ let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step<'a> list) (demons
 
 open FsToolkit.ErrorHandling
 
-type LawHint<'a when 'a: equality and 'a :> IZ3Bool> =
+type LawHint =
   | End
-  | Laws of Pred<'a> list
+  | Laws of Pred list
 
-type ProofLine<'a when 'a: equality and 'a :> IZ3Bool> =
-  | Hint of StepOperator * Pred<'a> list
-  | Pred of Pred<'a>
-  | Theorem of string * Pred<'a>
+type ProofLine =
+  | Hint of StepOperator * Pred list
+  | Pred of Pred
+  | Theorem of string * Pred
   | Name of string
 
-type Calculation<'a when 'a: equality and 'a :> IZ3Bool> =
-  { demonstrandum: Pred<'a>
+type Calculation =
+  { demonstrandum: Pred
     name: string
-    steps: Step<'a> list }
+    steps: Step list }
 
-let buildBasic (lines: ProofLine<'a> list) =
+let buildBasic (lines: ProofLine list) =
   let rec fixedPoint (f: 'b -> 'b option) (state: 'b) =
     match f state with
     | Some x -> fixedPoint f x
@@ -173,27 +236,27 @@ let buildBasic (lines: ProofLine<'a> list) =
         name = name }
   }
 
-type CheckedCalculation<'a when 'a: equality and 'a :> IZ3Bool> =
-  { calculation: Calculation<'a>
-    error: CalcError<'a> option }
+type CheckedCalculation =
+  { calculation: Calculation
+    error: CalcError option }
 
-type CalculationCE<'a when 'a: equality and 'a :> IZ3Bool>() =
-  member _.Bind(l: ProofLine<'a>, f: ProofLine<'a> -> ProofLine<'a> list) = f l
+type CalculationCE() =
+  member _.Bind(l: ProofLine, f: ProofLine -> ProofLine list) = f l
 
   member _.Zero() = []
 
-  member _.Yield(s: ProofLine<'a>) = [ s ]
-  member _.Yield(s: Pred<'a>) = [ Pred s ]
+  member _.Yield(s: ProofLine) = [ s ]
+  member _.Yield(s: Pred) = [ Pred s ]
 
-  member _.Return(x: ProofLine<'a>) = [ x ]
+  member _.Return(x: ProofLine) = [ x ]
 
-  member _.ReturnFrom(l: ProofLine<'a> list) = l
+  member _.ReturnFrom(l: ProofLine list) = l
 
-  member _.Combine(l1: ProofLine<'a> list, l2: ProofLine<'a> list) = l1 @ l2
+  member _.Combine(l1: ProofLine list, l2: ProofLine list) = l1 @ l2
 
-  member _.Delay(f: unit -> ProofLine<'a> list) = f ()
+  member _.Delay(f: unit -> ProofLine list) = f ()
 
-  member _.Run(xs: ProofLine<'a> list) =
+  member _.Run(xs: ProofLine list) =
     match buildBasic xs with
     | Ok calc ->
       let ctx = new Context()
@@ -217,37 +280,32 @@ type CalculationCE<'a when 'a: equality and 'a :> IZ3Bool>() =
         | _ -> Some(FailedSteps failed)
 
       { calculation = calc; error = error }
-    | Error e ->
-      { calculation =
-          { demonstrandum = False
-            name = ""
-            steps = [] }
-        error = Some(FailedParsing e) }
+    | Error e -> failwith $"{e}"
 
 
-let proof () = CalculationCE()
+let proof = CalculationCE()
 
 type LawsCE(op: StepOperator) =
-  member _.Yield(x: Pred<'a>) = [ x ]
-  member _.Yield(xs: Pred<'a> list) = xs
+  member _.Yield(x: Pred) = [ x ]
+  member _.Yield(xs: Pred list) = xs
 
-  member _.Yield(x: CheckedCalculation<'a>) =
+  member _.Yield(x: CheckedCalculation) =
     match x.error with
     | None -> [ x.calculation.demonstrandum ]
     | Some e -> failwith $"cannot extract law from failed proof {e}"
 
-  member this.Yield(xs: CheckedCalculation<'a> list) = xs |> List.collect this.Yield
+  member this.Yield(xs: CheckedCalculation list) = xs |> List.collect this.Yield
 
-  member this.Yield(xs: (unit -> CheckedCalculation<'a>) list) =
+  member this.Yield(xs: (unit -> CheckedCalculation) list) =
     xs |> List.collect (fun f -> f () |> this.Yield)
 
-  member this.Yield(x: unit -> CheckedCalculation<'a>) = x () |> this.Yield
+  member this.Yield(x: unit -> CheckedCalculation) = x () |> this.Yield
 
-  member _.Combine(xs: Pred<'a> list, ys: Pred<'a> list) = xs @ ys
-  member _.Run(xs: Pred<'a> list) = Hint(op, xs)
+  member _.Combine(xs: Pred list, ys: Pred list) = xs @ ys
+  member _.Run(xs: Pred list) = Hint(op, xs)
   member _.Zero() = []
-  member _.Return(x: Pred<'a>) = [ x ]
-  member _.Delay(f: unit -> Pred<'a> list) = f ()
+  member _.Return(x: Pred) = [ x ]
+  member _.Delay(f: unit -> Pred list) = f ()
 
 let ``≡`` = LawsCE StepOperator.Equiv
 
@@ -261,6 +319,8 @@ let (!==) x y = Differs(x, y)
 let (==>) x y = Implies(x, y)
 let (<&&>) x y = And(x, y)
 let (<||>) x y = Or(x, y)
+let ``∀`` vars body = Forall(vars, body)
+let ``∃`` vars body = Exists(vars, body)
 
 let axiom name pred =
   { calculation =

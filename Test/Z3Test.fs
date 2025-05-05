@@ -4,6 +4,11 @@ open Xunit
 open FsUnit
 open Core
 
+let x, y, z = Bool(Var "x"), Bool(Var "y"), Bool(Var "z")
+let True = Bool True
+let False = Bool False
+
+
 [<Fact>]
 let ``check implication`` () =
   let ctx = new Microsoft.Z3.Context()
@@ -15,13 +20,11 @@ let ``check implication`` () =
 
 [<Fact>]
 let ``double negation with Z3`` () =
-  let x, y = Var "x", Var "y"
-
   let ``GS 3.11`` = !x === y === (x === !y)
   let ``≡ ident`` = x === x === True
 
   let calcRes =
-    proof () {
+    proof {
       Theorem("double negation", !(!x) === x)
 
       !(!x) === x

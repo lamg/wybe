@@ -3,25 +3,24 @@ module Inspect.Inspect
 open Core
 open Formatters
 open ColorMessages
-open FSharpPlus
 
-type Inspection<'a when 'a: equality and 'a :> IZ3Bool> =
+type Inspection =
   { accumulated: string list
-    calc: CheckedCalculation<'a> }
+    calc: CheckedCalculation }
 
-let inspect (r: CheckedCalculation<'a>) = { accumulated = []; calc = r }
+let inspect (r: CheckedCalculation) = { accumulated = []; calc = r }
 
-let private addLines (n: Inspection<'a>) xs =
+let private addLines (n: Inspection) xs =
   { n with
       accumulated = List.append n.accumulated xs }
 
-let calculation (n: Inspection<'a>) =
+let calculation (n: Inspection) =
   n.calc.calculation
   |> printCalculation
   |> List.append [ section "calculation" ]
   |> addLines n
 
-let stepAt (i: int) (n: Inspection<'a>) =
+let stepAt (i: int) (n: Inspection) =
   match List.tryItem i n.calc.calculation.steps with
   | Some s -> printStep s |> addLines n
   | None ->
@@ -29,7 +28,7 @@ let stepAt (i: int) (n: Inspection<'a>) =
       error "out of range" $"0 ≤ {i} < {n.calc.calculation.steps.Length}" ]
     |> addLines n
 
-let hintAt (step: int) (n: Inspection<'a>) =
+let hintAt (step: int) (n: Inspection) =
   let hint =
     n.calc.calculation.steps
     |> List.tryItem step
@@ -39,17 +38,17 @@ let hintAt (step: int) (n: Inspection<'a>) =
 
   addLines n [ hint ]
 
-let print (n: Inspection<'a>) =
+let print (n: Inspection) =
   n.accumulated |> List.iter (printfn "%s")
   n
 
-let printAndClear (n: Inspection<'a>) =
+let printAndClear (n: Inspection) =
   n.accumulated |> List.iter (printfn "%s")
   { n with accumulated = [] }
 
-let printToResult (n: Inspection<'a>) = n |> print |> _.calc |> Ok
+let printToResult (n: Inspection) = n |> print |> _.calc |> Ok
 
-let calculationSummary (calc: CheckedCalculation<'a>) =
+let calculationSummary (calc: CheckedCalculation) =
   let theoremName = calc.calculation.name
 
   let failed =
@@ -68,8 +67,8 @@ let calculationSummary (calc: CheckedCalculation<'a>) =
 
   calculation @ [ info $"{ok} theorem" theoremName ] @ failed
 
-let summary (n: Inspection<'a>) =
+let summary (n: Inspection) =
   n.calc |> calculationSummary |> addLines n
 
-let calculationError (n: Inspection<'a>) =
+let calculationError (n: Inspection) =
   n.calc |> printCalculationError |> addLines n
