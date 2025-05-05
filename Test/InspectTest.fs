@@ -107,7 +107,7 @@ let ``print predicates`` () =
     x <&&> x === y, "x ∧ x ≡ y"
     !x <&&> x, "¬x ∧ x"
     !(x <&&> x), "¬(x ∧ x)"
-    x === x ==> (x === y), "(x ≡ x) ⇒ (x ≡ y)"
+    x === x => (x === y), "(x ≡ x) ⇒ (x ≡ y)"
     Bool Bool.True, "true"
     x, "x" ]
   |> List.iter (fun (p, expected) ->

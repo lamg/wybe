@@ -122,7 +122,7 @@ let printCalculationError (calc: CheckedCalculation) =
     error "failed steps" ""
     :: (xs |> List.map (fun (i, p, _) -> $"{i}: {printPredicate p}"))
   | Some(WrongEvidence(premise, conclusion)) ->
-    let implication = premise ==> conclusion |> printPredicate
+    let implication = premise => conclusion |> printPredicate
     let premise = printPredicate premise
 
     [ error "invalid evidence" ""

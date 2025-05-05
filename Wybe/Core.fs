@@ -316,7 +316,7 @@ let ``⇐`` = LawsCE StepOperator.Follows
 let (!) x = Not x
 let (===) x y = Equiv(x, y)
 let (!==) x y = Differs(x, y)
-let (==>) x y = Implies(x, y)
+let (=>) x y = Implies(x, y)
 let (<&&>) x y = And(x, y)
 let (<||>) x y = Or(x, y)
 let ``∀`` vars body = Forall(vars, body)

@@ -6,25 +6,27 @@ let x, y, z = Bool(Var "x"), Bool(Var "y"), Bool(Var "z")
 let True = Bool True
 let False = Bool False
 
+// NOTE: axioms are defined without delaying the computation, by adding an unit parameter,
+// since there's no call to Z3 in their definition
+
 // (x ≡ y) ∧ (y ≡ z)  ⇒  (x ≡ z)
-let ``≡ transitivity`` () =
-  x === y <&&> (y === z) ==> (x === z) |> axiom "≡ transitivity"
+let ``≡ transitivity`` =
+  x === y <&&> (y === z) => (x === z) |> axiom "≡ transitivity"
 
 // x ≡ y ≡ y ≡ x
-let ``≡ sym`` () = x === y === (y === x) |> axiom "≡ sym"
+let ``≡ sym`` = x === y === (y === x) |> axiom "≡ sym"
 
 // (x ≡ x) ≡ true
-let ``≡ ident`` () = x === x === True |> axiom "≡ ident"
+let ``≡ ident`` = x === x === True |> axiom "≡ ident"
 
 // false ≡ ¬true
-let ``false def`` () = False === !True |> axiom "false def"
+let ``false def`` = False === !True |> axiom "false def"
 
 // ¬(x ≡ y) ≡ ¬x ≡ y
-let ``¬ over ≡`` () =
-  !(x === y) === (!x === y) |> axiom "¬ over ≡"
+let ``¬ over ≡`` = !(x === y) === (!x === y) |> axiom "¬ over ≡"
 
 // x ≢ y ≡ ¬(x ≡ y)
-let ``≢ def`` () = x !== y === !(x === y) |> axiom "≢ def"
+let ``≢ def`` = x !== y === !(x === y) |> axiom "≢ def"
 
 // (x ≡ y) ≡ z  ≡  x ≡ (y ≡ z)
 let ``≡ assoc`` () =
@@ -33,26 +35,23 @@ let ``≡ assoc`` () =
   lhs === rhs |> axiom "≡ assoc"
 
 // GS 3.4 Disjunction
-let ``∨ sym`` () =
-  x <||> y === (y <||> x) |> axiom "∨ sym"
+let ``∨ sym`` = x <||> y === (y <||> x) |> axiom "∨ sym"
 
-let ``∨ assoc`` () =
-  x <||> y <||> z === (x <||> (y <||> z)) |> axiom "∨ assoc"
+let ``∨ assoc`` = x <||> y <||> z === (x <||> (y <||> z)) |> axiom "∨ assoc"
 
-let ``∨ idempotency`` () = x <||> x === x |> axiom "∨ idempotency"
+let ``∨ idempotency`` = x <||> x === x |> axiom "∨ idempotency"
 
-let ``∨ over ≡`` () =
+let ``∨ over ≡`` =
   x <||> (y === z) === (x <||> y === (x <||> z)) |> axiom "∨ over ≡"
 
-let ``excluded middle`` () = x <||> !x |> axiom "excluded middle"
+let ``excluded middle`` = x <||> !x |> axiom "excluded middle"
 
 
 let twice x = [ x; x ]
 
 // GS 3.5
 
-let ``golden rule`` () =
-  x <&&> y === (x === y === (x <||> y)) |> axiom "golden rule"
+let ``golden rule`` = x <&&> y === (x === y === (x <||> y)) |> axiom "golden rule"
 
 let ``true theorem`` () =
   proof {
@@ -360,6 +359,8 @@ let ``∨ ∧ absorption`` () =
   proof { Theorem("∨ ∧ absorption", x <||> (x <&&> y) === x) }
 
 // 3.6 implication
+
+let ``⇒ definition`` = x => y === (x <||> y === x) |> axiom "⇒ definition"
 
 let ``De Morgan`` (p: Pred) =
   !(``∀`` [ x ] p) === ``∃`` [ x ] !p |> axiom "De Morgan"
