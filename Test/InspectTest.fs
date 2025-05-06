@@ -107,11 +107,11 @@ let ``print predicates`` () =
     x <&&> x === y, "x ∧ x ≡ y"
     !x <&&> x, "¬x ∧ x"
     !(x <&&> x), "¬(x ∧ x)"
-    x === x => (x === y), "(x ≡ x) ⇒ (x ≡ y)"
+    x === x ==> (x === y), "(x ≡ x) ⇒ (x ≡ y)"
     Bool Bool.True, "true"
     x, "x" ]
   |> List.iter (fun (p, expected) ->
-    let r = Formatters.printPredicate p
+    let r = p.ToString()
     r |> should equal expected)
 
 [<Fact>]
@@ -147,3 +147,18 @@ let ``inspect calculation with wrong evidence`` () =
   |> inspect
   |> calculationError
   |> accEqual expected
+
+[<Fact>]
+let ``inspect simple predicate calculus proof`` () =
+  let deMorgan = GriesSchneider.PredicateCalculus.``De Morgan``
+
+  let simpleProof =
+    proof {
+
+      Theorem("simple predicate calculus", !(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x)
+      !(``∀`` [ x ] (x <&&> x))
+      ``≡`` { deMorgan [ x ] (x <&&> x) }
+      ``∃`` [ x ] !x
+    }
+
+  simpleProof |> inspect |> summary |> print |> ignore

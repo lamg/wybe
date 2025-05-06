@@ -2,37 +2,36 @@ module Core
 
 open Microsoft.Z3
 
-type IZ3Var =
-  abstract member toZ3Var: Context -> Expr
-
-type IZ3Bool =
+type IZ3Expr =
   abstract member toZ3Bool: Context -> BoolExpr
+  abstract member toZ3Var: Context -> Expr
 
 and Integer =
   | Integer of int64
   | Var of string
-  | Eq of Integer * Integer // =
+  // this terminology comes from https://www.cs.utexas.edu/~EWD/ewd07xx/EWD768.PDF
+  | Equals of Integer * Integer // =
+  | Differs of Integer * Integer // ≠
   | Exceeds of Integer * Integer // >
-  | Lt of Integer * Integer // <
+  | LessThan of Integer * Integer // <
   | AtLeast of Integer * Integer // ≥
   | AtMost of Integer * Integer // ≤
 
-  interface IZ3Bool with
+  interface IZ3Expr with
     member this.toZ3Bool(ctx: Context) : BoolExpr =
       match this with
-      | Eq _ -> failwith ""
-      | Exceeds(_, _) -> failwith "Not Implemented"
-      | Lt(_, _) -> failwith "Not Implemented"
-      | AtLeast(_, _) -> failwith "Not Implemented"
-      | AtMost(_, _) -> failwith "Not Implemented"
+      | Equals(Integer n, Integer m) -> ctx.MkEq(ctx.MkInt n, ctx.MkInt m)
+      | Differs(Integer n, Integer m) -> ctx.MkNot(ctx.MkEq(ctx.MkInt n, ctx.MkInt m))
+      | Exceeds(Integer n, Integer m) -> ctx.MkGt(ctx.MkInt n, ctx.MkInt m)
+      | LessThan(Integer n, Integer m) -> ctx.MkLt(ctx.MkInt n, ctx.MkInt m)
+      | AtLeast(Integer n, Integer m) -> ctx.MkGe(ctx.MkInt n, ctx.MkInt m)
+      | AtMost(Integer n, Integer m) -> ctx.MkLe(ctx.MkInt n, ctx.MkInt m)
       | _ -> failwith $"cannot make {this} a boolean expression"
 
-  interface IZ3Var with
     member this.toZ3Var(ctx: Context) : Expr =
       match this with
       | Var s -> ctx.MkIntConst s
-      | _ -> failwith $"cannot make {this} a var"
-
+      | _ -> failwith $"cannot make a variable from expression {this}"
 
 and Bool =
   | True
@@ -45,7 +44,7 @@ and Bool =
     | False -> "false"
     | Var v -> v
 
-  interface IZ3Bool with
+  interface IZ3Expr with
 
     member this.toZ3Bool(ctx: Context) : BoolExpr =
       match this with
@@ -53,14 +52,13 @@ and Bool =
       | False -> ctx.MkBool false
       | Var v -> ctx.MkBoolConst v
 
-  interface IZ3Var with
     member this.toZ3Var(ctx: Context) : Expr =
       match this with
       | Var v -> ctx.MkBoolConst v
-      | _ -> failwith $"cannot make {this} a var"
+      | _ -> failwith $"cannot make a variable from expression {this}"
 
 and Pred =
-  | Bool of IZ3Bool
+  | Bool of IZ3Expr
   | Not of right: Pred
   | And of left: Pred * right: Pred
   | Or of left: Pred * right: Pred
@@ -68,17 +66,74 @@ and Pred =
   | Differs of left: Pred * right: Pred
   | Implies of left: Pred * right: Pred
   | Follows of left: Pred * right: Pred
-  | Forall of IZ3Var list * Pred
-  | Exists of IZ3Var list * Pred
+  | Forall of IZ3Expr list * Pred
+  | Exists of IZ3Expr list * Pred
 
-  interface IZ3Var with
-    member _.toZ3Var(_: Context) : Expr =
-      raise (System.NotImplementedException())
+  override this.ToString() : string =
+    let parenthesize
+      (parentBindingPower: int)
+      (parentOperator: string)
+      (childBindingPower: int)
+      (childOperator: string option)
+      (child: string)
+      =
+      if childBindingPower >= parentBindingPower then
+        match childOperator with
+        | Some childOp when childBindingPower = parentBindingPower && childOp <> parentOperator ->
+          let mutualAssocOps = [ "≡"; "≢" ]
+          let haveMutualAssoc = Set [ childOp; parentOperator ] = Set mutualAssocOps
 
-  interface IZ3Bool with
+          if not haveMutualAssoc then $"({child})" else child
+        | _ -> child
+      else
+        $"({child})"
 
+    let rec binaryOpFormat (pred: int) (symbol: string) (left: Pred) (right: Pred) =
+      let l, symLeft, predLeft = loop left
+      let r, symRight, predRight = loop right
+
+      let x = parenthesize pred symbol predLeft symLeft l
+      let y = parenthesize pred symbol predRight symRight r
+
+      $"{x} {symbol} {y}", Some symbol, pred
+
+    and loop (p: Pred) =
+      match p with
+      | Bool x -> $"{x}", None, 4
+      | Not p ->
+        let notPred = 3
+        let r, _, childOpBindingPower = loop p
+
+        let t =
+          if childOpBindingPower >= notPred then
+            $"¬{r}"
+          else
+            $"¬({r})"
+
+        t, Some "¬", notPred
+      | And(left, right) -> binaryOpFormat 2 "∧" left right
+
+      | Or(left, right) -> binaryOpFormat 2 "∨" left right
+      | Implies(left, right) -> binaryOpFormat 1 "⇒" left right
+
+      | Follows(left, right) -> binaryOpFormat 1 "⇐" left right
+      | Equiv(left, right) -> binaryOpFormat 0 "≡" left right
+      | Differs(left, right) -> binaryOpFormat 0 "≢" left right
+      | Forall(vars, body) ->
+        let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
+        let p, _, _ = loop body
+        $"⟨∀{vs}::{p}⟩", None, 5
+      | Exists(vars, body) ->
+        let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
+        let p, _, _ = loop body
+        $"⟨∃{vs}::{p}⟩", None, 5
+
+    let r, _, _ = loop this
+    r
+
+  interface IZ3Expr with
     member this.toZ3Bool(ctx: Context) : BoolExpr =
-      let toExp (p: IZ3Bool) = p.toZ3Bool ctx
+      let toExp (p: IZ3Expr) = p.toZ3Bool ctx
 
       match this with
       | Bool b -> b.toZ3Bool ctx
@@ -90,13 +145,18 @@ and Pred =
       | Implies(left, right) -> ctx.MkImplies(toExp left, toExp right)
       | Follows(left, right) -> ctx.MkImplies(toExp right, toExp left)
       | Forall(vars, body) ->
-        let body = (body :> IZ3Bool).toZ3Bool ctx
-        let vars = vars |> List.map (fun x -> x.toZ3Var ctx) |> List.toArray
-        ctx.MkForall(vars, body)
+        let z3Body = (body :> IZ3Expr).toZ3Bool ctx
+        let z3Vars = vars |> List.map (fun v -> v.toZ3Var ctx) |> List.toArray
+        ctx.MkForall(z3Vars, z3Body)
       | Exists(vars, body) ->
-        let body = (body :> IZ3Bool).toZ3Bool ctx
-        let vars = vars |> List.map (fun x -> x.toZ3Var ctx) |> List.toArray
-        ctx.MkExists(vars, body)
+        let z3Body = (body :> IZ3Expr).toZ3Bool ctx
+        let z3Vars = vars |> List.map (fun v -> v.toZ3Var ctx) |> List.toArray
+        ctx.MkExists(z3Vars, z3Body)
+
+    member this.toZ3Var(ctx: Context) : Expr =
+      match this with
+      | Bool b -> b.toZ3Var ctx
+      | _ -> failwith $"cannot make a variable from expression {this}"
 
 [<RequireQualifiedAccess>]
 type StepOperator =
@@ -131,7 +191,7 @@ type CheckResult =
 
 let checkPredicate (ctx: Context) (p: Pred) =
   let solver = ctx.MkSolver()
-  let zp = p :> IZ3Bool
+  let zp = p :> IZ3Expr
   let exp = zp.toZ3Bool ctx
   solver.Add(ctx.MkNot exp)
 
@@ -316,7 +376,8 @@ let ``⇐`` = LawsCE StepOperator.Follows
 let (!) x = Not x
 let (===) x y = Equiv(x, y)
 let (!==) x y = Differs(x, y)
-let (=>) x y = Implies(x, y)
+let (==>) x y = Implies(x, y)
+let (<==) x y = Follows(x, y)
 let (<&&>) x y = And(x, y)
 let (<||>) x y = Or(x, y)
 let ``∀`` vars body = Forall(vars, body)

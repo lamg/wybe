@@ -11,7 +11,7 @@ let False = Bool False
 
 // (x ≡ y) ∧ (y ≡ z)  ⇒  (x ≡ z)
 let ``≡ transitivity`` =
-  x === y <&&> (y === z) => (x === z) |> axiom "≡ transitivity"
+  x === y <&&> (y === z) ==> (x === z) |> axiom "≡ transitivity"
 
 // x ≡ y ≡ y ≡ x
 let ``≡ sym`` = x === y === (y === x) |> axiom "≡ sym"
@@ -360,7 +360,13 @@ let ``∨ ∧ absorption`` () =
 
 // 3.6 implication
 
-let ``⇒ definition`` = x => y === (x <||> y === x) |> axiom "⇒ definition"
+let ``⇒ definition`` = x ==> y === (x <||> y === x) |> axiom "⇒ definition"
+let consequence = x <== y === (y ==> x) |> axiom "consquence"
 
-let ``De Morgan`` (p: Pred) =
-  !(``∀`` [ x ] p) === ``∃`` [ x ] !p |> axiom "De Morgan"
+// 9 Predicate Calculus
+
+let ``∨ over ∀`` vars p =
+  y <||> ``∀`` vars p === ``∀`` vars (y <||> p)
+
+let ``De Morgan`` vars p =
+  !(``∀`` vars p) === ``∃`` vars !p |> axiom "De Morgan"

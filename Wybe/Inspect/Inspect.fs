@@ -56,8 +56,7 @@ let calculationSummary (calc: CheckedCalculation) =
     |> Option.map (function
       | FailedSteps xs -> xs |> List.map (fun (i, _, _) -> $"{i}") |> String.concat ", "
       | FailedParsing e -> $"{e}"
-      | WrongEvidence(premise, consequence) ->
-        $"calculation reduces to: {printPredicate premise}, but does not implies {printPredicate consequence}")
+      | WrongEvidence(premise, consequence) -> $"calculation reduces to: {premise}, but does not implies {consequence}")
     |> Option.map (fun s -> error "failed" s)
     |> Option.toList
 

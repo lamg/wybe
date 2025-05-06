@@ -13,7 +13,7 @@ let False = Bool False
 let ``check implication`` () =
   let ctx = new Microsoft.Z3.Context()
 
-  [ False, Refuted "false"; True => False, Refuted "false" ]
+  [ False, Refuted "false"; True ==> False, Refuted "false" ]
   |> List.iter (fun (pred, expected) ->
     let res = checkPredicate ctx pred
     should equal res expected)
