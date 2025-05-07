@@ -163,9 +163,12 @@ let ``testing De Morgan's law`` () =
       "▢"
       ColorMessages.info "✅ theorem" "testing ∀ and ∃" ]
 
+  let testFormula = !(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x
+
   let simpleProof =
+
     proof {
-      theorem "testing ∀ and ∃" (!(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x)
+      theorem "testing ∀ and ∃" testFormula
       !(``∀`` [ x ] (x <&&> x))
       ``≡`` { ``De Morgan`` (fun x -> x <&&> x) }
       ``∃`` [ x ] !x
@@ -175,7 +178,7 @@ let ``testing De Morgan's law`` () =
 
   let implicitDeMorgan =
     proof {
-      theorem "implicit De Morgan's law" (!(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x)
+      theorem "¬⟨∀x → x ∧ x⟩ ≡ ⟨∃x → ¬x⟩" testFormula
       !(``∀`` [ x ] (x <&&> x))
       ``≡`` { }
       ``∃`` [ x ] !x
