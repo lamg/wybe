@@ -12,12 +12,13 @@
     <Compile Include="Inspect\Formatters.fs" />
     <Compile Include="Inspect\Inspect.fs" />
     <Compile Include="GriesSchneider\PredicateCalculus.fs" />
+    <Compile Include="GriesSchneider\Integers.fs" />
     
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FsToolkit.ErrorHandling" />
-    <PackageReference Include="Microsoft.Z3.x64" />
+    <PackageReference Include="Microsoft.Z3" />
 
   </ItemGroup>
 

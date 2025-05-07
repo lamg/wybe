@@ -8,6 +8,7 @@ let printOperator =
   | StepOperator.Equiv -> "≡"
   | StepOperator.Implies -> "⇒"
   | StepOperator.Follows -> "⇐"
+  | StepOperator.Equals -> "="
 
 let printLaws (xs: Law list) =
   xs |> List.map _.identifier |> String.concat ", " |> sprintf "{ %s }"
@@ -33,12 +34,6 @@ let printCalculation (calc: Calculation) =
     header :: (first @ nextSteps @ lastStep)
 
 let printCheckedCalculation (calc: CheckedCalculation) =
-  let error =
-    match calc.error with
-    | Some(FailedSteps xs) -> ""
-    | Some(WrongEvidence _) -> ""
-    | Some(FailedParsing _) -> failwith "Not Implemented"
-    | None -> ""
 
   let c = calc.calculation
 
@@ -65,4 +60,6 @@ let printCalculationError (calc: CheckedCalculation) =
       $"calculation reduces to: {premise}"
       $"❌ implication does not hold: {implication}" ]
   | Some(FailedParsing e) -> [ $"failed parsing: {e}" ]
+  | Some(InsufficientEvidence d) -> [ error "insufficient evidence" $"{d}" ]
+  | Some(InvalidFormula d) -> [ error $"invalid formula {d}" "" ]
   | None -> []

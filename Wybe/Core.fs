@@ -5,22 +5,40 @@ open Microsoft.Z3
 type IZ3Expr =
   abstract member toZ3Bool: Context -> BoolExpr
   abstract member toZ3Var: Context -> Expr
+  abstract member toZ3Expr: Context -> Expr
 
 and Integer =
   | Integer of int64
   | Var of string
+  | Plus of Integer * Integer
+  | Minus of Integer * Integer
+  | Times of Integer * Integer
+  | Div of Integer * Integer
   // this terminology comes from https://www.cs.utexas.edu/~EWD/ewd07xx/EWD768.PDF
-  | Equals of Integer * Integer // =
   | Differs of Integer * Integer // ≠
   | Exceeds of Integer * Integer // >
   | LessThan of Integer * Integer // <
   | AtLeast of Integer * Integer // ≥
   | AtMost of Integer * Integer // ≤
 
+  override this.ToString() : string =
+    match this with
+    | Integer n -> n.ToString()
+    | Var v -> v
+    | Plus(x, y) -> $"{x} + {y}"
+    | Minus(x, y) -> $"{x} - {y}"
+    | Times(x, y) -> $"{x} × {y}"
+    | Div(x, y) -> $"{x} / {y}"
+    | Differs(x, y) -> $"{x} ≠ {y}"
+    | Exceeds(x, y) -> $"{x} > {y}"
+    | LessThan(x, y) -> $"{x} < {y}"
+    | AtLeast(x, y) -> $"{x} ≥ {y}"
+    | AtMost(x, y) -> $"{x} ≤ {y}"
+
+
   interface IZ3Expr with
     member this.toZ3Bool(ctx: Context) : BoolExpr =
       match this with
-      | Equals(Integer n, Integer m) -> ctx.MkEq(ctx.MkInt n, ctx.MkInt m)
       | Differs(Integer n, Integer m) -> ctx.MkNot(ctx.MkEq(ctx.MkInt n, ctx.MkInt m))
       | Exceeds(Integer n, Integer m) -> ctx.MkGt(ctx.MkInt n, ctx.MkInt m)
       | LessThan(Integer n, Integer m) -> ctx.MkLt(ctx.MkInt n, ctx.MkInt m)
@@ -32,6 +50,19 @@ and Integer =
       match this with
       | Var s -> ctx.MkIntConst s
       | _ -> failwith $"cannot make a variable from expression {this}"
+
+    member this.toZ3Expr(ctx: Context) : Expr =
+      let toExp n =
+        (n :> IZ3Expr).toZ3Expr ctx :?> ArithExpr
+
+      match this with
+      | Integer n -> ctx.MkInt n
+      | Var v -> ctx.MkIntConst v
+      | Plus(x, y) -> ctx.MkAdd(toExp x, toExp y)
+      | Minus(x, y) -> ctx.MkSub(toExp x, toExp y)
+      | Times(x, y) -> ctx.MkMul(toExp x, toExp y)
+      | Div(x, y) -> ctx.MkDiv(toExp x, toExp y)
+      | _ -> (this :> IZ3Expr).toZ3Bool ctx
 
 and Bool =
   | True
@@ -57,8 +88,11 @@ and Bool =
       | Var v -> ctx.MkBoolConst v
       | _ -> failwith $"cannot make a variable from expression {this}"
 
+    member this.toZ3Expr(arg: Context) : Expr = (this :> IZ3Expr).toZ3Bool arg
+
 and Pred =
   | Bool of IZ3Expr
+  | Equals of IZ3Expr * IZ3Expr
   | Not of right: Pred
   | And of left: Pred * right: Pred
   | Or of left: Pred * right: Pred
@@ -100,6 +134,7 @@ and Pred =
     and loop (p: Pred) =
       match p with
       | Bool x -> $"{x}", None, 4
+      | Equals(x, y) -> $"{x} = {y}", None, 4
       | Not p ->
         let notPred = 3
         let r, _, childOpBindingPower = loop p
@@ -137,6 +172,7 @@ and Pred =
 
       match this with
       | Bool b -> b.toZ3Bool ctx
+      | Equals(n, m) -> ctx.MkEq(n.toZ3Expr ctx, m.toZ3Expr ctx)
       | Not right -> ctx.MkNot(toExp right)
       | And(left, right) -> ctx.MkAnd(toExp left, toExp right)
       | Or(left, right) -> ctx.MkOr(toExp left, toExp right)
@@ -158,6 +194,8 @@ and Pred =
       | Bool b -> b.toZ3Var ctx
       | _ -> failwith $"cannot make a variable from expression {this}"
 
+    member this.toZ3Expr(ctx: Context) : Expr = (this :> IZ3Expr).toZ3Bool ctx
+
 type Calculation =
   { demonstrandum: Law; steps: Step list }
 
@@ -171,6 +209,7 @@ and [<RequireQualifiedAccess>] StepOperator =
   | Equiv
   | Implies
   | Follows
+  | Equals
 
 and Step =
   { fromExp: Pred
@@ -194,12 +233,15 @@ and CalcError =
   | FailedParsing of ParseError
   | FailedSteps of list<int * Pred * CheckResult>
   | WrongEvidence of premise: Pred * consequence: Pred
+  | InsufficientEvidence of demonstrandum: Pred
+  | InvalidFormula of demonstrandum: Pred
 
 let stepToPred (s: Step) =
   match s.stepOp with
   | StepOperator.Equiv -> Equiv(s.fromExp, s.toExp)
   | StepOperator.Follows -> Follows(s.fromExp, s.toExp)
   | StepOperator.Implies -> Implies(s.fromExp, s.toExp)
+  | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
 
 
 let checkPredicate (ctx: Context) (p: Pred) =
@@ -220,7 +262,8 @@ let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstran
   | [] ->
     match checkPredicate ctx demonstrandum with
     | Proved -> Ok()
-    | _ -> Error(WrongEvidence(demonstrandum, demonstrandum))
+    | Unknown -> Error(InsufficientEvidence demonstrandum)
+    | Refuted _ -> Error(InvalidFormula demonstrandum)
   | x :: xs ->
     let r = xs |> List.fold (fun acc x -> And(acc, stepToPred x)) (stepToPred x)
     let evidence = Implies(r, demonstrandum)

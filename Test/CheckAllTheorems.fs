@@ -25,7 +25,8 @@ let ``check all theorems`` () =
     ``∧ over ∧``
     contradiction
     ``∧ ∨ absorption``
-    ``∨ ∧ absorption`` ]
+    ``∨ ∧ absorption``
+    GriesSchneider.Integers.``× zero`` ]
   |> List.iter (fun th ->
     match th () with
     | { error = None } -> ()
