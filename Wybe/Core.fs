@@ -122,11 +122,11 @@ and Pred =
       | Forall(vars, body) ->
         let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
         let p, _, _ = loop body
-        $"⟨∀{vs}::{p}⟩", None, 5
+        $"⟨∀{vs} → {p}⟩", None, 5
       | Exists(vars, body) ->
         let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
         let p, _, _ = loop body
-        $"⟨∃{vs}::{p}⟩", None, 5
+        $"⟨∃{vs} → {p}⟩", None, 5
 
     let r, _, _ = loop this
     r
@@ -158,17 +158,42 @@ and Pred =
       | Bool b -> b.toZ3Var ctx
       | _ -> failwith $"cannot make a variable from expression {this}"
 
-[<RequireQualifiedAccess>]
-type StepOperator =
+type Calculation =
+  { demonstrandum: Law; steps: Step list }
+
+and CheckedCalculation =
+  { calculation: Calculation
+    error: CalcError option }
+
+and Law = { identifier: string; body: Pred }
+
+and [<RequireQualifiedAccess>] StepOperator =
   | Equiv
   | Implies
   | Follows
 
-type Step =
+and Step =
   { fromExp: Pred
     toExp: Pred
     stepOp: StepOperator
-    laws: Pred list }
+    laws: Law list }
+
+and Expected =
+  | ExpectingStep
+  | ExpectingHint
+  | ExpectingTheorem
+
+and ParseError = { expected: Expected }
+
+and CheckResult =
+  | Proved
+  | Refuted of string
+  | Unknown
+
+and CalcError =
+  | FailedParsing of ParseError
+  | FailedSteps of list<int * Pred * CheckResult>
+  | WrongEvidence of premise: Pred * consequence: Pred
 
 let stepToPred (s: Step) =
   match s.stepOp with
@@ -176,20 +201,9 @@ let stepToPred (s: Step) =
   | StepOperator.Follows -> Follows(s.fromExp, s.toExp)
   | StepOperator.Implies -> Implies(s.fromExp, s.toExp)
 
-let stepToImplication (s: Step) =
-  match s.laws with
-  | [] -> stepToPred s
-  | x :: xs ->
-    let ls = xs |> List.fold (fun acc x -> And(acc, x)) x
-    let step = stepToPred s
-    Implies(ls, step)
-
-type CheckResult =
-  | Proved
-  | Refuted of string
-  | Unknown
 
 let checkPredicate (ctx: Context) (p: Pred) =
+
   let solver = ctx.MkSolver()
   let zp = p :> IZ3Expr
   let exp = zp.toZ3Bool ctx
@@ -200,18 +214,6 @@ let checkPredicate (ctx: Context) (p: Pred) =
   | Status.UNSATISFIABLE -> Proved
   | Status.UNKNOWN -> Unknown
   | v -> failwith $"unexpected enum value {v}"
-
-type Expected =
-  | ExpectingStep
-  | ExpectingHint
-  | ExpectingTheorem
-
-type ParseError = { expected: Expected }
-
-type CalcError =
-  | FailedParsing of ParseError
-  | FailedSteps of list<int * Pred * CheckResult>
-  | WrongEvidence of premise: Pred * consequence: Pred
 
 let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Pred) =
   match steps with
@@ -229,20 +231,11 @@ let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstran
 
 open FsToolkit.ErrorHandling
 
-type LawHint =
-  | End
-  | Laws of Pred list
-
 type ProofLine =
-  | Hint of StepOperator * Pred list
+  | Hint of StepOperator * Law list
   | Pred of Pred
-  | Theorem of string * Pred
+  | Theorem of Law
   | Name of string
-
-type Calculation =
-  { demonstrandum: Pred
-    name: string
-    steps: Step list }
 
 let buildBasic (lines: ProofLine list) =
   let rec fixedPoint (f: 'b -> 'b option) (state: 'b) =
@@ -250,13 +243,14 @@ let buildBasic (lines: ProofLine list) =
     | Some x -> fixedPoint f x
     | None -> state
 
-  // syntax of lines: theorem (expr hint)* expr
+  // syntax of lines: theorem (expr hint expr)*
   result {
-    let! (name, theorem), lines =
+    let! theorem, lines =
       match lines with
       | [] -> Error { expected = ExpectingTheorem }
-      | Theorem(name, t) :: lines -> Ok((name, t), lines)
-      | l :: _ -> Error { expected = ExpectingTheorem }
+      | Theorem t :: lines -> Ok(t, lines)
+      | l :: _ -> Error { expected = ExpectingTheorem } // TODO pass a parameter to ExpectingTheorem to
+    // make easier to find the invalid line
 
     let steps, lines =
       fixedPoint
@@ -264,6 +258,7 @@ let buildBasic (lines: ProofLine list) =
         | steps, lines ->
           match lines with
           | [ Pred f; Hint(op, laws); Pred t ] ->
+
             Some(
               { fromExp = f
                 toExp = t
@@ -292,13 +287,8 @@ let buildBasic (lines: ProofLine list) =
 
     return
       { demonstrandum = theorem
-        steps = steps |> List.rev
-        name = name }
+        steps = steps |> List.rev }
   }
-
-type CheckedCalculation =
-  { calculation: Calculation
-    error: CalcError option }
 
 type CalculationCE() =
   member _.Bind(l: ProofLine, f: ProofLine -> ProofLine list) = f l
@@ -334,7 +324,7 @@ type CalculationCE() =
       let error =
         match failed with
         | [] ->
-          match checkStepsImpliesDemonstrandum ctx calc.steps calc.demonstrandum with
+          match checkStepsImpliesDemonstrandum ctx calc.steps calc.demonstrandum.body with
           | Ok() -> None
           | Error e -> Some e
         | _ -> Some(FailedSteps failed)
@@ -346,8 +336,11 @@ type CalculationCE() =
 let proof = CalculationCE()
 
 type LawsCE(op: StepOperator) =
-  member _.Yield(x: Pred) = [ x ]
-  member _.Yield(xs: Pred list) = xs
+  member _.Yield(x: Pred) =
+    [ { identifier = x.ToString(); body = x } ]
+
+  member _.Yield(x: Law) = [ x ]
+  member _.Yield(xs: Law list) = xs
 
   member _.Yield(x: CheckedCalculation) =
     match x.error with
@@ -361,11 +354,11 @@ type LawsCE(op: StepOperator) =
 
   member this.Yield(x: unit -> CheckedCalculation) = x () |> this.Yield
 
-  member _.Combine(xs: Pred list, ys: Pred list) = xs @ ys
-  member _.Run(xs: Pred list) = Hint(op, xs)
+  member _.Combine(xs: Law list, ys: Law list) = xs @ ys
+  member _.Run(xs: Law list) = Hint(op, xs)
   member _.Zero() = []
-  member _.Return(x: Pred) = [ x ]
-  member _.Delay(f: unit -> Pred list) = f ()
+  member _.Return(x: Law) = [ x ]
+  member _.Delay(f: unit -> Law list) = f ()
 
 let ``≡`` = LawsCE StepOperator.Equiv
 
@@ -380,12 +373,7 @@ let (==>) x y = Implies(x, y)
 let (<==) x y = Follows(x, y)
 let (<&&>) x y = And(x, y)
 let (<||>) x y = Or(x, y)
-let ``∀`` vars body = Forall(vars, body)
-let ``∃`` vars body = Exists(vars, body)
+let ``∀`` vars f = Forall(vars, f)
+let ``∃`` vars f = Exists(vars, f)
 
-let axiom name pred =
-  { calculation =
-      { demonstrandum = pred
-        steps = []
-        name = name }
-    error = None }
+let axiom name (pred: Pred) = { identifier = name; body = pred }

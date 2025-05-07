@@ -22,10 +22,11 @@ let ``check implication`` () =
 let ``double negation with Z3`` () =
   let ``GS 3.11`` = !x === y === (x === !y)
   let ``≡ ident`` = x === x === True
+  let theorem = GriesSchneider.PredicateCalculus.theorem
 
   let calcRes =
     proof {
-      Theorem("double negation", !(!x) === x)
+      theorem "double negation" (!(!x) === x)
 
       !(!x) === x
       ``≡`` { ``GS 3.11`` }

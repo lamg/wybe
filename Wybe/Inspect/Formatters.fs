@@ -9,8 +9,8 @@ let printOperator =
   | StepOperator.Implies -> "⇒"
   | StepOperator.Follows -> "⇐"
 
-let printLaws (xs: Pred list) =
-  xs |> List.map _.ToString() |> String.concat ", " |> sprintf "{ %s }"
+let printLaws (xs: Law list) =
+  xs |> List.map _.identifier |> String.concat ", " |> sprintf "{ %s }"
 
 let printHint (x: Step) =
   $"{printOperator x.stepOp} {printLaws x.laws}"
@@ -19,7 +19,7 @@ let printStep (x: Step) =
   [ $"  {x.fromExp}"; printHint x; $"  {x.toExp}" ]
 
 let printCalculation (calc: Calculation) =
-  let header = info "demonstrandum" (calc.demonstrandum.ToString())
+  let header = info "demonstrandum" (calc.demonstrandum.body.ToString())
 
   match calc.steps with
   | [] -> failwith "List is empty"
@@ -42,7 +42,7 @@ let printCheckedCalculation (calc: CheckedCalculation) =
 
   let c = calc.calculation
 
-  let header = info "demonstrandum" (c.demonstrandum.ToString())
+  let header = info "demonstrandum" (c.demonstrandum.body.ToString())
 
   match c.steps with
   | [] -> [ "▢" ]

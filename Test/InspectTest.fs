@@ -6,6 +6,8 @@ open Core
 open Xunit
 open FsUnit
 
+let theorem = GriesSchneider.PredicateCalculus.theorem
+
 let accEqual (expected: string list) (n: Inspection) =
   should equalSeq (List.toArray expected) (List.toArray n.accumulated)
 
@@ -14,7 +16,7 @@ let True = Bool Bool.True
 
 let trueTheorem () =
   proof {
-    Theorem("true theorem", True)
+    theorem "true theorem" True
     x === y === (y === x)
 
     ``≡`` { }
@@ -77,7 +79,7 @@ let ``failed proof summary`` () =
       ColorMessages.error "failed" "0, 1" ]
 
   proof {
-    Theorem("x ≡ y", x === y)
+    theorem "x ≡ y" (x === y)
     x
     ``≡`` { }
     y
@@ -119,7 +121,7 @@ let ``inspect calculation steps with error`` () =
   let expected = [ ColorMessages.error "failed steps" ""; "0: x ≡ y"; "1: y ≡ z" ]
 
   proof {
-    Theorem("x ≡ y", x === y)
+    theorem "x ≡ y" (x === y)
     x
     ``≡`` { }
     y
@@ -139,7 +141,7 @@ let ``inspect calculation with wrong evidence`` () =
       "❌ implication does not hold: (x ≡ x) ⇒ (x ≡ y)" ]
 
   proof {
-    Theorem("x ≡ y", x === y)
+    theorem "x ≡ y" (x === y)
     x
     ``≡`` { }
     x
@@ -149,16 +151,34 @@ let ``inspect calculation with wrong evidence`` () =
   |> accEqual expected
 
 [<Fact>]
-let ``inspect simple predicate calculus proof`` () =
-  let deMorgan = GriesSchneider.PredicateCalculus.``De Morgan``
+let ``testing De Morgan's law`` () =
+  let ``De Morgan`` = GriesSchneider.PredicateCalculus.``De Morgan``
+
+  let expected =
+    [ ColorMessages.section "summary"
+      ColorMessages.info "demonstrandum" "¬⟨∀x → x ∧ x⟩ ≡ ⟨∃x → ¬x⟩"
+      "  ¬⟨∀x → x ∧ x⟩"
+      "≡ { De Morgan }"
+      "  ⟨∃x → ¬x⟩"
+      "▢"
+      ColorMessages.info "✅ theorem" "testing ∀ and ∃" ]
 
   let simpleProof =
     proof {
-
-      Theorem("simple predicate calculus", !(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x)
+      theorem "testing ∀ and ∃" (!(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x)
       !(``∀`` [ x ] (x <&&> x))
-      ``≡`` { deMorgan [ x ] (x <&&> x) }
+      ``≡`` { ``De Morgan`` (fun x -> x <&&> x) }
       ``∃`` [ x ] !x
     }
 
-  simpleProof |> inspect |> summary |> print |> ignore
+  simpleProof |> inspect |> summary |> accEqual expected
+
+  let implicitDeMorgan =
+    proof {
+      theorem "implicit De Morgan's law" (!(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x)
+      !(``∀`` [ x ] (x <&&> x))
+      ``≡`` { }
+      ``∃`` [ x ] !x
+    }
+
+  implicitDeMorgan |> _.error.IsNone |> Assert.True

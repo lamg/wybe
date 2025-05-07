@@ -29,7 +29,7 @@ let ``¬ over ≡`` = !(x === y) === (!x === y) |> axiom "¬ over ≡"
 let ``≢ def`` = x !== y === !(x === y) |> axiom "≢ def"
 
 // (x ≡ y) ≡ z  ≡  x ≡ (y ≡ z)
-let ``≡ assoc`` () =
+let ``≡ assoc`` =
   let lhs = x === y === z
   let rhs = x === (y === z)
   lhs === rhs |> axiom "≡ assoc"
@@ -53,9 +53,12 @@ let twice x = [ x; x ]
 
 let ``golden rule`` = x <&&> y === (x === y === (x <||> y)) |> axiom "golden rule"
 
+let theorem name pred =
+  Theorem { identifier = name; body = pred }
+
 let ``true theorem`` () =
   proof {
-    Theorem("true theorem", True)
+    theorem "true theorem" True
     x === y === (y === x)
 
     ``≡`` { ``≡ ident`` }
@@ -67,7 +70,7 @@ let ``true theorem`` () =
 // GS = "A Logical Approach to Discrete Math, by David Gries and Fred B. Schneider"
 let ``GS 3.11`` () =
   proof {
-    Theorem("GS 3.11", !x === y === (x === !y))
+    theorem "GS 3.11" (!x === y === (x === !y))
 
     !x === y === (x === !y)
 
@@ -86,7 +89,7 @@ let ``GS 3.11`` () =
 
 let ``double negation`` () =
   proof {
-    Theorem("double negation", !(!x) === x)
+    theorem "double negation" (!(!x) === x)
     !(!x) === x
     ``≡`` { ``GS 3.11`` }
     !x === !x
@@ -96,7 +99,7 @@ let ``double negation`` () =
 
 let ``negation of false`` () =
   proof {
-    Theorem("negation of false", !False === True)
+    theorem "negation of false" (!False === True)
 
     !False === True
 
@@ -111,7 +114,7 @@ let ``negation of false`` () =
 
 let ``GS 3.14`` () =
   proof {
-    Theorem("GS 3.14", x !== y === (!x === y))
+    theorem "GS 3.14" (x !== y === (!x === y))
     x !== y
     ``≡`` { ``≢ def`` }
     !(x === y)
@@ -122,7 +125,7 @@ let ``GS 3.14`` () =
 
 let ``symmetry of ≢`` () =
   proof {
-    Theorem("symmetry of ≢", x !== y === (y !== x))
+    theorem "symmetry of ≢" (x !== y === (y !== x))
     x !== y === (y !== x)
 
 
@@ -142,7 +145,7 @@ let ``symmetry of ≢`` () =
 let ``associativity of ≢`` () =
   let secondHalf =
     proof {
-      Theorem("lemma for proving associativity of ≢ ", x !== (y !== z) === (x === (y === z)))
+      theorem "lemma for proving associativity of ≢ " (x !== (y !== z) === (x === (y === z)))
       x !== (y !== z)
       ``≡`` { twice ``GS 3.14`` }
       !x === (!y === z)
@@ -159,7 +162,7 @@ let ``associativity of ≢`` () =
     }
 
   proof {
-    Theorem("associativity of ≢", x !== y !== z === (x !== (y !== z)))
+    theorem "associativity of ≢" (x !== y !== z === (x !== (y !== z)))
     x !== y !== z
 
     ``≡`` { twice ``GS 3.14`` }
@@ -178,7 +181,7 @@ let ``associativity of ≢`` () =
 
 let ``mutual associativity`` () =
   proof {
-    Theorem("mutual associativity", x !== y === z === (x !== (y === z)))
+    theorem "mutual associativity" (x !== y === z === (x !== (y === z)))
     x !== y === z
 
     ``≡`` { ``GS 3.14`` }
@@ -190,7 +193,7 @@ let ``mutual associativity`` () =
 
 let ``mutual interchangeability`` () =
   proof {
-    Theorem("mutual interchangeability", x !== y === z === (x === (y !== z)))
+    theorem "mutual interchangeability" (x !== y === z === (x === (y !== z)))
     x !== y === z
 
     ``≡`` {
@@ -210,7 +213,7 @@ let ``mutual interchangeability`` () =
 let ``∨ zero`` () =
 
   proof {
-    Theorem("∨ zero", x <||> True === True)
+    theorem "∨ zero" (x <||> True === True)
     x <||> True
 
     ``≡`` { ``excluded middle`` }
@@ -229,7 +232,7 @@ let ``∨ zero`` () =
 
 let ``∨ identity`` () =
   proof {
-    Theorem("∨ identity", x <||> False === x)
+    theorem "∨ identity" (x <||> False === x)
 
 
     x <||> False === x
@@ -247,7 +250,7 @@ let ``∨ identity`` () =
 
 let ``∨ over ∨`` () =
   proof {
-    Theorem("∨ over ∨", x <||> (y <||> z) === (x <||> y <||> (x <||> z)))
+    theorem "∨ over ∨" (x <||> (y <||> z) === (x <||> y <||> (x <||> z)))
     x <||> y <||> x <||> z
     ``≡`` { ``∨ idempotency`` }
     y <||> x <||> z
@@ -259,7 +262,7 @@ let ``∨ over ∨`` () =
 
 let ``GS 3.32`` () =
   proof {
-    Theorem("GS 3.32", x <||> y === (x <||> !y) === x)
+    theorem "GS 3.32" (x <||> y === (x <||> !y) === x)
     x <||> y === (x <||> !y)
     ``≡`` { ``∨ over ≡`` }
     x <||> (y === !y)
@@ -277,7 +280,7 @@ let ``GS 3.32`` () =
 
 let ``∧ sym`` () =
   proof {
-    Theorem("∧ sym", x <&&> y === (y <&&> x))
+    theorem "∧ sym" (x <&&> y === (y <&&> x))
     x <&&> y
     ``≡`` { ``golden rule`` }
     x === y === (x <||> y)
@@ -291,7 +294,7 @@ let ``∧ sym`` () =
 
 let ``∧ assoc`` () =
   proof {
-    Theorem("∧ assoc", x <&&> y <&&> z === (x <&&> (y <&&> z)))
+    theorem "∧ assoc" (x <&&> y <&&> z === (x <&&> (y <&&> z)))
 
     x <&&> y <&&> z
     ``≡`` { ``golden rule`` }
@@ -332,7 +335,7 @@ let ``∧ assoc`` () =
 
 let ``∧ idempotency`` () =
   proof {
-    Theorem("∧ idempotency", x <&&> x === x)
+    theorem "∧ idempotency" (x <&&> x === x)
     x <&&> x
     ``≡`` { ``golden rule`` }
     x === x === x <||> x
@@ -343,20 +346,20 @@ let ``∧ idempotency`` () =
   }
 
 let ``∧ zero`` () =
-  proof { Theorem("∧ zero", x <&&> False === False) }
+  proof { theorem "∧ zero" (x <&&> False === False) }
 
 let ``∧ over ∧`` () =
-  proof { Theorem("∧ over ∧", x <&&> (y <&&> z) === (x <&&> y <&&> (x <&&> z))) }
+  proof { theorem "∧ over ∧" (x <&&> (y <&&> z) === (x <&&> y <&&> (x <&&> z))) }
 
 let contradiction () =
-  proof { Theorem("contradiction", x <&&> !x === False) }
+  proof { theorem "contradiction" (x <&&> !x === False) }
 
 let ``∧ ∨ absorption`` () =
-  proof { Theorem("∧ ∨ absorption", x <&&> (x <||> y) === x) }
+  proof { theorem "∧ ∨ absorption" (x <&&> (x <||> y) === x) }
 
 
 let ``∨ ∧ absorption`` () =
-  proof { Theorem("∨ ∧ absorption", x <||> (x <&&> y) === x) }
+  proof { theorem "∨ ∧ absorption" (x <||> (x <&&> y) === x) }
 
 // 3.6 implication
 
@@ -365,8 +368,8 @@ let consequence = x <== y === (y ==> x) |> axiom "consquence"
 
 // 9 Predicate Calculus
 
-let ``∨ over ∀`` vars p =
-  y <||> ``∀`` vars p === ``∀`` vars (y <||> p)
+let ``∨ over ∀`` (p: Pred -> Pred) =
+  y <||> ``∀`` [ x ] (p x) === ``∀`` [ x ] (y <||> p x) |> axiom "∨ over ∀"
 
-let ``De Morgan`` vars p =
-  !(``∀`` vars p) === ``∃`` vars !p |> axiom "De Morgan"
+let ``De Morgan`` (p: Pred -> Pred) =
+  !(``∀`` [ x ] (p x)) === ``∃`` [ x ] !(p x) |> axiom "De Morgan"

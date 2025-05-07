@@ -49,7 +49,7 @@ let printAndClear (n: Inspection) =
 let printToResult (n: Inspection) = n |> print |> _.calc |> Ok
 
 let calculationSummary (calc: CheckedCalculation) =
-  let theoremName = calc.calculation.name
+  let theoremName = calc.calculation.demonstrandum.identifier
 
   let failed =
     calc.error
