@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="FsToolkit.ErrorHandling" Version="4.18.0" />
-    <PackageVersion Include="Microsoft.Z3.x64" Version="4.8.10" />
+    <PackageVersion Include="Microsoft.Z3" Version="4.8.11" />
   </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="ObjectDumper.NET" Version="4.3.2" />
