@@ -15,7 +15,6 @@ and Integer =
   | Times of Integer * Integer
   | Div of Integer * Integer
   // this terminology comes from https://www.cs.utexas.edu/~EWD/ewd07xx/EWD768.PDF
-  | Differs of Integer * Integer // ≠
   | Exceeds of Integer * Integer // >
   | LessThan of Integer * Integer // <
   | AtLeast of Integer * Integer // ≥
@@ -29,7 +28,6 @@ and Integer =
     | Minus(x, y) -> $"{x} - {y}"
     | Times(x, y) -> $"{x} × {y}"
     | Div(x, y) -> $"{x} / {y}"
-    | Differs(x, y) -> $"{x} ≠ {y}"
     | Exceeds(x, y) -> $"{x} > {y}"
     | LessThan(x, y) -> $"{x} < {y}"
     | AtLeast(x, y) -> $"{x} ≥ {y}"
@@ -39,7 +37,6 @@ and Integer =
   interface IZ3Expr with
     member this.toZ3Bool(ctx: Context) : BoolExpr =
       match this with
-      | Differs(Integer n, Integer m) -> ctx.MkNot(ctx.MkEq(ctx.MkInt n, ctx.MkInt m))
       | Exceeds(Integer n, Integer m) -> ctx.MkGt(ctx.MkInt n, ctx.MkInt m)
       | LessThan(Integer n, Integer m) -> ctx.MkLt(ctx.MkInt n, ctx.MkInt m)
       | AtLeast(Integer n, Integer m) -> ctx.MkGe(ctx.MkInt n, ctx.MkInt m)
@@ -93,11 +90,12 @@ and Bool =
 and Pred =
   | Bool of IZ3Expr
   | Equals of IZ3Expr * IZ3Expr
+  | Differs of IZ3Expr * IZ3Expr
   | Not of right: Pred
   | And of left: Pred * right: Pred
   | Or of left: Pred * right: Pred
   | Equiv of left: Pred * right: Pred
-  | Differs of left: Pred * right: Pred
+  | Inequiv of left: Pred * right: Pred
   | Implies of left: Pred * right: Pred
   | Follows of left: Pred * right: Pred
   | Forall of IZ3Expr list * Pred
@@ -135,6 +133,7 @@ and Pred =
       match p with
       | Bool x -> $"{x}", None, 4
       | Equals(x, y) -> $"{x} = {y}", None, 4
+      | Differs(x, y) -> $"{x} ≠ {y}", None, 4
       | Not p ->
         let notPred = 3
         let r, _, childOpBindingPower = loop p
@@ -153,7 +152,7 @@ and Pred =
 
       | Follows(left, right) -> binaryOpFormat 1 "⇐" left right
       | Equiv(left, right) -> binaryOpFormat 0 "≡" left right
-      | Differs(left, right) -> binaryOpFormat 0 "≢" left right
+      | Inequiv(left, right) -> binaryOpFormat 0 "≢" left right
       | Forall(vars, body) ->
         let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
         let p, _, _ = loop body
@@ -173,11 +172,12 @@ and Pred =
       match this with
       | Bool b -> b.toZ3Bool ctx
       | Equals(n, m) -> ctx.MkEq(n.toZ3Expr ctx, m.toZ3Expr ctx)
+      | Differs(n, m) -> ctx.MkNot(Equals(n, m) |> toExp)
       | Not right -> ctx.MkNot(toExp right)
       | And(left, right) -> ctx.MkAnd(toExp left, toExp right)
       | Or(left, right) -> ctx.MkOr(toExp left, toExp right)
       | Equiv(left, right) -> ctx.MkEq(toExp left, toExp right)
-      | Differs(left, right) -> Not(Equiv(left, right)) |> toExp
+      | Inequiv(left, right) -> Not(Equiv(left, right)) |> toExp
       | Implies(left, right) -> ctx.MkImplies(toExp left, toExp right)
       | Follows(left, right) -> ctx.MkImplies(toExp right, toExp left)
       | Forall(vars, body) ->
@@ -411,7 +411,7 @@ let ``⇐`` = LawsCE StepOperator.Follows
 
 let (!) x = Not x
 let (===) x y = Equiv(x, y)
-let (!==) x y = Differs(x, y)
+let (!==) x y = Inequiv(x, y)
 let (==>) x y = Implies(x, y)
 let (<==) x y = Follows(x, y)
 let (<&&>) x y = And(x, y)
