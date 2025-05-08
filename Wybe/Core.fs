@@ -1,6 +1,7 @@
 module Core
 
 open Microsoft.Z3
+#nowarn 86
 
 type IZ3Expr =
   abstract member toZ3Bool: Context -> BoolExpr
@@ -32,6 +33,16 @@ and Integer =
     | LessThan(x, y) -> $"{x} < {y}"
     | AtLeast(x, y) -> $"{x} ≥ {y}"
     | AtMost(x, y) -> $"{x} ≤ {y}"
+
+  static member (~-)(x: Integer) =
+    match x with
+    | Integer n -> Integer(-n)
+    | _ -> Minus(Integer 0, x)
+
+  static member (+)(x: Integer, y: Integer) = Plus(x, y)
+  static member (-)(x: Integer, y: Integer) = Minus(x, y)
+  static member (*)(x: Integer, y: Integer) = Times(x, y)
+  static member (/)(x: Integer, y: Integer) = Div(x, y)
 
 
   interface IZ3Expr with
@@ -212,8 +223,8 @@ and [<RequireQualifiedAccess>] StepOperator =
   | Equals
 
 and Step =
-  { fromExp: Pred
-    toExp: Pred
+  { fromExp: IZ3Expr
+    toExp: IZ3Expr
     stepOp: StepOperator
     laws: Law list }
 
@@ -238,9 +249,9 @@ and CalcError =
 
 let stepToPred (s: Step) =
   match s.stepOp with
-  | StepOperator.Equiv -> Equiv(s.fromExp, s.toExp)
-  | StepOperator.Follows -> Follows(s.fromExp, s.toExp)
-  | StepOperator.Implies -> Implies(s.fromExp, s.toExp)
+  | StepOperator.Equiv -> Equiv(s.fromExp :?> Pred, s.toExp :?> Pred)
+  | StepOperator.Follows -> Follows(s.fromExp :?> Pred, s.toExp :?> Pred)
+  | StepOperator.Implies -> Implies(s.fromExp :?> Pred, s.toExp :?> Pred)
   | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
 
 
@@ -276,7 +287,7 @@ open FsToolkit.ErrorHandling
 
 type ProofLine =
   | Hint of StepOperator * Law list
-  | Pred of Pred
+  | WybeExpr of IZ3Expr
   | Theorem of Law
   | Name of string
 
@@ -300,7 +311,7 @@ let buildBasic (lines: ProofLine list) =
         (function
         | steps, lines ->
           match lines with
-          | [ Pred f; Hint(op, laws); Pred t ] ->
+          | [ WybeExpr f; Hint(op, laws); WybeExpr t ] ->
 
             Some(
               { fromExp = f
@@ -310,14 +321,14 @@ let buildBasic (lines: ProofLine list) =
               :: steps,
               []
             )
-          | Pred f :: Hint(op, laws) :: Pred t :: lines ->
+          | WybeExpr f :: Hint(op, laws) :: WybeExpr t :: lines ->
             Some(
               { fromExp = f
                 toExp = t
                 stepOp = op
                 laws = laws }
               :: steps,
-              Pred t :: lines
+              WybeExpr t :: lines
             )
           | _ -> None)
         ([], lines)
@@ -325,7 +336,7 @@ let buildBasic (lines: ProofLine list) =
     do!
       match lines with
       | [] -> Ok()
-      | Pred _ :: _ -> Error { expected = ExpectingHint }
+      | WybeExpr _ :: _ -> Error { expected = ExpectingHint }
       | _ :: _ -> Error { expected = ExpectingStep }
 
     return
@@ -339,7 +350,7 @@ type CalculationCE() =
   member _.Zero() = []
 
   member _.Yield(s: ProofLine) = [ s ]
-  member _.Yield(s: Pred) = [ Pred s ]
+  member _.Yield(s: IZ3Expr) = [ WybeExpr s ]
 
   member _.Return(x: ProofLine) = [ x ]
 
