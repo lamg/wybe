@@ -11,7 +11,7 @@ let theorem = GriesSchneider.PredicateCalculus.theorem
 let accEqual (expected: string list) (n: Inspection) =
   should equalSeq (List.toArray expected) (List.toArray n.accumulated)
 
-let x, y, z = Bool(Var "x"), Bool(Var "y"), Bool(Var "z")
+let x, y, z = Bool(Bool.Var "x"), Bool(Bool.Var "y"), Bool(Bool.Var "z")
 let True = Bool Bool.True
 
 let trueTheorem () =

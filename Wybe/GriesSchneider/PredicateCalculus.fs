@@ -2,7 +2,7 @@ module GriesSchneider.PredicateCalculus
 
 open Core
 
-let x, y, z = Bool(Var "x"), Bool(Var "y"), Bool(Var "z")
+let x, y, z = Bool(Bool.Var "x"), Bool(Bool.Var "y"), Bool(Bool.Var "z")
 let True = Bool True
 let False = Bool False
 

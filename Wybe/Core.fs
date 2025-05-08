@@ -44,7 +44,6 @@ and Integer =
   static member (*)(x: Integer, y: Integer) = Times(x, y)
   static member (/)(x: Integer, y: Integer) = Div(x, y)
 
-
   interface IZ3Expr with
     member this.toZ3Bool(ctx: Context) : BoolExpr =
       match this with
@@ -206,6 +205,41 @@ and Pred =
       | _ -> failwith $"cannot make a variable from expression {this}"
 
     member this.toZ3Expr(ctx: Context) : Expr = (this :> IZ3Expr).toZ3Bool ctx
+
+type Wseq =
+  | Empty of Sort
+  | Var of string * Sort
+  | Cons of IZ3Expr * Wseq
+  | Concat of Wseq * Wseq
+  | Prefix of Wseq * Wseq
+  | Suffix of Wseq * Wseq
+
+  interface IZ3Expr with
+    member this.toZ3Bool(ctx: Context) : BoolExpr =
+      let toSeqExpr (x: IZ3Expr) = x.toZ3Expr ctx :?> SeqExpr
+
+      match this with
+      | Prefix(x, y) -> ctx.MkPrefixOf(toSeqExpr x, toSeqExpr y)
+      | Suffix(x, y) -> ctx.MkSuffixOf(toSeqExpr x, toSeqExpr y)
+      | _ -> raise (System.NotImplementedException())
+
+    member this.toZ3Expr(ctx: Context) : Expr =
+      let toSeqExpr (x: IZ3Expr) = x.toZ3Expr ctx :?> SeqExpr
+
+      match this with
+      | Empty sort -> ctx.MkEmptySeq sort
+      | Var(s, sort) -> ctx.MkConst(s, ctx.MkSeqSort sort)
+      | Cons(x, xs) ->
+        let x = ctx.MkUnit(x.toZ3Expr ctx)
+        ctx.MkConcat(x, toSeqExpr xs)
+      | Concat(xs, ys) -> ctx.MkConcat(toSeqExpr xs, toSeqExpr ys)
+      | Suffix(xs, ys) -> ctx.MkSuffixOf(toSeqExpr xs, toSeqExpr ys)
+      | Prefix(xs, ys) -> ctx.MkPrefixOf(toSeqExpr xs, toSeqExpr ys)
+
+    member this.toZ3Var(arg: Context) : Expr =
+      match this with
+      | Var(s, sort) -> arg.MkConst(s, arg.MkSeqSort sort)
+      | _ -> failwith $"Cannot make a sequence from {this}"
 
 type Calculation =
   { demonstrandum: Law; steps: Step list }
