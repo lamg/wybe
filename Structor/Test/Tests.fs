@@ -6,6 +6,7 @@ open Antlr4.Runtime.Tree
 open RustParserCs
 open Structor.Types
 open Structor.RustParser
+open Structor.ProofEmitter
 
 /// Helper to parse an expression rule from a string
 let parseExpression (input: string) =
@@ -86,3 +87,31 @@ let ``solana style function`` () =
   match func.Body with
   | [ CommentAssertion(Op("+", Var "amount", Integer 1L)); Op("*", Var "amount", Integer 2L) ] -> ()
   | _ -> failwithf "Unexpected function body: %A" func.Body
+
+// Tests for the ProofEmitter module
+[<Fact>]
+let ``extract proof obligations`` () =
+  // Prepare a dummy function with an assertion and a normal expression
+  let funcs =
+    [ { Name = "foo"
+        Parameters = []
+        ReturnType = None
+        Body = [ CommentAssertion(Op("=", Var "x", Integer 5L)); Integer 42L ] } ]
+
+  let obligations = extractProofObligations funcs
+  Assert.Equal(1, obligations.Length)
+  let id, expr = List.head obligations
+  Assert.Equal("foo_obl_0", id)
+
+  match expr with
+  | Op("=", Var "x", Integer 5L) -> ()
+  | _ -> failwithf "Unexpected expr: %A" expr
+
+[<Fact>]
+let ``generate proof code`` () =
+  let obligations = [ ("bar_obl_0", Op("+", Var "y", Integer 1L)) ]
+  let code = generateProofCode obligations
+  // Generated code should reference the obligation name, proof block, and the expression
+  Assert.Contains("bar_obl_0", code)
+  Assert.Contains("proof {", code)
+  Assert.Contains("y + 1", code)

@@ -10,11 +10,13 @@
     <Compile Include="FileGraphFs.fs" />
     <Compile Include="FileGraphRust.fs" />
     <Compile Include="RustParser.fs" />
+    <Compile Include="ProofEmitter.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Compiler.Service"/>
-    <PackageReference Include="QuikGraph.Graphviz"/>
+    <PackageReference Include="Fabulous.AST" />
+    <PackageReference Include="FSharp.Compiler.Service" />
+    <PackageReference Include="QuikGraph.Graphviz" />
   </ItemGroup>
 
   <ItemGroup>

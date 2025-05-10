@@ -76,14 +76,8 @@ type RustVisitor() =
       // preserve the raw comment text
       Comment(node.GetText())
     else
-      base.VisitTerminal(node)
+      base.VisitTerminal node
 
-/// Represents a parsed Rust function, including signature and body expressions
-type Function =
-  { Name: string
-    Parameters: (string * string) list
-    ReturnType: string option
-    Body: Expr list }
 
 /// Parse a Rust function from the given string.  Recognizes simple signatures
 /// and parses body lines as expressions or comment-expressions in `{}`.

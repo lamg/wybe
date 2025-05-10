@@ -3,12 +3,13 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-        <PackageVersion Include="Antlr4.Runtime.Standard" Version="4.13.1" />
-        <PackageVersion Include="Antlr4BuildTasks" Version="12.8.0" />
-        <PackageVersion Include="Argu" Version="6.2.4" />
-        <PackageVersion Include="FSharp.Core" Version="9.0.100" />
-        <PackageVersion Include="FSharp.Compiler.Service" Version="43.9.201" />
-        <PackageVersion Include="QuikGraph.Graphviz" Version="2.5.0" />
+    <PackageVersion Include="Antlr4.Runtime.Standard" Version="4.13.1" />
+    <PackageVersion Include="Antlr4BuildTasks" Version="12.8.0" />
+    <PackageVersion Include="Argu" Version="6.2.4" />
+    <PackageVersion Include="Fabulous.AST" Version="1.4.0" />
+    <PackageVersion Include="FSharp.Core" Version="9.0.100" />
+    <PackageVersion Include="FSharp.Compiler.Service" Version="43.9.201" />
+    <PackageVersion Include="QuikGraph.Graphviz" Version="2.5.0" />
   </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="FsToolkit.ErrorHandling" Version="4.18.0" />
