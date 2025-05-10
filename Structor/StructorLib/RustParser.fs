@@ -98,11 +98,10 @@ type Function =
 let parseFunction (input: string) : Function =
   // Regex to capture fn name, params, optional return type, and body content
   let regex =
-    Regex(
+    Regex
       "^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\\(([^)]*)\\)\s*(?:->\s*([^\\{\s]+))?\s*\\{\s*([\s\S]*?)\s*\\}\s*$"
-    )
 
-  let m = regex.Match(input)
+  let m = regex.Match input
 
   if not m.Success then
     failwithf "Failed to parse function signature: %s" input
@@ -136,22 +135,22 @@ let parseFunction (input: string) : Function =
   // helper to parse an expression string via ANTLR visitor
   let parseExpr (str: string) : Expr =
     let charStream = CharStreams.fromString str
-    let lexer = RustLexer(charStream)
-    let tokens = CommonTokenStream(lexer)
-    let parser = RustParser(tokens)
+    let lexer = RustLexer charStream
+    let tokens = CommonTokenStream lexer
+    let parser = RustParser tokens
     parser.RemoveErrorListeners()
     parser.AddErrorListener(ConsoleErrorListener<IToken>.Instance)
     let tree = parser.expression ()
-    RustVisitor().Visit(tree)
+    RustVisitor().Visit tree
   // parse each line: comments or expressions
   // Parse each line: comments, comment-assertions, or expressions
   let body =
     lines
     |> List.map (fun line ->
-      if line.StartsWith("//") then
+      if line.StartsWith "//" then
         let comment = line.Substring(2).Trim()
         // comment assertion of the form { <expr> }
-        if comment.StartsWith("{") && comment.EndsWith("}") then
+        if comment.StartsWith "{" && comment.EndsWith "}" then
           let inner = comment.Substring(1, comment.Length - 2).Trim()
           CommentAssertion(parseExpr inner)
         else

@@ -1,6 +1,5 @@
 module Tests
 
-open System
 open Xunit
 open Antlr4.Runtime
 open Antlr4.Runtime.Tree
@@ -10,9 +9,9 @@ open StructorLib.RustParser
 /// Helper to parse an expression rule from a string
 let parseExpression (input: string) =
   let charStream = CharStreams.fromString input
-  let lexer = RustLexer(charStream)
-  let tokens = CommonTokenStream(lexer)
-  let parser = RustParser(tokens)
+  let lexer = RustLexer charStream
+  let tokens = CommonTokenStream lexer
+  let parser = RustParser tokens
   parser.RemoveErrorListeners()
   parser.AddErrorListener(ConsoleErrorListener<IToken>.Instance)
   parser.expression ()
@@ -38,8 +37,8 @@ let ``assignment expression`` () =
 [<Fact>]
 let ``comment terminal`` () =
   let token = CommonToken(RustParser.LINE_COMMENT, "// comment")
-  let node = TerminalNodeImpl(token)
-  let expr = RustVisitor().VisitTerminal(node)
+  let node = TerminalNodeImpl token
+  let expr = RustVisitor().VisitTerminal node
   Assert.Equal(Comment "// comment", expr)
 
 [<Fact>]
@@ -57,11 +56,11 @@ let ``simple rust function`` () =
   // Signature
   Assert.Equal("add_one", func.Name)
   // Expect a list of parameter name-type pairs
-  Assert.Equal<(string * string) list>([("x", "i32")], func.Parameters)
+  Assert.Equal<(string * string) list>([ ("x", "i32") ], func.Parameters)
   Assert.Equal(Some "i32", func.ReturnType)
   // Body expressions: assertion, arithmetic, assertion
   match func.Body with
-  | [ CommentAssertion(Op("=", Var "x", Var "X"));
-      Op("+", Var "x", Integer 1L);
+  | [ CommentAssertion(Op("=", Var "x", Var "X"))
+      Op("+", Var "x", Integer 1L)
       CommentAssertion(Op("=", Var "x", Op("+", Var "X", Integer 1L))) ] -> ()
   | _ -> failwithf "Unexpected function body: %A" func.Body
