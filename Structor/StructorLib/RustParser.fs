@@ -69,13 +69,14 @@ type RustVisitor() =
   override this.VisitPathExpression_(context: RustParser.PathExpression_Context) = Var(context.GetText())
 
   /// Default function visit: delegate to base visitor
-  override this.VisitFunction_ (context: RustParser.Function_Context) = base.VisitFunction_ context
+  override this.VisitFunction_(context: RustParser.Function_Context) = base.VisitFunction_ context
 
   /// Visit terminal nodes, capturing comments as Comment expressions
-  override this.VisitTerminal (node: ITerminalNode) =
+  override this.VisitTerminal(node: ITerminalNode) =
     let tokenType = node.Symbol.Type
+
     if tokenType = RustParser.LINE_COMMENT || tokenType = RustParser.BLOCK_COMMENT then
       // preserve the raw comment text
-      Comment (node.GetText())
+      Comment(node.GetText())
     else
       base.VisitTerminal(node)
