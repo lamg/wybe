@@ -23,7 +23,7 @@ type RustVisitor() =
   /// Visit binary arithmetic or logical expressions: expr <op> expr
   override this.VisitArithmeticOrLogicalExpression(context: RustParser.ArithmeticOrLogicalExpressionContext) =
     // Recursively visit sub-expressions
-    let leftExpr = this.Visit(context.expression (0))
+    let leftExpr = this.Visit(context.expression 0)
 
     let operator =
       if context.PLUS() <> null then
@@ -49,13 +49,13 @@ type RustVisitor() =
       else
         ""
 
-    let rightExpr = this.Visit(context.expression (1))
+    let rightExpr = this.Visit(context.expression 1)
     Op(operator, leftExpr, rightExpr)
 
   /// Visit assignment expressions: expr = expr
   override this.VisitAssignmentExpression(context: RustParser.AssignmentExpressionContext) =
-    let leftExpr = this.Visit(context.expression (0))
-    let rightExpr = this.Visit(context.expression (1))
+    let leftExpr = this.Visit(context.expression 0)
+    let rightExpr = this.Visit(context.expression 1)
     // Represent assignment as an Op node with '=' operator
     Op("=", leftExpr, rightExpr)
 
@@ -125,7 +125,7 @@ let parseFunction (input: string) : Function =
         n, t)
       |> List.ofArray
 
-  let bodyContent = m.Groups.[4].Value
+  let bodyContent = m.Groups[4].Value
 
   let lines =
     bodyContent.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)

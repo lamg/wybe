@@ -64,3 +64,24 @@ let ``simple rust function`` () =
       Op("+", Var "x", Integer 1L)
       CommentAssertion(Op("=", Var "x", Op("+", Var "X", Integer 1L))) ] -> ()
   | _ -> failwithf "Unexpected function body: %A" func.Body
+
+[<Fact>]
+let ``solana style function`` () =
+  let sol_fn =
+    """
+    pub fn do_something(ctx: Context<DoSomething>, amount: u64) -> Result<()> {
+      // { amount + 1 }
+      amount * 2
+    }
+    """
+  let func = parseFunction sol_fn
+  // Signature
+  Assert.Equal("do_something", func.Name)
+  // Two parameters: context and a value
+  Assert.Equal<(string * string) list>([("ctx", "Context<DoSomething>"); ("amount", "u64")], func.Parameters)
+  Assert.Equal(Some "Result<()>", func.ReturnType)
+  // Body: assertion then multiplication
+  match func.Body with
+  | [ CommentAssertion(Op("+", Var "amount", Integer 1L));
+      Op("*", Var "amount", Integer 2L) ] -> ()
+  | _ -> failwithf "Unexpected function body: %A" func.Body
