@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Antlr4 Include="RustLexer.g4">
+      <Listener>false</Listener>
+      <Visitor>false</Visitor>
+      <GAtn>false</GAtn>
+      <Package>RustParserCs</Package>
+      <Error>true</Error>
+    </Antlr4>
+
+    <Antlr4 Include="RustParser.g4">
+      <Listener>false</Listener>
+      <Visitor>true</Visitor>
+      <GAtn>false</GAtn>
+      <Package>RustParserCs</Package>
+      <Error>true</Error>
+    </Antlr4>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Antlr4.Runtime.Standard"/>
+    <PackageReference Include="Antlr4BuildTasks"/>
+  </ItemGroup>
+
+</Project>
