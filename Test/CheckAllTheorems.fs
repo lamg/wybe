@@ -27,7 +27,8 @@ let ``check all theorems`` () =
     ``∧ ∨ absorption``
     ``∨ ∧ absorption``
     GriesSchneider.Integers.``× zero``
-    GriesSchneider.Integers.``+ cancellation`` ]
+    GriesSchneider.Integers.``+ cancellation``
+    fun _ -> GriesScheined.Sequences.``GS 13.7`` Core.WBool ]
   |> List.iter (fun th ->
     match th () with
     | { error = None } -> ()

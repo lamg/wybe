@@ -2,9 +2,9 @@ module GriesSchneider.PredicateCalculus
 
 open Core
 
-let x, y, z = Bool(Bool.Var "x"), Bool(Bool.Var "y"), Bool(Bool.Var "z")
-let True = Bool True
-let False = Bool False
+let mkBoolVar n = ExtBoolOp(Var(n, WBool))
+
+let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 
 // NOTE: axioms are defined without delaying the computation, by adding an unit parameter,
 // since there's no call to Z3 in their definition
@@ -53,8 +53,7 @@ let twice x = [ x; x ]
 
 let ``golden rule`` = x <&&> y === (x === y === (x <||> y)) |> axiom "golden rule"
 
-let theorem name pred =
-  Theorem { identifier = name; body = pred }
+
 
 let ``true theorem`` () =
   proof {
@@ -368,8 +367,8 @@ let consequence = x <== y === (y ==> x) |> axiom "consquence"
 
 // 9 Predicate Calculus
 
-let ``∨ over ∀`` (p: Pred -> Pred) =
-  y <||> ``∀`` [ x ] (p x) === ``∀`` [ x ] (y <||> p x) |> axiom "∨ over ∀"
+let ``∨ over ∀`` ((vars, p): Predicate) =
+  y <||> ``∀`` vars p === ``∀`` vars (y <||> p) |> axiom "∨ over ∀"
 
-let ``De Morgan`` (p: Pred -> Pred) =
-  !(``∀`` [ x ] (p x)) === ``∃`` [ x ] !(p x) |> axiom "De Morgan"
+let ``De Morgan`` ((vars, p): Predicate) =
+  !(``∀`` vars p) === ``∃`` vars !p |> axiom "De Morgan"

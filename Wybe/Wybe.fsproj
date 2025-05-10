@@ -13,6 +13,7 @@
     <Compile Include="Inspect\Inspect.fs" />
     <Compile Include="GriesSchneider\PredicateCalculus.fs" />
     <Compile Include="GriesSchneider\Integers.fs" />
+    <Compile Include="GriesSchneider\Sequences.fs" />
     
   </ItemGroup>
 

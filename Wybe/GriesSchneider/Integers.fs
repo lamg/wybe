@@ -3,19 +3,18 @@ module GriesSchneider.Integers
 open Core
 open PredicateCalculus
 
-let x, y, z = Integer.Var "x", Integer.Var "y", Integer.Var "z"
+let mkIntVar x = ExtInteger(Var(x, WInteger))
+let x, y, z = mkIntVar "x", mkIntVar "y", mkIntVar "z"
 let zero = Integer 0
 let one = Integer 1
 
 #nowarn 86
-let (>=) (x: Integer) (y: Integer) = Bool(AtLeast(x, y))
-let (<=) (x: Integer, y: Integer) = Bool(AtMost(x, y))
-let (<) (x: Integer) (y: Integer) = Bool(LessThan(x, y))
-let (>) (x: Integer) (y: Integer) = Bool(Exceeds(x, y))
+let (>=) (x: Integer) (y: Integer) = ExtBoolOp(AtLeast(x, y))
+let (<=) (x: Integer, y: Integer) = ExtBoolOp(AtMost(x, y))
+let (<) (x: Integer) (y: Integer) = ExtBoolOp(LessThan(x, y))
+let (>) (x: Integer) (y: Integer) = ExtBoolOp(Exceeds(x, y))
 
-let (=) x y = Equals(x, y)
-let (!=) x y = Differs(x, y)
-let ``==`` = LawsCE StepOperator.Equals
+
 
 let ``+ associativity`` = x + y + z = x + y + z |> axiom "+ associativity"
 

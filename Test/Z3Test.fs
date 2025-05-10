@@ -4,10 +4,9 @@ open Xunit
 open FsUnit
 open Core
 
-let x, y, z = Bool(Bool.Var "x"), Bool(Bool.Var "y"), Bool(Bool.Var "z")
-let True = Bool True
-let False = Bool False
+let mkBoolVar n = ExtBoolOp(Var(n, WBool))
 
+let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 
 [<Fact>]
 let ``check implication`` () =
@@ -22,7 +21,6 @@ let ``check implication`` () =
 let ``double negation with Z3`` () =
   let ``GS 3.11`` = !x === y === (x === !y)
   let ``≡ ident`` = x === x === True
-  let theorem = GriesSchneider.PredicateCalculus.theorem
 
   let calcRes =
     proof {
@@ -36,3 +34,11 @@ let ``double negation with Z3`` () =
     }
 
   Assert.True calcRes.error.IsNone
+
+[<Fact>]
+let ``test sequence`` () =
+  let empty = Empty WBool
+  let ctx = new Microsoft.Z3.Context()
+  // FIXME
+  let _ = (empty :> WExpr).toZ3Expr ctx
+  ()

@@ -3,14 +3,12 @@ module Core
 open Microsoft.Z3
 #nowarn 86
 
-type IZ3Expr =
-  abstract member toZ3Bool: Context -> BoolExpr
-  abstract member toZ3Var: Context -> Expr
+type WExpr =
   abstract member toZ3Expr: Context -> Expr
 
 and Integer =
+  | ExtInteger of WExpr
   | Integer of int64
-  | Var of string
   | Plus of Integer * Integer
   | Minus of Integer * Integer
   | Times of Integer * Integer
@@ -20,11 +18,12 @@ and Integer =
   | LessThan of Integer * Integer // <
   | AtLeast of Integer * Integer // ≥
   | AtMost of Integer * Integer // ≤
+  | Divides of Integer * Integer // I need an operator for this
 
   override this.ToString() : string =
     match this with
+    | ExtInteger e -> e.ToString()
     | Integer n -> n.ToString()
-    | Var v -> v
     | Plus(x, y) -> $"{x} + {y}"
     | Minus(x, y) -> $"{x} - {y}"
     | Times(x, y) -> $"{x} × {y}"
@@ -33,6 +32,7 @@ and Integer =
     | LessThan(x, y) -> $"{x} < {y}"
     | AtLeast(x, y) -> $"{x} ≥ {y}"
     | AtMost(x, y) -> $"{x} ≤ {y}"
+    | Divides(x, y) -> $"{x} ∣ {y}"
 
   static member (~-)(x: Integer) =
     match x with
@@ -44,72 +44,44 @@ and Integer =
   static member (*)(x: Integer, y: Integer) = Times(x, y)
   static member (/)(x: Integer, y: Integer) = Div(x, y)
 
-  interface IZ3Expr with
-    member this.toZ3Bool(ctx: Context) : BoolExpr =
-      match this with
-      | Exceeds(Integer n, Integer m) -> ctx.MkGt(ctx.MkInt n, ctx.MkInt m)
-      | LessThan(Integer n, Integer m) -> ctx.MkLt(ctx.MkInt n, ctx.MkInt m)
-      | AtLeast(Integer n, Integer m) -> ctx.MkGe(ctx.MkInt n, ctx.MkInt m)
-      | AtMost(Integer n, Integer m) -> ctx.MkLe(ctx.MkInt n, ctx.MkInt m)
-      | _ -> failwith $"cannot make {this} a boolean expression"
-
-    member this.toZ3Var(ctx: Context) : Expr =
-      match this with
-      | Var s -> ctx.MkIntConst s
-      | _ -> failwith $"cannot make a variable from expression {this}"
-
+  interface WExpr with
     member this.toZ3Expr(ctx: Context) : Expr =
-      let toExp n =
-        (n :> IZ3Expr).toZ3Expr ctx :?> ArithExpr
+      let toExp n = (n :> WExpr).toZ3Expr ctx :?> ArithExpr
 
       match this with
+      | ExtInteger e -> e.toZ3Expr ctx
       | Integer n -> ctx.MkInt n
-      | Var v -> ctx.MkIntConst v
       | Plus(x, y) -> ctx.MkAdd(toExp x, toExp y)
       | Minus(x, y) -> ctx.MkSub(toExp x, toExp y)
       | Times(x, y) -> ctx.MkMul(toExp x, toExp y)
       | Div(x, y) -> ctx.MkDiv(toExp x, toExp y)
-      | _ -> (this :> IZ3Expr).toZ3Bool ctx
+      | Exceeds(Integer n, Integer m) -> ctx.MkGt(ctx.MkInt n, ctx.MkInt m)
+      | LessThan(Integer n, Integer m) -> ctx.MkLt(ctx.MkInt n, ctx.MkInt m)
+      | AtLeast(Integer n, Integer m) -> ctx.MkGe(ctx.MkInt n, ctx.MkInt m)
+      | AtMost(Integer n, Integer m) -> ctx.MkLe(ctx.MkInt n, ctx.MkInt m)
+      | Divides(Integer n, Integer m) ->
+        // exists x such n*x = m
+        // ctx.MkExists()
+        failwith "TODO divides"
+      | _ -> failwith $"cannot handle {this} as an integer expression"
 
-and Bool =
+and Predicate = WExpr list * Proposition
+
+and Proposition =
+  | ExtBoolOp of WExpr // used for wrapping other operators that return booleans besides Equals and Differs (variables, >, <, etc.)
   | True
   | False
-  | Var of string
-
-  override this.ToString() =
-    match this with
-    | True -> "true"
-    | False -> "false"
-    | Var v -> v
-
-  interface IZ3Expr with
-
-    member this.toZ3Bool(ctx: Context) : BoolExpr =
-      match this with
-      | True -> ctx.MkBool true
-      | False -> ctx.MkBool false
-      | Var v -> ctx.MkBoolConst v
-
-    member this.toZ3Var(ctx: Context) : Expr =
-      match this with
-      | Var v -> ctx.MkBoolConst v
-      | _ -> failwith $"cannot make a variable from expression {this}"
-
-    member this.toZ3Expr(arg: Context) : Expr = (this :> IZ3Expr).toZ3Bool arg
-
-and Pred =
-  | Bool of IZ3Expr
-  | Equals of IZ3Expr * IZ3Expr
-  | Differs of IZ3Expr * IZ3Expr
-  | Not of right: Pred
-  | And of left: Pred * right: Pred
-  | Or of left: Pred * right: Pred
-  | Equiv of left: Pred * right: Pred
-  | Inequiv of left: Pred * right: Pred
-  | Implies of left: Pred * right: Pred
-  | Follows of left: Pred * right: Pred
-  | Forall of IZ3Expr list * Pred
-  | Exists of IZ3Expr list * Pred
+  | Equals of WExpr * WExpr
+  | Differs of WExpr * WExpr
+  | Not of right: Proposition
+  | And of left: Proposition * right: Proposition
+  | Or of left: Proposition * right: Proposition
+  | Equiv of left: Proposition * right: Proposition
+  | Inequiv of left: Proposition * right: Proposition
+  | Implies of left: Proposition * right: Proposition
+  | Follows of left: Proposition * right: Proposition
+  | Forall of Predicate
+  | Exists of Predicate
 
   override this.ToString() : string =
     let parenthesize
@@ -130,7 +102,7 @@ and Pred =
       else
         $"({child})"
 
-    let rec binaryOpFormat (pred: int) (symbol: string) (left: Pred) (right: Pred) =
+    let rec binaryOpFormat (pred: int) (symbol: string) (left: Proposition) (right: Proposition) =
       let l, symLeft, predLeft = loop left
       let r, symRight, predRight = loop right
 
@@ -139,9 +111,11 @@ and Pred =
 
       $"{x} {symbol} {y}", Some symbol, pred
 
-    and loop (p: Pred) =
+    and loop (p: Proposition) =
       match p with
-      | Bool x -> $"{x}", None, 4
+      | True -> "true", None, 4
+      | False -> "false", None, 4
+      | ExtBoolOp x -> $"{x}", None, 4
       | Equals(x, y) -> $"{x} = {y}", None, 4
       | Differs(x, y) -> $"{x} ≠ {y}", None, 4
       | Not p ->
@@ -175,60 +149,58 @@ and Pred =
     let r, _, _ = loop this
     r
 
-  interface IZ3Expr with
-    member this.toZ3Bool(ctx: Context) : BoolExpr =
-      let toExp (p: IZ3Expr) = p.toZ3Bool ctx
+  interface WExpr with
+    member this.toZ3Expr(ctx: Context) : Expr =
+      let toExp (p: WExpr) = p.toZ3Expr ctx :?> BoolExpr
+
+      let toZ3Pred (vars: List<WExpr>, body) =
+        let z3Body = (body :> WExpr).toZ3Expr ctx
+        let z3Vars = vars |> List.map (fun v -> v.toZ3Expr ctx) |> List.toArray
+        z3Vars, z3Body
 
       match this with
-      | Bool b -> b.toZ3Bool ctx
+      | True -> ctx.MkBool true
+      | False -> ctx.MkBool false
+      | ExtBoolOp b -> b.toZ3Expr ctx
       | Equals(n, m) -> ctx.MkEq(n.toZ3Expr ctx, m.toZ3Expr ctx)
       | Differs(n, m) -> ctx.MkNot(Equals(n, m) |> toExp)
       | Not right -> ctx.MkNot(toExp right)
       | And(left, right) -> ctx.MkAnd(toExp left, toExp right)
       | Or(left, right) -> ctx.MkOr(toExp left, toExp right)
       | Equiv(left, right) -> ctx.MkEq(toExp left, toExp right)
-      | Inequiv(left, right) -> Not(Equiv(left, right)) |> toExp
+      | Inequiv(left, right) -> toExp (Not(Equiv(left, right)))
       | Implies(left, right) -> ctx.MkImplies(toExp left, toExp right)
       | Follows(left, right) -> ctx.MkImplies(toExp right, toExp left)
       | Forall(vars, body) ->
-        let z3Body = (body :> IZ3Expr).toZ3Bool ctx
-        let z3Vars = vars |> List.map (fun v -> v.toZ3Var ctx) |> List.toArray
+        let z3Vars, z3Body = toZ3Pred (vars, body)
         ctx.MkForall(z3Vars, z3Body)
       | Exists(vars, body) ->
-        let z3Body = (body :> IZ3Expr).toZ3Bool ctx
-        let z3Vars = vars |> List.map (fun v -> v.toZ3Var ctx) |> List.toArray
+        let z3Vars, z3Body = toZ3Pred (vars, body)
         ctx.MkExists(z3Vars, z3Body)
 
-    member this.toZ3Var(ctx: Context) : Expr =
-      match this with
-      | Bool b -> b.toZ3Var ctx
-      | _ -> failwith $"cannot make a variable from expression {this}"
+and Sequence =
+  | Empty of WSort
+  | ExtSeq of WExpr
+  | Cons of WExpr * Sequence
+  | Concat of Sequence * Sequence
+  | Prefix of Sequence * Sequence
+  | Suffix of Sequence * Sequence
 
-    member this.toZ3Expr(ctx: Context) : Expr = (this :> IZ3Expr).toZ3Bool ctx
-
-type Wseq =
-  | Empty of Sort
-  | Var of string * Sort
-  | Cons of IZ3Expr * Wseq
-  | Concat of Wseq * Wseq
-  | Prefix of Wseq * Wseq
-  | Suffix of Wseq * Wseq
-
-  interface IZ3Expr with
-    member this.toZ3Bool(ctx: Context) : BoolExpr =
-      let toSeqExpr (x: IZ3Expr) = x.toZ3Expr ctx :?> SeqExpr
-
-      match this with
-      | Prefix(x, y) -> ctx.MkPrefixOf(toSeqExpr x, toSeqExpr y)
-      | Suffix(x, y) -> ctx.MkSuffixOf(toSeqExpr x, toSeqExpr y)
-      | _ -> raise (System.NotImplementedException())
-
+  interface WExpr with
     member this.toZ3Expr(ctx: Context) : Expr =
-      let toSeqExpr (x: IZ3Expr) = x.toZ3Expr ctx :?> SeqExpr
+      let toSeqExpr (x: WExpr) = x.toZ3Expr ctx :?> SeqExpr
 
       match this with
-      | Empty sort -> ctx.MkEmptySeq sort
-      | Var(s, sort) -> ctx.MkConst(s, ctx.MkSeqSort sort)
+      | Empty sort ->
+        let rec mkSort sort =
+          match sort with
+          | WInteger -> ctx.IntSort :> Sort
+          | WBool -> ctx.BoolSort
+          | WSequence s -> mkSort s
+
+        let s = mkSort sort
+        ctx.MkEmptySeq s
+      | ExtSeq e -> e.toZ3Expr ctx
       | Cons(x, xs) ->
         let x = ctx.MkUnit(x.toZ3Expr ctx)
         ctx.MkConcat(x, toSeqExpr xs)
@@ -236,10 +208,30 @@ type Wseq =
       | Suffix(xs, ys) -> ctx.MkSuffixOf(toSeqExpr xs, toSeqExpr ys)
       | Prefix(xs, ys) -> ctx.MkPrefixOf(toSeqExpr xs, toSeqExpr ys)
 
-    member this.toZ3Var(arg: Context) : Expr =
-      match this with
-      | Var(s, sort) -> arg.MkConst(s, arg.MkSeqSort sort)
-      | _ -> failwith $"Cannot make a sequence from {this}"
+
+and WSort =
+  | WInteger
+  | WBool
+  | WSequence of WSort
+
+and Var =
+  | Var of string * WSort
+
+  override this.ToString() : string =
+    let (Var(v, _)) = this
+    v
+
+  interface WExpr with
+    member this.toZ3Expr(ctx: Context) =
+      let (Var(v, sort)) = this
+
+      let rec mkSort sort =
+        match sort with
+        | WInteger -> ctx.IntSort :> Sort
+        | WBool -> ctx.BoolSort
+        | WSequence s -> ctx.MkSeqSort(mkSort s)
+
+      ctx.MkConst(v, mkSort sort)
 
 type Calculation =
   { demonstrandum: Law; steps: Step list }
@@ -248,7 +240,9 @@ and CheckedCalculation =
   { calculation: Calculation
     error: CalcError option }
 
-and Law = { identifier: string; body: Pred }
+and Law =
+  { identifier: string
+    body: Proposition }
 
 and [<RequireQualifiedAccess>] StepOperator =
   | Equiv
@@ -257,8 +251,8 @@ and [<RequireQualifiedAccess>] StepOperator =
   | Equals
 
 and Step =
-  { fromExp: IZ3Expr
-    toExp: IZ3Expr
+  { fromExp: WExpr
+    toExp: WExpr
     stepOp: StepOperator
     laws: Law list }
 
@@ -276,24 +270,29 @@ and CheckResult =
 
 and CalcError =
   | FailedParsing of ParseError
-  | FailedSteps of list<int * Pred * CheckResult>
-  | WrongEvidence of premise: Pred * consequence: Pred
-  | InsufficientEvidence of demonstrandum: Pred
-  | InvalidFormula of demonstrandum: Pred
+  | FailedSteps of list<int * Proposition * CheckResult>
+  | WrongEvidence of premise: Proposition * consequence: Proposition
+  | InsufficientEvidence of demonstrandum: Proposition
+  | InvalidFormula of demonstrandum: Proposition
 
 let stepToPred (s: Step) =
+  let boolStep (t: WExpr, u: WExpr) =
+    try
+      t :?> Proposition, u :?> Proposition
+    with _ ->
+      failwith $"not supported step operator for steps {t} and {u}"
+
   match s.stepOp with
-  | StepOperator.Equiv -> Equiv(s.fromExp :?> Pred, s.toExp :?> Pred)
-  | StepOperator.Follows -> Follows(s.fromExp :?> Pred, s.toExp :?> Pred)
-  | StepOperator.Implies -> Implies(s.fromExp :?> Pred, s.toExp :?> Pred)
+  | StepOperator.Equiv -> (s.fromExp, s.toExp) |> boolStep |> Equiv
+  | StepOperator.Follows -> (s.fromExp, s.toExp) |> boolStep |> Follows
+  | StepOperator.Implies -> (s.fromExp, s.toExp) |> boolStep |> Implies
   | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
 
 
-let checkPredicate (ctx: Context) (p: Pred) =
-
+let checkPredicate (ctx: Context) (p: Proposition) =
   let solver = ctx.MkSolver()
-  let zp = p :> IZ3Expr
-  let exp = zp.toZ3Bool ctx
+  let zp = p :> WExpr
+  let exp = zp.toZ3Expr ctx :?> BoolExpr
   solver.Add(ctx.MkNot exp)
 
   match solver.Check() with
@@ -302,7 +301,7 @@ let checkPredicate (ctx: Context) (p: Pred) =
   | Status.UNKNOWN -> Unknown
   | v -> failwith $"unexpected enum value {v}"
 
-let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Pred) =
+let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Proposition) =
   match steps with
   | [] ->
     match checkPredicate ctx demonstrandum with
@@ -321,7 +320,7 @@ open FsToolkit.ErrorHandling
 
 type ProofLine =
   | Hint of StepOperator * Law list
-  | WybeExpr of IZ3Expr
+  | WybeExpr of WExpr
   | Theorem of Law
   | Name of string
 
@@ -384,7 +383,7 @@ type CalculationCE() =
   member _.Zero() = []
 
   member _.Yield(s: ProofLine) = [ s ]
-  member _.Yield(s: IZ3Expr) = [ WybeExpr s ]
+  member _.Yield(s: WExpr) = [ WybeExpr s ]
 
   member _.Return(x: ProofLine) = [ x ]
 
@@ -424,7 +423,7 @@ type CalculationCE() =
 let proof = CalculationCE()
 
 type LawsCE(op: StepOperator) =
-  member _.Yield(x: Pred) =
+  member _.Yield(x: Proposition) =
     [ { identifier = x.ToString(); body = x } ]
 
   member _.Yield(x: Law) = [ x ]
@@ -454,14 +453,40 @@ let ``⇒`` = LawsCE StepOperator.Implies
 
 let ``⇐`` = LawsCE StepOperator.Follows
 
-let (!) x = Not x
-let (===) x y = Equiv(x, y)
-let (!==) x y = Inequiv(x, y)
-let (==>) x y = Implies(x, y)
-let (<==) x y = Follows(x, y)
-let (<&&>) x y = And(x, y)
-let (<||>) x y = Or(x, y)
+let toProposition (x: WExpr) =
+  match x with
+  | _ when (x :? Var) ->
+    let (Var(_, t)) = x :?> Var
+
+    match t with
+    | WBool -> ExtBoolOp x
+    | _ -> failwith $"expecting boolean variable {x}"
+  | _ when (x :? Proposition) -> x :?> Proposition
+  | _ -> failwith $"expecting proposition {x}"
+
+let (!) x = Not(toProposition x)
+
+let (===) (x: WExpr) (y: WExpr) = Equiv(toProposition x, toProposition y)
+
+let (!==) x y =
+  Inequiv(toProposition x, toProposition y)
+
+let (==>) x y =
+  Implies(toProposition x, toProposition y)
+
+let (<==) x y =
+  Follows(toProposition x, toProposition y)
+
+let (<&&>) x y = And(toProposition x, toProposition y)
+let (<||>) x y = Or(toProposition x, toProposition y)
 let ``∀`` vars f = Forall(vars, f)
 let ``∃`` vars f = Exists(vars, f)
 
-let axiom name (pred: Pred) = { identifier = name; body = pred }
+let axiom name (pred: Proposition) = { identifier = name; body = pred }
+
+let theorem name pred =
+  Theorem { identifier = name; body = pred }
+
+let (=) x y = Equals(x, y)
+let (!=) x y = Differs(x, y)
+let ``==`` = LawsCE StepOperator.Equals

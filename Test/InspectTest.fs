@@ -6,13 +6,15 @@ open Core
 open Xunit
 open FsUnit
 
-let theorem = GriesSchneider.PredicateCalculus.theorem
 
 let accEqual (expected: string list) (n: Inspection) =
   should equalSeq (List.toArray expected) (List.toArray n.accumulated)
 
-let x, y, z = Bool(Bool.Var "x"), Bool(Bool.Var "y"), Bool(Bool.Var "z")
-let True = Bool Bool.True
+let mkBoolVar n = ExtBoolOp(Var(n, WBool))
+
+let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
+let True = Proposition.True
+let False = Proposition.False
 
 let trueTheorem () =
   proof {
@@ -110,7 +112,7 @@ let ``print predicates`` () =
     !x <&&> x, "¬x ∧ x"
     !(x <&&> x), "¬(x ∧ x)"
     x === x ==> (x === y), "(x ≡ x) ⇒ (x ≡ y)"
-    Bool Bool.True, "true"
+    True, "true"
     x, "x" ]
   |> List.iter (fun (p, expected) ->
     let r = p.ToString()
@@ -170,7 +172,7 @@ let ``testing De Morgan's law`` () =
     proof {
       theorem "testing ∀ and ∃" testFormula
       !(``∀`` [ x ] (x <&&> x))
-      ``≡`` { ``De Morgan`` (fun x -> x <&&> x) }
+      ``≡`` { ``De Morgan`` ([ x ], x <&&> x) }
       ``∃`` [ x ] !x
     }
 
