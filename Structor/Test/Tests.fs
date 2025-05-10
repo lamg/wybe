@@ -52,5 +52,16 @@ let ``simple rust function`` () =
       // { x = X + 1 }
     }
     "
-
-  ()
+  // Parse the function and validate its structure
+  let func = parseFunction add_one_rust
+  // Signature
+  Assert.Equal("add_one", func.Name)
+  // Expect a list of parameter name-type pairs
+  Assert.Equal<(string * string) list>([("x", "i32")], func.Parameters)
+  Assert.Equal(Some "i32", func.ReturnType)
+  // Body expressions: assertion, arithmetic, assertion
+  match func.Body with
+  | [ CommentAssertion(Op("=", Var "x", Var "X"));
+      Op("+", Var "x", Integer 1L);
+      CommentAssertion(Op("=", Var "x", Op("+", Var "X", Integer 1L))) ] -> ()
+  | _ -> failwithf "Unexpected function body: %A" func.Body
