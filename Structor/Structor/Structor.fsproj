@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Types.fs" />
     <Compile Include="FileGraphFs.fs" />
     <Compile Include="FileGraphRust.fs" />
     <Compile Include="RustParser.fs" />

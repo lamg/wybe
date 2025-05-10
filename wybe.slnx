@@ -2,7 +2,7 @@
   <Folder Name="/Structor/">
     <Project Path="Structor/GolangParserCs/GolangParserCs.csproj" />
     <Project Path="Structor/RustParserCs/RustParserCs.csproj" />
-    <Project Path="Structor/StructorLib/StructorLib.fsproj" />
+    <Project Path="Structor/Structor/Structor.fsproj" />
     <Project Path="Structor/Test/Test.fsproj" />
   </Folder>
   <Project Path="Test/Test.fsproj" />

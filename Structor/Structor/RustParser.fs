@@ -1,20 +1,12 @@
-module StructorLib.RustParser
+module Structor.RustParser
 
 open RustParserCs
 open Antlr4.Runtime
 open Antlr4.Runtime.Tree
 open System
 open System.Text.RegularExpressions
+open Types
 
-/// Simple expression AST: variables, integer literals, or binary operations
-/// Simple expression AST: variables, integer literals, binary operations,
-/// comments, or comment assertions
-type Expr =
-  | Var of string
-  | Integer of int64
-  | Op of string * Expr * Expr
-  | Comment of string
-  | CommentAssertion of Expr // parses an assertion in a comment with the syntax { <expr> <op> <expr> }
 
 /// Visitor that builds an Expr AST from parse contexts
 type RustVisitor() =

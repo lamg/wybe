@@ -4,7 +4,8 @@ open Xunit
 open Antlr4.Runtime
 open Antlr4.Runtime.Tree
 open RustParserCs
-open StructorLib.RustParser
+open Structor.Types
+open Structor.RustParser
 
 /// Helper to parse an expression rule from a string
 let parseExpression (input: string) =
@@ -19,7 +20,7 @@ let parseExpression (input: string) =
 [<Fact>]
 let ``simple addition`` () =
   let tree = parseExpression "1 + 2"
-  let expr = RustVisitor().Visit(tree)
+  let expr = RustVisitor().Visit tree
 
   match expr with
   | Op("+", Integer 1L, Integer 2L) -> ()
@@ -56,7 +57,7 @@ let ``simple rust function`` () =
   // Signature
   Assert.Equal("add_one", func.Name)
   // Expect a list of parameter name-type pairs
-  Assert.Equal<(string * string) list>([ ("x", "i32") ], func.Parameters)
+  Assert.Equal<list<string * string>>([ ("x", "i32") ], func.Parameters)
   Assert.Equal(Some "i32", func.ReturnType)
   // Body expressions: assertion, arithmetic, assertion
   match func.Body with
@@ -74,14 +75,14 @@ let ``solana style function`` () =
       amount * 2
     }
     """
+
   let func = parseFunction sol_fn
   // Signature
   Assert.Equal("do_something", func.Name)
   // Two parameters: context and a value
-  Assert.Equal<(string * string) list>([("ctx", "Context<DoSomething>"); ("amount", "u64")], func.Parameters)
+  Assert.Equal<list<string * string>>([ "ctx", "Context<DoSomething>"; "amount", "u64" ], func.Parameters)
   Assert.Equal(Some "Result<()>", func.ReturnType)
   // Body: assertion then multiplication
   match func.Body with
-  | [ CommentAssertion(Op("+", Var "amount", Integer 1L));
-      Op("*", Var "amount", Integer 2L) ] -> ()
+  | [ CommentAssertion(Op("+", Var "amount", Integer 1L)); Op("*", Var "amount", Integer 2L) ] -> ()
   | _ -> failwithf "Unexpected function body: %A" func.Body
