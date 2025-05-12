@@ -10,16 +10,19 @@
     <Compile Include="FileGraphFs.fs" />
     <Compile Include="FileGraphRust.fs" />
     <Compile Include="RustParser.fs" />
-    <Compile Include="ProofEmitter.fs" />
+    <Compile Include="ProofObligationEmitter.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Fabulous.AST" />
+    <PackageReference Include="FParsec" />
     <PackageReference Include="FSharp.Compiler.Service" />
+    <PackageReference Include="Microsoft.Z3" />
     <PackageReference Include="QuikGraph.Graphviz" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\RustParserCs\RustParserCs.csproj" />
+    <ProjectReference Include="..\..\Wybe\Wybe.fsproj" />
   </ItemGroup>
 </Project>

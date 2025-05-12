@@ -10,7 +10,7 @@ open Types
 
 /// Visitor that builds an Expr AST from parse contexts
 type RustVisitor() =
-  inherit RustParserBaseVisitor<Expr>()
+  inherit RustParserBaseVisitor<TargetLangExpr>()
 
   /// Visit binary arithmetic or logical expressions: expr <op> expr
   override this.VisitArithmeticOrLogicalExpression(context: RustParser.ArithmeticOrLogicalExpressionContext) =
@@ -119,7 +119,7 @@ let parseFunction (input: string) : Function =
     |> Array.filter (fun l -> not (String.IsNullOrWhiteSpace l))
     |> Array.toList
   // helper to parse an expression string via ANTLR visitor
-  let parseExpr (str: string) : Expr =
+  let parseExpr (str: string) : TargetLangExpr =
     let charStream = CharStreams.fromString str
     let lexer = RustLexer charStream
     let tokens = CommonTokenStream lexer
@@ -138,7 +138,7 @@ let parseFunction (input: string) : Function =
         // comment assertion of the form { <expr> }
         if comment.StartsWith "{" && comment.EndsWith "}" then
           let inner = comment.Substring(1, comment.Length - 2).Trim()
-          CommentAssertion(parseExpr inner)
+          CommentAssertion inner
         else
           Comment line
       else
@@ -148,3 +148,33 @@ let parseFunction (input: string) : Function =
     Parameters = parameters
     ReturnType = returnType
     Body = body }
+
+/// Parse all Rust functions from the given input string
+let parseFunctions (input: string) : Function list =
+  // Build ANTLR parser for the full crate
+  let charStream = CharStreams.fromString input
+  let lexer = RustLexer charStream
+  let tokens = CommonTokenStream lexer
+  let parser = RustParser tokens
+  parser.RemoveErrorListeners()
+  parser.AddErrorListener(ConsoleErrorListener<IToken>.Instance)
+  let tree = parser.crate()
+  // Extract all function_ contexts under visItem in the crate
+  tree.item()
+  |> Seq.choose (fun item ->
+      let vis = item.visItem()
+      if vis <> null then
+        let fctx = vis.function_()
+        // only include functions with a body (not semicolon declarations)
+        if fctx <> null && fctx.blockExpression() <> null then Some fctx
+        else None
+      else None)
+  |> Seq.map (fun fctx ->
+      // extract the source slice for this function
+      let startI = fctx.Start.StartIndex
+      let stopI = fctx.Stop.StopIndex
+      let length = stopI - startI + 1
+      let funcText = input.Substring(startI, length)
+      // reuse parseFunction to build the Function record
+      parseFunction funcText)
+  |> Seq.toList
