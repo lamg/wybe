@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <RollForward>major</RollForward>
+
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>wybe</ToolCommandName>
+    <PackageId>WybeTool</PackageId>
+    <RootNamespace>WybeTool</RootNamespace>
+    <AssemblyName>WybeTool</AssemblyName>
+    <Version>0.0.1</Version>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    
+    <Authors>Luis Ángel Méndez Gort</Authors>
+    <PackageProjectUrl>https://github.com/lamg/wybe</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/lamg/wybe</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIcon>logo.png</PackageIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+     <Content Include="..\README.md" Pack="true" PackagePath="\" />
+     <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" />
+  </ItemGroup>
+
+</Project>
