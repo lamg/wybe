@@ -42,3 +42,22 @@ let ``test sequence`` () =
   // FIXME
   let _ = (empty :> WExpr).toZ3Expr ctx
   ()
+
+open Inspect.Inspect
+
+[<Fact>]
+let ``simple integer proof`` () =
+  let x = GriesSchneider.Integers.mkIntVar "x"
+
+  proof {
+    lemma (x + x + x = Integer 3 * x)
+    x + x + x
+    ``==`` { }
+    Integer 2 * x + x
+    ``==`` { }
+    Integer 3 * x
+  }
+  |> inspect
+  |> summary
+  |> print
+  |> ignore

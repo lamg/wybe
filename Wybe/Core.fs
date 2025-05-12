@@ -487,6 +487,11 @@ let axiom name (pred: Proposition) = { identifier = name; body = pred }
 let theorem name pred =
   Theorem { identifier = name; body = pred }
 
+let lemma pred =
+  Theorem
+    { identifier = pred.ToString()
+      body = pred }
+
 let (=) x y = Equals(x, y)
 let (!=) x y = Differs(x, y)
 let ``==`` = LawsCE StepOperator.Equals
