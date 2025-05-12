@@ -11,7 +11,7 @@
     <Compile Include="InspectTest.fs" />
     <Compile Include="CheckAllTheorems.fs" />
     <Compile Include="Z3Test.fs" />
-
+    <Compile Include="Structor.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -20,11 +20,15 @@
     <PackageReference Include="ObjectDumper.NET" />
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.Z3" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FsUnit" />
+    <PackageReference Include="Antlr4.Runtime.Standard"/>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Wybe\Wybe.fsproj" />
+    <ProjectReference Include="..\Structor\Structor\Structor.fsproj" />
+    <ProjectReference Include="..\Structor\RustParserCs\RustParserCs.csproj" />
   </ItemGroup>
 </Project>

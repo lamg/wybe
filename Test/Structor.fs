@@ -1,4 +1,5 @@
-module Tests
+module StructorTest
+
 
 open Xunit
 open Antlr4.Runtime
