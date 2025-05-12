@@ -12,13 +12,13 @@ and Integer =
   | Plus of Integer * Integer
   | Minus of Integer * Integer
   | Times of Integer * Integer
-  | Div of Integer * Integer
+  | Divide of Integer * Integer
   // this terminology comes from https://www.cs.utexas.edu/~EWD/ewd07xx/EWD768.PDF
   | Exceeds of Integer * Integer // >
   | LessThan of Integer * Integer // <
   | AtLeast of Integer * Integer // ≥
   | AtMost of Integer * Integer // ≤
-  | Divides of Integer * Integer // I need an operator for this
+  | IsDivisor of Integer * Integer // I need an operator for this
 
   override this.ToString() : string =
     match this with
@@ -27,12 +27,12 @@ and Integer =
     | Plus(x, y) -> $"{x} + {y}"
     | Minus(x, y) -> $"{x} - {y}"
     | Times(x, y) -> $"{x} × {y}"
-    | Div(x, y) -> $"{x} / {y}"
+    | Divide(x, y) -> $"{x} / {y}"
     | Exceeds(x, y) -> $"{x} > {y}"
     | LessThan(x, y) -> $"{x} < {y}"
     | AtLeast(x, y) -> $"{x} ≥ {y}"
     | AtMost(x, y) -> $"{x} ≤ {y}"
-    | Divides(x, y) -> $"{x} ∣ {y}"
+    | IsDivisor(x, y) -> $"{x} ∣ {y}"
 
   static member (~-)(x: Integer) =
     match x with
@@ -42,7 +42,7 @@ and Integer =
   static member (+)(x: Integer, y: Integer) = Plus(x, y)
   static member (-)(x: Integer, y: Integer) = Minus(x, y)
   static member (*)(x: Integer, y: Integer) = Times(x, y)
-  static member (/)(x: Integer, y: Integer) = Div(x, y)
+  static member (/)(x: Integer, y: Integer) = Divide(x, y)
 
   interface WExpr with
     member this.toZ3Expr(ctx: Context) : Expr =
@@ -54,12 +54,12 @@ and Integer =
       | Plus(x, y) -> ctx.MkAdd(toExp x, toExp y)
       | Minus(x, y) -> ctx.MkSub(toExp x, toExp y)
       | Times(x, y) -> ctx.MkMul(toExp x, toExp y)
-      | Div(x, y) -> ctx.MkDiv(toExp x, toExp y)
+      | Divide(x, y) -> ctx.MkDiv(toExp x, toExp y)
       | Exceeds(Integer n, Integer m) -> ctx.MkGt(ctx.MkInt n, ctx.MkInt m)
       | LessThan(Integer n, Integer m) -> ctx.MkLt(ctx.MkInt n, ctx.MkInt m)
       | AtLeast(Integer n, Integer m) -> ctx.MkGe(ctx.MkInt n, ctx.MkInt m)
       | AtMost(Integer n, Integer m) -> ctx.MkLe(ctx.MkInt n, ctx.MkInt m)
-      | Divides(Integer n, Integer m) ->
+      | IsDivisor(Integer n, Integer m) ->
         // exists x such n*x = m
         // ctx.MkExists()
         failwith "TODO divides"
