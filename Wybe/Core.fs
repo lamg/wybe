@@ -196,7 +196,7 @@ and Sequence =
           match sort with
           | WInteger -> ctx.IntSort :> Sort
           | WBool -> ctx.BoolSort
-          | WSequence s -> mkSort s
+          | WSequence s -> ctx.MkSeqSort(mkSort s)
 
         let s = mkSort sort
         ctx.MkEmptySeq s
