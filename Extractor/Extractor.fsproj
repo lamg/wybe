@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="Fabulous.AST" />
     <PackageReference Include="FParsec" />
+    <PackageReference Include="FSharpPlus" />
     <PackageReference Include="Microsoft.Z3" />
   </ItemGroup>
 

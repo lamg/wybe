@@ -103,24 +103,32 @@ let ``extract proof obligations`` () =
   let fortyTwoExceedsFive =
     Core.Exceeds(Core.Integer 42, Core.Integer 5) :> Core.WExpr |> Core.ExtBoolOp
 
-  Assert.Equal<Core.Proposition list>([ fortyTwoExceedsFive ], obligations)
+  Assert.Equal<(string * Core.Proposition) list>([ "foo_0", fortyTwoExceedsFive ], obligations)
 
-// [<Fact>]
-// let ``complex rust function`` () =
-//   let code =
-//     """
-//   fn main() {
-//     let args: Vec<String> = std::env::args().collect();
-//     if args.len() != 2 {
-//         eprintln!("Usage: {} <number>", args[0]);
-//         std::process::exit(1);
-//     }
-//     let x: i32 = args[1]
-//         .parse()
-//         .expect("Argument must be a valid 32-bit integer");
-//     let result = add_one(x);
-//     println!("{}", result);
-//   }"""
+[<Fact>]
+let ``parse and emit`` () =
+  let add_one_rust =
+    "
+    pub fn add_one(x: i32) -> i32 {
+      x + 1
+      // { $e > x }
+    }
+    "
 
-//   let fn = (parseFunctions code).Head
-//   Assert.Equal("main", fn.Name)
+  use writer = new System.IO.StringWriter()
+  parseAndEmitProofObligations add_one_rust writer
+  let fsCode = writer.ToString().Split "\n"
+
+  let expected =
+    [| "#r \"nuget: Wybe, 0.0.1\""
+       "open Prover"
+       ""
+       ""
+       ""
+       "let add_one_0 () ="
+       """  proof { theorem "add_one_0" (x + 1 > x) }"""
+       ""
+       "checkTheorems [ add_one_0 ]"
+       "" |]
+
+  Assert.Equal<string array>(expected, fsCode)

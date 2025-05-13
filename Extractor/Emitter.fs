@@ -100,7 +100,7 @@ let parseProposition: Parser<Proposition, unit> =
 
   factor <|> term
 
-
+open FSharpPlus
 
 let extractProofObligations (funcs: Function list) =
   let parseWybeExpr (s: string) : Proposition =
@@ -191,13 +191,13 @@ let extractProofObligations (funcs: Function list) =
     // the $e variable is a special variable to capture the expression previous to the assertion
     f.Body
     |> List.pairwise
-    |> List.choose (fun (x, y) ->
+    |> List.choosei (fun i (x, y) ->
       match y with
       | CommentAssertion c ->
         let x = wybeFromRustExpr x
         let a = parseWybeExpr c
         let s = substituteE x a
-        s :?> Proposition |> Some
+        Some($"{f.Name}_{i}", s :?> Proposition)
       | _ -> None)
 
 
@@ -207,7 +207,7 @@ let extractProofObligations (funcs: Function list) =
 
 open type Fabulous.AST.Ast
 
-let emitProofObligation (writer: TextWriter) (theoremBody: Proposition) =
+let emitProofObligation (name: string, theoremBody: Proposition) =
   let wExprToString (expr: WExpr) =
     let rec propToStr (expr: Proposition) =
       match expr with
@@ -233,26 +233,46 @@ let emitProofObligation (writer: TextWriter) (theoremBody: Proposition) =
 
     | _ -> ""
 
-  Oak() {
-    AnonymousModule() {
-      HashDirective("r", String "nuget: Wybe, 0.0.1")
+  Function(
+    name,
+    UnitPat(),
+    NamedComputationExpr(
+      ConstantExpr(Constant "proof"),
+      CompExprBodyExpr [ AppExpr("theorem", [ $"\"{name}\""; "(" + wExprToString theoremBody + ")" ]) ]
+    )
+  )
 
 
-      NamedComputationExpr(
-        ConstantExpr(Constant "proof"),
-        CompExprBodyExpr [ AppExpr("lemma", [ String(wExprToString theoremBody) ]) ]
-      )
+
+
+
+let parseAndEmitProofObligations (rustCode: string) (writer: TextWriter) =
+  let rustFunctions = RustParser.parseFunctions rustCode
+  let proofObligations = extractProofObligations rustFunctions
+  let proofNames = proofObligations |> List.map fst
+  let fs = proofObligations |> List.map emitProofObligation
+
+  let conf =
+    { Fantomas.Core.FormatConfig.Default with
+        IndentSize = 2 }
+
+  let genModule =
+    Oak() {
+      AnonymousModule() {
+        HashDirective("r", String "nuget: Wybe, 0.0.1")
+        Open("Prover").triviaAfter (Newline())
+        CompExprBodyExpr fs
+        AppExpr("checkTheorems", ListExpr proofNames)
+      }
     }
-  }
-  |> Gen.mkOak
-  |> Gen.run
-  |> writer.Write
+    |> Gen.mkOak
+    |> Gen.runWith conf
+
+  writer.Write genModule
 
 let parseFileAndEmitProofObligations (rustSource: string) (fsScript: string) =
   // parse all functions in the source file
   let rustSourceContent = File.ReadAllText rustSource
-  let rustFunctions = RustParser.parseFunctions rustSourceContent
-  let proofObligations = extractProofObligations rustFunctions
 
   use writer = new StreamWriter(fsScript)
-  proofObligations |> List.iter (emitProofObligation writer)
+  parseAndEmitProofObligations rustSourceContent writer
