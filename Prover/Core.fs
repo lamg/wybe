@@ -18,7 +18,7 @@ and Integer =
   | LessThan of Integer * Integer // <
   | AtLeast of Integer * Integer // ≥
   | AtMost of Integer * Integer // ≤
-  | IsDivisor of Integer * Integer // I need an operator for this
+  | IsDivisor of Integer * Integer // ∣
 
   override this.ToString() : string =
     match this with

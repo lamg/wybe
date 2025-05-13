@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RustParserCs\RustParserCs.csproj" />
-    <ProjectReference Include="..\..\Wybe\Wybe.fsproj" />
+    <ProjectReference Include="..\Parsers\RustParserCs\RustParserCs.csproj" />
+    <ProjectReference Include="..\Prover\Prover.fsproj" />
   </ItemGroup>
 </Project>

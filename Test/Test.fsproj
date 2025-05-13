@@ -27,8 +27,8 @@
     <PackageReference Include="Antlr4.Runtime.Standard"/>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Wybe\Wybe.fsproj" />
-    <ProjectReference Include="..\Structor\Structor\Structor.fsproj" />
-    <ProjectReference Include="..\Structor\RustParserCs\RustParserCs.csproj" />
+    <ProjectReference Include="..\Prover\Prover.fsproj" />
+    <ProjectReference Include="..\Extractor\Extractor.fsproj" />
+    <ProjectReference Include="..\Parsers\RustParserCs\RustParserCs.csproj" />
   </ItemGroup>
 </Project>
