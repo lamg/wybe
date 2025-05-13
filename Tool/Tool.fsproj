@@ -32,4 +32,8 @@
     <PackageReference Include="Argu" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Extractor\Extractor.fsproj" />
+  </ItemGroup>
+
 </Project>

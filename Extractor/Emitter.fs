@@ -1,7 +1,7 @@
-module Structor.ProofObligationEmitter
+module Extractor.Emitter
 
 open System.IO
-open Structor.Types
+open Extractor.Types
 open Fabulous.AST
 open Core
 open FParsec
@@ -125,9 +125,9 @@ let extractProofObligations (funcs: Function list) =
           | _ when (x :? Integer) -> ExtBoolOp(substituteE e x)
           | _ -> failwith "not implemented"
         | And(l, r) -> And(substituteE e l :?> Proposition, substituteE e r :?> Proposition)
-        | Equals(_, _) -> failwith "Not Implemented"
-        | Differs(_, _) -> failwith "Not Implemented"
-        | Not(right) -> failwith "Not Implemented"
+        | Equals(_, _) -> failwith "Not Implemented equals"
+        | Differs(_, _) -> failwith "Not Implemented differs"
+        | Not(right) -> failwith "Not Implemented not "
         | Or(left, right) -> failwith "Not Implemented"
         | Equiv(left, right) -> failwith "Not Implemented"
         | Inequiv(left, right) -> failwith "Not Implemented"
@@ -146,10 +146,10 @@ let extractProofObligations (funcs: Function list) =
             | Var("$e", _) -> e
             | _ -> Integer.ExtInteger n
           | _ -> failwith "not implemented"
-        | Integer.Plus(_, _) -> failwith "Not Implemented"
-        | Integer.Minus(_, _) -> failwith "Not Implemented"
-        | Integer.Times(_, _) -> failwith "Not Implemented"
-        | Integer.Divide(_, _) -> failwith "Not Implemented"
+        | Integer.Plus(_, _) -> failwith "Not Implemented plus"
+        | Integer.Minus(_, _) -> failwith "Not Implemented minus"
+        | Integer.Times(_, _) -> failwith "Not Implemented times"
+        | Integer.Divide(_, _) -> failwith "Not Implemented divide"
         | Integer.Exceeds(l, r) -> Integer.Exceeds(substituteE e l :?> Integer, substituteE e r :?> Integer)
         | Integer.LessThan(_, _) -> failwith "Not Implemented"
         | Integer.AtLeast(_, _) -> failwith "Not Implemented"
@@ -158,7 +158,7 @@ let extractProofObligations (funcs: Function list) =
 
       | _ when (p :? Sequence) -> failwith "not implemented"
       | _ when (p :? Var) -> failwith "not implemented"
-      | _ -> failwith "not implemented"
+      | _ -> failwith $"not implemented {p}"
 
     let rec wybeFromRustExpr (x: TargetLangExpr) : WExpr =
       match x with
@@ -220,7 +220,7 @@ let emitProofObligation (writer: TextWriter) (theoremBody: Proposition) =
       | Not x -> $"!{propToStr x}"
       | Forall(vars, body) -> $"∀ {vars} ({propToStr body})"
       | Exists(vars, body) -> $"∃ {vars} ({propToStr body})"
-      | ExtBoolOp _ -> failwith "Not Implemented"
+      | ExtBoolOp op -> $"{op}"
       | True -> "True"
       | False -> "False"
       | Equals(x, y) -> $"{x} = {y}"
@@ -235,7 +235,8 @@ let emitProofObligation (writer: TextWriter) (theoremBody: Proposition) =
 
   Oak() {
     AnonymousModule() {
-      HashDirective("r", "nuget: Wybe, 0.0.1")
+      HashDirective("r", String "nuget: Wybe, 0.0.1")
+
 
       NamedComputationExpr(
         ConstantExpr(Constant "proof"),
@@ -249,7 +250,8 @@ let emitProofObligation (writer: TextWriter) (theoremBody: Proposition) =
 
 let parseFileAndEmitProofObligations (rustSource: string) (fsScript: string) =
   // parse all functions in the source file
-  let rustFunctions = RustParser.parseFunctions rustSource
+  let rustSourceContent = File.ReadAllText rustSource
+  let rustFunctions = RustParser.parseFunctions rustSourceContent
   let proofObligations = extractProofObligations rustFunctions
 
   use writer = new StreamWriter(fsScript)

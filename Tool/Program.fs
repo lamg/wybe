@@ -1,7 +1,7 @@
 ﻿open Argu
 
 type Args =
-  | [<CliPrefix(CliPrefix.None)>] Extract of ParseResults<ExtractArgs>
+  | [<AltCommandLine("-e")>] Extract of string
   | [<AltCommandLine("-v")>] Version
 
   interface IArgParserTemplate with
@@ -10,13 +10,11 @@ type Args =
       | Extract _ -> "extract proof obligations"
       | Version -> "Prints Wybe's version"
 
-and ExtractArgs =
-  | [<AltCommandLine("-p")>] Path of string
-
-  interface IArgParserTemplate with
-    member s.Usage =
-      match s with
-      | Path _ -> "path of rust file to extract proof obligations"
+let extract (path: string) =
+  let baseName = System.IO.Path.GetFileNameWithoutExtension path
+  let fsScript = $"{baseName}.fsx"
+  Extractor.Emitter.parseFileAndEmitProofObligations path fsScript
+  0
 
 let version () =
   let asm = System.Reflection.Assembly.GetExecutingAssembly()
@@ -41,14 +39,11 @@ let main args =
 
   let results = parser.ParseCommandLine(inputs = args, raiseOnUsage = true)
 
-  let command = results.TryGetSubCommand()
 
   try
-    match command with
+    match results.TryGetResult Extract with
     | _ when results.Contains Version -> version ()
-    | Some(Extract _) ->
-      printfn "extract!"
-      0
+    | Some path -> extract path
     | _ ->
       eprintfn "unrecognized argument"
       1

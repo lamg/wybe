@@ -1,11 +1,12 @@
-module Structor.RustParser
+module Extractor.RustParser
 
 open RustParserCs
 open Antlr4.Runtime
+open Antlr4.Runtime.Misc
 open Antlr4.Runtime.Tree
 open System
 open System.Text.RegularExpressions
-open Types
+open Extractor.Types
 
 
 /// Visitor that builds an Expr AST from parse contexts
@@ -65,8 +66,79 @@ type RustVisitor() =
   /// Visit path expressions as variables
   override this.VisitPathExpression_(context: RustParser.PathExpression_Context) = Var(context.GetText())
 
-  /// Default function visit: delegate to base visitor
-  override this.VisitFunction_(context: RustParser.Function_Context) = base.VisitFunction_ context
+  /// Visit a Rust function definition, capturing signature and body expressions/comments
+  override this.VisitFunction_(context: RustParser.Function_Context) =
+    // Function name
+    let name = context.identifier().GetText()
+    // Parameters: split on commas, then split name and type on ':'
+    let parameters =
+      match context.functionParameters () with
+      | null -> []
+      | ps ->
+        let txt = ps.GetText()
+
+        if String.IsNullOrWhiteSpace txt then
+          []
+        else
+          txt.Split([| ',' |], StringSplitOptions.RemoveEmptyEntries)
+          |> Array.map (fun entry ->
+            let parts = entry.Split([| ':' |], 2, StringSplitOptions.RemoveEmptyEntries)
+            let n = parts.[0].Trim()
+            let t = parts.[1].Trim()
+            n, t)
+          |> List.ofArray
+    // Return type, if any
+    let returnType =
+      match context.functionReturnType () with
+      | null -> None
+      | rt ->
+        let txt = rt.GetText()
+        // rt.GetText() yields '->Type', so drop leading arrow
+        let t = if txt.StartsWith "->" then txt.Substring(2) else txt
+        Some(t.Trim())
+    // Extract body text between braces using input stream positions
+    let blockCtx = context.blockExpression ()
+    // Get character stream and take text between '{' and '}'
+    let inputStream = context.Start.InputStream
+    let innerStart = blockCtx.Start.StartIndex + 1
+    let innerStop = blockCtx.Stop.StopIndex - 1
+    let bodyText = inputStream.GetText(Interval(innerStart, innerStop))
+    // Split into non-empty, trimmed lines
+    let lines =
+      bodyText.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
+      |> Array.map (fun l -> l.Trim())
+      |> Array.filter (fun l -> not (String.IsNullOrWhiteSpace l))
+      |> List.ofArray
+    // Helper to parse a single Rust expression via ANTLR visitor
+    let parseExpr (str: string) : TargetLangExpr =
+      let cs = CharStreams.fromString str
+      let lex = RustLexer cs
+      let tk = CommonTokenStream lex
+      let pr = RustParser tk
+      pr.RemoveErrorListeners()
+      pr.AddErrorListener(ConsoleErrorListener<IToken>.Instance)
+      let exprCtx = pr.expression ()
+      RustVisitor().Visit exprCtx
+    // Build body: comments or expressions
+    let body =
+      lines
+      |> List.map (fun line ->
+        if line.StartsWith "//" then
+          let comment = line.Substring(2).Trim()
+
+          if comment.StartsWith "{" && comment.EndsWith "}" then
+            let inner = comment.Substring(1, comment.Length - 2).Trim()
+            CommentAssertion inner
+          else
+            Comment line
+        else
+          parseExpr line)
+
+    Fn
+      { Name = name
+        Parameters = parameters
+        ReturnType = returnType
+        Body = body }
 
   /// Visit terminal nodes, capturing comments as Comment expressions
   override this.VisitTerminal(node: ITerminalNode) =
@@ -78,103 +150,37 @@ type RustVisitor() =
     else
       base.VisitTerminal node
 
-
-/// Parse a Rust function from the given string.  Recognizes simple signatures
-/// and parses body lines as expressions or comment-expressions in `{}`.
-let parseFunction (input: string) : Function =
-  // Regex to capture fn name, params, optional return type, and body content
-  let regex =
-    Regex
-      "^\s*(?:pub\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\\(([^)]*)\\)\s*(?:->\s*([^\\{\s]+))?\s*\\{\s*([\s\S]*?)\s*\\}\s*$"
-
-  let m = regex.Match input
-
-  if not m.Success then
-    failwithf "Failed to parse function signature: %s" input
-
-  let name = m.Groups.[1].Value
-  let paramsStr = m.Groups.[2].Value.Trim()
-
-  let returnType =
-    let rt = m.Groups.[3].Value
-    if String.IsNullOrWhiteSpace rt then None else Some rt
-
-  let parameters =
-    if String.IsNullOrWhiteSpace paramsStr then
-      []
-    else
-      paramsStr.Split([| ',' |], StringSplitOptions.RemoveEmptyEntries)
-      |> Array.map (fun p ->
-        let parts = p.Split([| ':' |], StringSplitOptions.RemoveEmptyEntries)
-        let n = parts.[0].Trim()
-        let t = parts.[1].Trim()
-        n, t)
-      |> List.ofArray
-
-  let bodyContent = m.Groups[4].Value
-
-  let lines =
-    bodyContent.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
-    |> Array.map (fun l -> l.Trim())
-    |> Array.filter (fun l -> not (String.IsNullOrWhiteSpace l))
-    |> Array.toList
-  // helper to parse an expression string via ANTLR visitor
-  let parseExpr (str: string) : TargetLangExpr =
-    let charStream = CharStreams.fromString str
-    let lexer = RustLexer charStream
-    let tokens = CommonTokenStream lexer
-    let parser = RustParser tokens
-    parser.RemoveErrorListeners()
-    parser.AddErrorListener(ConsoleErrorListener<IToken>.Instance)
-    let tree = parser.expression ()
-    RustVisitor().Visit tree
-  // parse each line: comments or expressions
-  // Parse each line: comments, comment-assertions, or expressions
-  let body =
-    lines
-    |> List.map (fun line ->
-      if line.StartsWith "//" then
-        let comment = line.Substring(2).Trim()
-        // comment assertion of the form { <expr> }
-        if comment.StartsWith "{" && comment.EndsWith "}" then
-          let inner = comment.Substring(1, comment.Length - 2).Trim()
-          CommentAssertion inner
-        else
-          Comment line
-      else
-        parseExpr line)
-
-  { Name = name
-    Parameters = parameters
-    ReturnType = returnType
-    Body = body }
-
 /// Parse all Rust functions from the given input string
 let parseFunctions (input: string) : Function list =
-  // Build ANTLR parser for the full crate
-  let charStream = CharStreams.fromString input
-  let lexer = RustLexer charStream
-  let tokens = CommonTokenStream lexer
-  let parser = RustParser tokens
-  parser.RemoveErrorListeners()
-  parser.AddErrorListener(ConsoleErrorListener<IToken>.Instance)
-  let tree = parser.crate()
-  // Extract all function_ contexts under visItem in the crate
-  tree.item()
+  // Initialize parser on the full crate
+  let cs = CharStreams.fromString input
+  let lex = RustLexer cs
+  let tk = CommonTokenStream lex
+  let pr = RustParser tk
+  // Suppress ANTLR console error output when parsing functions
+  pr.RemoveErrorListeners()
+  // pr.AddErrorListener(ConsoleErrorListener<IToken>.Instance)
+  let tree = pr.crate ()
+  // Find all function definitions under visItem
+  tree.item ()
   |> Seq.choose (fun item ->
-      let vis = item.visItem()
-      if vis <> null then
-        let fctx = vis.function_()
-        // only include functions with a body (not semicolon declarations)
-        if fctx <> null && fctx.blockExpression() <> null then Some fctx
-        else None
-      else None)
-  |> Seq.map (fun fctx ->
-      // extract the source slice for this function
-      let startI = fctx.Start.StartIndex
-      let stopI = fctx.Stop.StopIndex
-      let length = stopI - startI + 1
-      let funcText = input.Substring(startI, length)
-      // reuse parseFunction to build the Function record
-      parseFunction funcText)
+    let vis = item.visItem ()
+
+    if vis <> null then
+      let fctx = vis.function_ ()
+
+      if fctx <> null && fctx.blockExpression () <> null then
+        // skip main functions; only extract proof functions
+        let name = fctx.identifier().GetText()
+
+        if name = "main" then
+          None
+        else
+          match RustVisitor().VisitFunction_ fctx with
+          | Fn f -> Some f
+          | _ -> None
+      else
+        None
+    else
+      None)
   |> Seq.toList

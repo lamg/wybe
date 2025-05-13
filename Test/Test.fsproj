@@ -11,7 +11,7 @@
     <Compile Include="InspectTest.fs" />
     <Compile Include="CheckAllTheorems.fs" />
     <Compile Include="Z3Test.fs" />
-    <Compile Include="Structor.fs" />
+    <Compile Include="Extractor.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

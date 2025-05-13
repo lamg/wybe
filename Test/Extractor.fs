@@ -1,13 +1,13 @@
-module StructorTest
+module ExtractorTest
 
 
 open Xunit
 open Antlr4.Runtime
 open Antlr4.Runtime.Tree
 open RustParserCs
-open Structor.Types
-open Structor.RustParser
-open Structor.ProofObligationEmitter
+open Extractor.Types
+open Extractor.RustParser
+open Extractor.Emitter
 
 /// Helper to parse an expression rule from a string
 let parseExpression (input: string) =
@@ -55,7 +55,7 @@ let ``simple rust function`` () =
     }
     "
   // Parse the function and validate its structure
-  let func = parseFunction add_one_rust
+  let func = (parseFunctions add_one_rust).Head
   // Signature
   Assert.Equal("add_one", func.Name)
   // Expect a list of parameter name-type pairs
@@ -76,7 +76,7 @@ let ``solana style function`` () =
     }
     """
 
-  let func = parseFunction sol_fn
+  let func = (parseFunctions sol_fn).Head
   // Signature
   Assert.Equal("do_something", func.Name)
   // Two parameters: context and a value
@@ -106,10 +106,21 @@ let ``extract proof obligations`` () =
   Assert.Equal<Core.Proposition list>([ fortyTwoExceedsFive ], obligations)
 
 // [<Fact>]
-// let ``generate proof code`` () =
-//   let obligations = [ ("bar_obl_0", Op("+", Var "y", Integer 1L)) ]
-//   let code = generateProofCode obligations
-//   // Generated code should reference the obligation name, proof block, and the expression
-//   Assert.Contains("bar_obl_0", code)
-//   Assert.Contains("proof {", code)
-//   Assert.Contains("y + 1", code)
+// let ``complex rust function`` () =
+//   let code =
+//     """
+//   fn main() {
+//     let args: Vec<String> = std::env::args().collect();
+//     if args.len() != 2 {
+//         eprintln!("Usage: {} <number>", args[0]);
+//         std::process::exit(1);
+//     }
+//     let x: i32 = args[1]
+//         .parse()
+//         .expect("Argument must be a valid 32-bit integer");
+//     let result = add_one(x);
+//     println!("{}", result);
+//   }"""
+
+//   let fn = (parseFunctions code).Head
+//   Assert.Equal("main", fn.Name)

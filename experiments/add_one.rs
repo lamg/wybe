@@ -32,15 +32,15 @@ fn add_one(x: i32) -> i32 {
 // ⬜
 
 /// Entry point demonstrating `add_one` functionality via CLI.
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() != 2 {
-        eprintln!("Usage: {} <number>", args[0]);
-        std::process::exit(1);
-    }
-    let x: i32 = args[1]
-        .parse()
-        .expect("Argument must be a valid 32-bit integer");
-    let result = add_one(x);
-    println!("{}", result);
-}
+// fn main() {
+//     let args: Vec<String> = std::env::args().collect();
+//     if args.len() != 2 {
+//         eprintln!("Usage: {} <number>", args[0]);
+//         std::process::exit(1);
+//     }
+//     let x: i32 = args[1]
+//         .parse()
+//         .expect("Argument must be a valid 32-bit integer");
+//     let result = add_one(x);
+//     println!("{}", result);
+// }
