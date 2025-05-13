@@ -1,11 +1,11 @@
 module Extractor.RustParser
 
+open System
+
 open RustParserCs
 open Antlr4.Runtime
 open Antlr4.Runtime.Misc
 open Antlr4.Runtime.Tree
-open System
-open System.Text.RegularExpressions
 open Extractor.Types
 
 

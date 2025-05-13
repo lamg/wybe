@@ -4,8 +4,6 @@ open Xunit
 open FsUnit
 open Core
 
-let mkBoolVar n = ExtBoolOp(Var(n, WBool))
-
 let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 
 [<Fact>]
@@ -47,7 +45,7 @@ open Inspect.Inspect
 
 [<Fact>]
 let ``simple integer proof`` () =
-  let x = GriesSchneider.Integers.mkIntVar "x"
+  let x = mkIntVar "x"
 
   proof {
     lemma (x + x + x = Integer 3 * x)

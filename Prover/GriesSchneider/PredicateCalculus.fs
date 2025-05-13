@@ -2,8 +2,6 @@ module GriesSchneider.PredicateCalculus
 
 open Core
 
-let mkBoolVar n = ExtBoolOp(Var(n, WBool))
-
 let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 
 // NOTE: axioms are defined without delaying the computation, by adding an unit parameter,

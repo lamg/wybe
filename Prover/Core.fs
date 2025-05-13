@@ -275,7 +275,7 @@ and CalcError =
   | InsufficientEvidence of demonstrandum: Proposition
   | InvalidFormula of demonstrandum: Proposition
 
-let stepToPred (s: Step) =
+let private stepToPred (s: Step) =
   let boolStep (t: WExpr, u: WExpr) =
     try
       t :?> Proposition, u :?> Proposition
@@ -289,7 +289,7 @@ let stepToPred (s: Step) =
   | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
 
 
-let checkPredicate (ctx: Context) (p: Proposition) =
+let internal checkPredicate (ctx: Context) (p: Proposition) =
   let solver = ctx.MkSolver()
   let zp = p :> WExpr
   let exp = zp.toZ3Expr ctx :?> BoolExpr
@@ -301,7 +301,7 @@ let checkPredicate (ctx: Context) (p: Proposition) =
   | Status.UNKNOWN -> Unknown
   | v -> failwith $"unexpected enum value {v}"
 
-let checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Proposition) =
+let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Proposition) =
   match steps with
   | [] ->
     match checkPredicate ctx demonstrandum with
@@ -324,7 +324,7 @@ type ProofLine =
   | Theorem of Law
   | Name of string
 
-let buildBasic (lines: ProofLine list) =
+let private buildBasic (lines: ProofLine list) =
   let rec fixedPoint (f: 'b -> 'b option) (state: 'b) =
     match f state with
     | Some x -> fixedPoint f x
@@ -453,7 +453,7 @@ let ``⇒`` = LawsCE StepOperator.Implies
 
 let ``⇐`` = LawsCE StepOperator.Follows
 
-let toProposition (x: WExpr) =
+let private toProposition (x: WExpr) =
   match x with
   | _ when (x :? Var) ->
     let (Var(_, t)) = x :?> Var
@@ -495,3 +495,6 @@ let lemma pred =
 let (=) x y = Equals(x, y)
 let (!=) x y = Differs(x, y)
 let ``==`` = LawsCE StepOperator.Equals
+
+let mkBoolVar n = ExtBoolOp(Var(n, WBool))
+let mkIntVar x = ExtInteger(Var(x, WInteger))

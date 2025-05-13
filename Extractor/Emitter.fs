@@ -260,7 +260,7 @@ let parseAndEmitProofObligations (rustCode: string) (writer: TextWriter) =
     Oak() {
       AnonymousModule() {
         HashDirective("r", String "nuget: Wybe, 0.0.1")
-        Open("Prover").triviaAfter (Newline())
+        Open("Wybe.Core").triviaAfter (Newline())
         CompExprBodyExpr fs
         AppExpr("checkTheorems", ListExpr proofNames)
       }

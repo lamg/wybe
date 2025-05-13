@@ -121,7 +121,7 @@ let ``parse and emit`` () =
 
   let expected =
     [| "#r \"nuget: Wybe, 0.0.1\""
-       "open Prover"
+       "open Wybe.Core"
        ""
        ""
        ""

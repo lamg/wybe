@@ -1,9 +1,7 @@
 module GriesSchneider.Integers
 
 open Core
-open PredicateCalculus
 
-let mkIntVar x = ExtInteger(Var(x, WInteger))
 let x, y, z = mkIntVar "x", mkIntVar "y", mkIntVar "z"
 let zero = Integer 0
 let one = Integer 1

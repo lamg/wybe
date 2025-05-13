@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Core.fs" />
     <Compile Include="Inspect\ColorMessages.fs" />
     <Compile Include="Inspect\Formatters.fs" />
@@ -14,9 +15,8 @@
     <Compile Include="GriesSchneider\PredicateCalculus.fs" />
     <Compile Include="GriesSchneider\Integers.fs" />
     <Compile Include="GriesSchneider\Sequences.fs" />
-    
   </ItemGroup>
-
+  
   <ItemGroup>
     <PackageReference Include="FsToolkit.ErrorHandling" />
     <PackageReference Include="Microsoft.Z3" />
