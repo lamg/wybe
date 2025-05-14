@@ -1,9 +1,9 @@
-module Inspect.Formatters
+module internal Formatters
 
 open Core
 open ColorMessages
 
-let printOperator =
+let internal printOperator =
   function
   | StepOperator.Equiv -> "≡"
   | StepOperator.Implies -> "⇒"

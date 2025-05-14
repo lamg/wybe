@@ -1,7 +1,6 @@
 module InspectTest
 
 open Inspect
-open Inspect.Inspect
 open Core
 open Xunit
 open FsUnit

@@ -1,14 +1,13 @@
-module Inspect.Inspect
+module Inspect
 
-open Core
 open Formatters
 open ColorMessages
 
 type Inspection =
   { accumulated: string list
-    calc: CheckedCalculation }
+    calc: Core.CheckedCalculation }
 
-let inspect (r: CheckedCalculation) = { accumulated = []; calc = r }
+let inspect (r: Core.CheckedCalculation) = { accumulated = []; calc = r }
 
 let private addLines (n: Inspection) xs =
   { n with
@@ -48,17 +47,18 @@ let printAndClear (n: Inspection) =
 
 let printToResult (n: Inspection) = n |> print |> _.calc |> Ok
 
-let calculationSummary (calc: CheckedCalculation) =
+let calculationSummary (calc: Core.CheckedCalculation) =
   let theoremName = calc.calculation.demonstrandum.identifier
 
   let failed =
     calc.error
     |> Option.map (function
-      | FailedSteps xs -> xs |> List.map (fun (i, _, _) -> $"{i}") |> String.concat ", "
-      | FailedParsing e -> $"{e}"
-      | WrongEvidence(premise, consequence) -> $"calculation reduces to: {premise}, but does not implies {consequence}"
-      | InsufficientEvidence demonstrandum -> $"insufficient evidence for: {demonstrandum}"
-      | InvalidFormula demonstrandum -> $"invalid formula {demonstrandum}")
+      | Core.FailedSteps xs -> xs |> List.map (fun (i, _, _) -> $"{i}") |> String.concat ", "
+      | Core.FailedParsing e -> $"{e}"
+      | Core.WrongEvidence(premise, consequence) ->
+        $"calculation reduces to: {premise}, but does not implies {consequence}"
+      | Core.InsufficientEvidence demonstrandum -> $"insufficient evidence for: {demonstrandum}"
+      | Core.InvalidFormula demonstrandum -> $"invalid formula {demonstrandum}")
     |> Option.map (fun s -> error "failed" s)
     |> Option.toList
 
@@ -74,7 +74,7 @@ let summary (n: Inspection) =
 let calculationError (n: Inspection) =
   n.calc |> printCalculationError |> addLines n
 
-let printCalculationResult (r: CheckedCalculation) =
+let printCalculationResult (r: Core.CheckedCalculation) =
   let n = inspect r
 
   match printCalculationError n.calc with

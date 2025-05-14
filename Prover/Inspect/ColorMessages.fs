@@ -1,4 +1,4 @@
-module Inspect.ColorMessages
+module internal ColorMessages
 
 type Color =
   | BrightRed

@@ -5,9 +5,9 @@ open Xunit
 open Antlr4.Runtime
 open Antlr4.Runtime.Tree
 open RustParserCs
-open Extractor.Types
-open Extractor.RustParser
-open Extractor.Emitter
+open Types
+open RustParser
+open Emitter
 
 /// Helper to parse an expression rule from a string
 let parseExpression (input: string) =

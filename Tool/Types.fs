@@ -1,4 +1,4 @@
-module Extractor.Types
+module Types
 
 /// Simple expression AST: variables, integer literals, or binary operations
 /// Simple expression AST: variables, integer literals, binary operations,

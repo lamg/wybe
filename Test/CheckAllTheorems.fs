@@ -2,7 +2,7 @@ module CheckAllTheorems
 
 open Xunit
 open GriesSchneider.PredicateCalculus
-open Inspect.Inspect
+open Inspect
 
 [<Fact>]
 let ``check all theorems`` () =
@@ -28,7 +28,7 @@ let ``check all theorems`` () =
     ``∨ ∧ absorption``
     GriesSchneider.Integers.``× zero``
     GriesSchneider.Integers.``+ cancellation``
-    fun _ -> GriesScheined.Sequences.``GS 13.7`` Core.WBool ]
+    fun _ -> GriesSchneider.Sequences.``GS 13.7`` Core.WBool ]
   |> List.iter (fun th ->
     match th () with
     | { error = None } -> ()

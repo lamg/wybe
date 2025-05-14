@@ -1,4 +1,4 @@
-module Extractor.RustParser
+module RustParser
 
 open System
 
@@ -6,7 +6,7 @@ open RustParserCs
 open Antlr4.Runtime
 open Antlr4.Runtime.Misc
 open Antlr4.Runtime.Tree
-open Extractor.Types
+open Types
 
 
 /// Visitor that builds an Expr AST from parse contexts

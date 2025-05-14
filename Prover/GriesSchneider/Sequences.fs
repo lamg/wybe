@@ -1,4 +1,4 @@
-module GriesScheined.Sequences
+module GriesSchneider.Sequences
 
 open Core
 

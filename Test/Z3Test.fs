@@ -41,7 +41,6 @@ let ``test sequence`` () =
   let _ = (empty :> WExpr).toZ3Expr ctx
   ()
 
-open Inspect.Inspect
 
 [<Fact>]
 let ``simple integer proof`` () =
@@ -55,6 +54,6 @@ let ``simple integer proof`` () =
     ``==`` { }
     Integer 3 * x
   }
-  |> inspect
-  |> summary
+  |> Inspect.inspect
+  |> Inspect.summary
   |> ignore

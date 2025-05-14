@@ -1,7 +1,7 @@
-module Extractor.Emitter
+module Emitter
 
 open System.IO
-open Extractor.Types
+open Types
 open Fabulous.AST
 open Core
 open FParsec

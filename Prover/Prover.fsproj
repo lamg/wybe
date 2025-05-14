@@ -7,7 +7,7 @@
     <RootNamespace>Wybe</RootNamespace>
     <AssemblyName>Wybe</AssemblyName>
     <PackageId>Wybe</PackageId>
-    <Version>0.0.1</Version>
+    <Version>0.0.2</Version>
     
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <InvariantGlobalization>true</InvariantGlobalization>
