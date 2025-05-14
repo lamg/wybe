@@ -127,14 +127,14 @@ let extractProofObligations (funcs: Function list) =
         | And(l, r) -> And(substituteE e l :?> Proposition, substituteE e r :?> Proposition)
         | Equals(_, _) -> failwith "Not Implemented equals"
         | Differs(_, _) -> failwith "Not Implemented differs"
-        | Not(right) -> failwith "Not Implemented not "
+        | Not right -> failwith "Not Implemented not "
         | Or(left, right) -> failwith "Not Implemented"
         | Equiv(left, right) -> failwith "Not Implemented"
         | Inequiv(left, right) -> failwith "Not Implemented"
         | Implies(left, right) -> failwith "Not Implemented"
         | Follows(left, right) -> failwith "Not Implemented"
-        | Forall(_) -> failwith "Not Implemented"
-        | Exists(_) -> failwith "Not Implemented"
+        | Forall _ -> failwith "Not Implemented"
+        | Exists _ -> failwith "Not Implemented"
         | _ -> p
       | _ when (p :? Integer) ->
         match p :?> Integer with
@@ -242,13 +242,23 @@ let emitProofObligation (name: string, theoremBody: Proposition) =
     )
   )
 
+type Language =
+  | Rust
+  | ``F#``
+  | Golang
 
+type Source =
+  { content: string
+    path: string
+    language: Language }
 
+let parseAndEmitProofObligations (source: Source) (writer: TextWriter) =
+  let proofObligations =
+    match source.language with
+    | Rust -> source.content |> RustParser.parseFunctions |> extractProofObligations
+    | ``F#`` -> failwith "not implemented"
+    | Golang -> failwith "not implemented"
 
-
-let parseAndEmitProofObligations (rustCode: string) (writer: TextWriter) =
-  let rustFunctions = RustParser.parseFunctions rustCode
-  let proofObligations = extractProofObligations rustFunctions
   let proofNames = proofObligations |> List.map fst
   let fs = proofObligations |> List.map emitProofObligation
 
@@ -259,6 +269,7 @@ let parseAndEmitProofObligations (rustCode: string) (writer: TextWriter) =
   let genModule =
     Oak() {
       AnonymousModule() {
+        HashDirective("r", String "nuget: Microsoft.Z3, 4.12.2")
         HashDirective("r", String "nuget: Wybe, 0.0.1")
         Open("Wybe.Core").triviaAfter (Newline())
         CompExprBodyExpr fs
@@ -270,9 +281,18 @@ let parseAndEmitProofObligations (rustCode: string) (writer: TextWriter) =
 
   writer.Write genModule
 
-let parseFileAndEmitProofObligations (rustSource: string) (fsScript: string) =
-  // parse all functions in the source file
-  let rustSourceContent = File.ReadAllText rustSource
+let parseAndEmitObligations (path: string) (fsScript: string) =
+  let language =
+    match Path.GetExtension(path).ToLower() with
+    | ".rs" -> Rust
+    | ".fs" -> ``F#``
+    | ".go" -> Golang
+    | ext -> failwith $"Unsupported file extension: {ext}"
+
+  let source =
+    { path = path
+      content = File.ReadAllText path
+      language = language }
 
   use writer = new StreamWriter(fsScript)
-  parseAndEmitProofObligations rustSourceContent writer
+  parseAndEmitProofObligations source writer

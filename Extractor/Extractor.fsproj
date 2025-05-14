@@ -9,11 +9,13 @@
     <Compile Include="Types.fs" />
     <Compile Include="RustParser.fs" />
     <Compile Include="Emitter.fs" />
+    <Compile Include="Runner.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Fabulous.AST" />
     <PackageReference Include="FParsec" />
+    <PackageReference Include="FSharp.Compiler.Service" />
     <PackageReference Include="FSharpPlus" />
     <PackageReference Include="Microsoft.Z3" />
   </ItemGroup>

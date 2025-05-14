@@ -8,6 +8,7 @@
     <PackageVersion Include="Argu" Version="6.2.4" />
     <PackageVersion Include="Fabulous.AST" Version="1.4.0" />
     <PackageVersion Include="FParsec" Version="1.1.1" />
+    <PackageVersion Include="FSharp.Compiler.Service" Version="43.9.300" />
     <PackageVersion Include="FSharp.Core" Version="9.0.100" />
     <PackageVersion Include="FSharpPlus" Version="1.7.0" />
   </ItemGroup>

@@ -73,3 +73,13 @@ let summary (n: Inspection) =
 
 let calculationError (n: Inspection) =
   n.calc |> printCalculationError |> addLines n
+
+let printCalculationResult (r: CheckedCalculation) =
+  let n = inspect r
+
+  match printCalculationError n.calc with
+  | [] -> [ $"✅ {n.calc.calculation.demonstrandum.identifier}" ]
+  | xs -> xs
+  |> addLines n
+  |> print
+  |> ignore

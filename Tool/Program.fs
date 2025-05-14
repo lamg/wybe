@@ -13,7 +13,7 @@ type Args =
 let extract (path: string) =
   let baseName = System.IO.Path.GetFileNameWithoutExtension path
   let fsScript = $"{baseName}.fsx"
-  Extractor.Emitter.parseFileAndEmitProofObligations path fsScript
+  Extractor.Emitter.parseAndEmitObligations path fsScript
   0
 
 let version () =

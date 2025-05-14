@@ -116,11 +116,18 @@ let ``parse and emit`` () =
     "
 
   use writer = new System.IO.StringWriter()
-  parseAndEmitProofObligations add_one_rust writer
+
+  parseAndEmitProofObligations
+    { path = ""
+      content = add_one_rust
+      language = Rust }
+    writer
+
   let fsCode = writer.ToString().Split "\n"
 
   let expected =
-    [| "#r \"nuget: Wybe, 0.0.1\""
+    [| "#r \"nuget: Microsoft.Z3, 4.12.2\""
+       "#r \"nuget: Wybe, 0.0.1\""
        "open Wybe.Core"
        ""
        ""
