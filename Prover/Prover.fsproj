@@ -3,7 +3,21 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    
     <RootNamespace>Wybe</RootNamespace>
+    <AssemblyName>Wybe</AssemblyName>
+    <PackageId>Wybe</PackageId>
+    <Version>0.0.1</Version>
+    
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <Authors>Luis Ángel Méndez Gort</Authors>
+    <PackageProjectUrl>https://github.com/lamg/wybe</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/lamg/wybe</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIcon>logo.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +29,9 @@
     <Compile Include="GriesSchneider\PredicateCalculus.fs" />
     <Compile Include="GriesSchneider\Integers.fs" />
     <Compile Include="GriesSchneider\Sequences.fs" />
+    
+    <Content Include="..\README.md" Pack="true" PackagePath="\" />
+    <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
   </ItemGroup>
   
   <ItemGroup>

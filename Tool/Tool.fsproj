@@ -6,11 +6,13 @@
     <RollForward>major</RollForward>
 
     <PackAsTool>true</PackAsTool>
+    
     <ToolCommandName>wybe</ToolCommandName>
     <PackageId>WybeTool</PackageId>
     <RootNamespace>WybeTool</RootNamespace>
     <AssemblyName>WybeTool</AssemblyName>
     <Version>0.0.1</Version>
+    
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <InvariantGlobalization>true</InvariantGlobalization>
     
@@ -28,8 +30,8 @@
     <Compile Include="Emitter.fs" />
     <Compile Include="Runner.fs" />
     <Compile Include="Program.fs" />
-     <Content Include="..\README.md" Pack="true" PackagePath="\" />
-     <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
+    <Content Include="..\README.md" Pack="true" PackagePath="\" />
+    <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

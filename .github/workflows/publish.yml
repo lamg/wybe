@@ -1,0 +1,42 @@
+name: Publish NuGet Package
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:9.0
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: publish RustParserCs
+        run: |
+          dotnet publish -c Release
+          dotnet pack
+          dotnet nuget push --skip-duplicate nupkg/*.nupkg -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json
+        working-directory: ./Parsers/RustParserCs
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          
+      - name: publish Prover
+        run: |
+          dotnet publish -c Release
+          dotnet pack
+          dotnet nuget push --skip-duplicate nupkg/*.nupkg -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json
+        working-directory: ./Prover
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      
+      - name: publish Tool
+        run: |
+          dotnet publish -c Release
+          dotnet pack
+          dotnet nuget push --skip-duplicate nupkg/*.nupkg -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json
+        working-directory: ./Tool
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          

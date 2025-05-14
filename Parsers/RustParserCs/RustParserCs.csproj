@@ -4,6 +4,22 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <RootNamespace>RustParserCs</RootNamespace>
+    <PackageId>Wybe.RustParserCs</PackageId>
+    <Version>0.0.1</Version>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>Wybe.RustParserCs</AssemblyName>
+    
+    <Authors>Luis Ángel Méndez Gort</Authors>
+    <PackageProjectUrl>https://github.com/lamg/migrate</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/lamg/migrate</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/lamg/migrate</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/lamg/migrate</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIcon>logo.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +38,9 @@
       <Package>RustParserCs</Package>
       <Error>true</Error>
     </Antlr4>
+
+    <Content Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <Content Include="..\..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
