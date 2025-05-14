@@ -17,7 +17,7 @@
     <RepositoryUrl>https://github.com/lamg/wybe</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageIcon>logo.png</PackageIcon>
+    <PackageIcon>wybe_logo.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
