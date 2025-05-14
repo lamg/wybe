@@ -28,7 +28,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Prover\Prover.fsproj" />
-    <ProjectReference Include="..\Extractor\Extractor.fsproj" />
+    <ProjectReference Include="..\Tool\Tool.fsproj" />
     <ProjectReference Include="..\Parsers\RustParserCs\RustParserCs.csproj" />
   </ItemGroup>
 </Project>

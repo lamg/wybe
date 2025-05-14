@@ -6,5 +6,4 @@
   <Project Path="Test/Test.fsproj" />
   <Project Path="Tool/Tool.fsproj" />
   <Project Path="Prover/Prover.fsproj" />
-  <Project Path="Extractor/Extractor.fsproj" />
 </Solution>
