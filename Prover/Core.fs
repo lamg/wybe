@@ -492,6 +492,8 @@ let lemma pred =
     { identifier = pred.ToString()
       body = pred }
 
+/// NOTE: redefining the operator `=` in F# is not recommended, but for most Wybe scripts
+/// this would make the proofs look closer to syntax we are used to
 let (=) x y = Equals(x, y)
 let (!=) x y = Differs(x, y)
 let ``==`` = LawsCE StepOperator.Equals
