@@ -1,4 +1,4 @@
-#r "nuget: Microsoft.Z3.x64"
+#r "nuget: Microsoft.Z3, 4.8.11"
 open Microsoft.Z3
 
 let ctx = new Context()

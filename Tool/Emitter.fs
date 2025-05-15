@@ -28,7 +28,7 @@ let parseInteger: Parser<Integer, unit> =
 
   let intVar =
     parse {
-      let! v = parseVar WInteger
+      let! v = parseVar WInt
       return ExtInteger v
     }
 
@@ -102,13 +102,13 @@ let parseProposition: Parser<Proposition, unit> =
 
 open FSharpPlus
 
-let extractProofObligations (funcs: Function list) =
+let extractProofObligations (funcs: TargetFun list) =
   let parseWybeExpr (s: string) : Proposition =
     match run parseProposition s with
     | Success(result, _, _) -> result
     | Failure(errorMsg, _, _) -> failwith $"Parsing failed: {errorMsg}"
 
-  let extractObligation (f: Function) =
+  let extractObligation (f: TargetFun) =
     let rec substituteE (e: WExpr) (p: WExpr) : WExpr =
       // what if p has no $e, and instead mentions a variable defined explicitly by e
       match p with
@@ -166,8 +166,8 @@ let extractProofObligations (funcs: Function list) =
         f.Parameters
         |> List.filter (fun (t, _) -> t = v)
         |> function
-          | [ t, "i32" ] -> ExtInteger(Var(t, WInteger))
-          | [ t, "i64" ] -> ExtInteger(Var(t, WInteger))
+          | [ t, "i32" ] -> ExtInteger(Var(t, WInt))
+          | [ t, "i64" ] -> ExtInteger(Var(t, WInt))
           | [ t, "bool" ] -> ExtBoolOp(Var(t, WBool))
           | _ -> failwith "not implmented"
       | TargetLangExpr.Integer n -> Integer n

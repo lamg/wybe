@@ -5,9 +5,9 @@ open Core
 let a s = ExtSeq(Var("a", s))
 let b s = ExtSeq(Var("b", s))
 let w sort = ExtSeq(Var("x", sort))
-let x sort = ExtSeq(Var("x", WSequence sort))
-let y sort = ExtSeq(Var("y", WSequence sort))
-let z sort = ExtSeq(Var("y", WSequence sort))
+let x sort = ExtSeq(Var("x", WSeq sort))
+let y sort = ExtSeq(Var("y", WSeq sort))
+let z sort = ExtSeq(Var("y", WSeq sort))
 
 let ``ϵ`` s = Empty s
 

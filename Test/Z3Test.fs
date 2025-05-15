@@ -35,7 +35,7 @@ let ``double negation with Z3`` () =
 
 [<Fact>]
 let ``test sequence`` () =
-  let empty = Empty(WSequence WBool)
+  let empty = Empty(WSeq WBool)
   let ctx = new Microsoft.Z3.Context()
   // FIXME
   let _ = (empty :> WExpr).toZ3Expr ctx

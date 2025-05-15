@@ -52,7 +52,7 @@ let printCheckedCalculation (calc: CheckedCalculation) =
 
 let printCalculationError (calc: CheckedCalculation) =
   match calc.error with
-  | Some(FailedSteps xs) -> error "failed steps" "" :: (xs |> List.map (fun (i, p, _) -> $"{i}: {p}"))
+  | Some(FailedSteps xs) -> error "failed steps" "" :: (xs |> List.map (fun (i, p, r) -> $"{i}: {p} | {r}"))
   | Some(WrongEvidence(premise, conclusion)) ->
     let implication = premise ==> conclusion
 

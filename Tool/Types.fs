@@ -4,7 +4,7 @@ module Types
 /// Simple expression AST: variables, integer literals, binary operations,
 /// comments, or comment assertions
 /// Represents a parsed Rust function, including signature and body expressions
-type Function =
+type TargetFun =
   { Name: string
     Parameters: (string * string) list
     ReturnType: string option
@@ -18,4 +18,4 @@ and TargetLangExpr =
   | Op of string * TargetLangExpr * TargetLangExpr
   | Comment of string
   | CommentAssertion of string // parses an assertion in a comment with the syntax { <expr> <op> <expr> }
-  | Fn of Function // represents a parsed Rust function
+  | TargetFn of TargetFun // represents a parsed Rust function

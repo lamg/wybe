@@ -134,7 +134,7 @@ type RustVisitor() =
         else
           parseExpr line)
 
-    Fn
+    TargetFn
       { Name = name
         Parameters = parameters
         ReturnType = returnType
@@ -151,7 +151,7 @@ type RustVisitor() =
       base.VisitTerminal node
 
 /// Parse all Rust functions from the given input string
-let parseFunctions (input: string) : Function list =
+let parseFunctions (input: string) : TargetFun list =
   // Initialize parser on the full crate
   let cs = CharStreams.fromString input
   let lex = RustLexer cs
@@ -177,7 +177,7 @@ let parseFunctions (input: string) : Function list =
           None
         else
           match RustVisitor().VisitFunction_ fctx with
-          | Fn f -> Some f
+          | TargetFn f -> Some f
           | _ -> None
       else
         None

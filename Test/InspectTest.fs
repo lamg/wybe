@@ -119,7 +119,10 @@ let ``print predicates`` () =
 
 [<Fact>]
 let ``inspect calculation steps with error`` () =
-  let expected = [ ColorMessages.error "failed steps" ""; "0: x ≡ y"; "1: y ≡ z" ]
+  let expected =
+    [ ColorMessages.error "failed steps" ""
+      "0: x ≡ y | Refuted \"false\""
+      "1: y ≡ z | Refuted \"false\"" ]
 
   proof {
     theorem "x ≡ y" (x === y)

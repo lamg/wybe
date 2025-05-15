@@ -191,15 +191,7 @@ and Sequence =
       let toSeqExpr (x: WExpr) = x.toZ3Expr ctx :?> SeqExpr
 
       match this with
-      | Empty sort ->
-        let rec mkSort sort =
-          match sort with
-          | WInteger -> ctx.IntSort :> Sort
-          | WBool -> ctx.BoolSort
-          | WSequence s -> ctx.MkSeqSort(mkSort s)
-
-        let s = mkSort sort
-        ctx.MkEmptySeq s
+      | Empty sort -> ctx.MkEmptySeq(sort.toZ3Sort ctx)
       | ExtSeq e -> e.toZ3Expr ctx
       | Cons(x, xs) ->
         let x = ctx.MkUnit(x.toZ3Expr ctx)
@@ -210,9 +202,18 @@ and Sequence =
 
 
 and WSort =
-  | WInteger
+  | WInt
   | WBool
-  | WSequence of WSort
+  | WSeq of WSort
+
+  member this.toZ3Sort(ctx: Context) =
+    let rec mkSort sort =
+      match sort with
+      | WInt -> ctx.IntSort :> Sort
+      | WBool -> ctx.BoolSort
+      | WSeq s -> ctx.MkSeqSort(mkSort s)
+
+    mkSort this
 
 and Var =
   | Var of string * WSort
@@ -227,11 +228,45 @@ and Var =
 
       let rec mkSort sort =
         match sort with
-        | WInteger -> ctx.IntSort :> Sort
+        | WInt -> ctx.IntSort :> Sort
         | WBool -> ctx.BoolSort
-        | WSequence s -> ctx.MkSeqSort(mkSort s)
+        | WSeq s -> ctx.MkSeqSort(mkSort s)
 
       ctx.MkConst(v, mkSort sort)
+
+and Function =
+  | Fn of string * (WSort list)
+
+  member this.toZ3FnDecl(ctx: Context) =
+    let (Fn(name, signature)) = this
+
+    signature
+    |> List.map (fun s -> s.toZ3Sort ctx)
+    |> function
+      | [] -> failwith $"signature cannot be empty, at function {name}"
+      | xs ->
+        let rev = List.rev xs
+        let args = List.tail rev |> List.rev |> List.toArray
+        let result = List.head rev
+        ctx.MkFuncDecl(name, args, result)
+
+and FnApp =
+  | App of Function * (WExpr list)
+
+  interface WExpr with
+    member this.toZ3Expr(ctx: Context) =
+      let (App(f, args)) = this
+      let z3Args = args |> List.map (fun v -> v.toZ3Expr ctx) |> List.toArray
+
+      let funcDecl = f.toZ3FnDecl ctx
+      funcDecl.Apply z3Args
+
+  override this.ToString() : string =
+    let (App(f, args)) = this
+    let argsStr = args |> List.map (fun a -> a.ToString()) |> String.concat ", "
+
+    match f with
+    | Fn(name, _) -> $"{name}({argsStr})"
 
 type Calculation =
   { demonstrandum: Law; steps: Step list }
@@ -296,7 +331,9 @@ let internal checkPredicate (ctx: Context) (p: Proposition) =
   solver.Add(ctx.MkNot exp)
 
   match solver.Check() with
-  | Status.SATISFIABLE -> Refuted(solver.Model.Evaluate(exp).ToString())
+  | Status.SATISFIABLE ->
+    let r = solver.Model.Evaluate exp
+    Refuted(r.ToString())
   | Status.UNSATISFIABLE -> Proved
   | Status.UNKNOWN -> Unknown
   | v -> failwith $"unexpected enum value {v}"
@@ -499,4 +536,4 @@ let (!=) x y = Differs(x, y)
 let ``==`` = LawsCE StepOperator.Equals
 
 let mkBoolVar n = ExtBoolOp(Var(n, WBool))
-let mkIntVar x = ExtInteger(Var(x, WInteger))
+let mkIntVar x = ExtInteger(Var(x, WInt))
