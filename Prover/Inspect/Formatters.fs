@@ -61,5 +61,5 @@ let printCalculationError (calc: CheckedCalculation) =
       $"❌ implication does not hold: {implication}" ]
   | Some(FailedParsing e) -> [ $"failed parsing: {e}" ]
   | Some(InsufficientEvidence d) -> [ error "insufficient evidence" $"{d}" ]
-  | Some(InvalidFormula d) -> [ error $"invalid formula {d}" "" ]
+  | Some(RefutedFormula d) -> [ error $"❌ refuted formula" $"{d}" ]
   | None -> []

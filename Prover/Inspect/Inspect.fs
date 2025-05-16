@@ -58,7 +58,7 @@ let calculationSummary (calc: Core.CheckedCalculation) =
       | Core.WrongEvidence(premise, consequence) ->
         $"calculation reduces to: {premise}, but does not implies {consequence}"
       | Core.InsufficientEvidence demonstrandum -> $"insufficient evidence for: {demonstrandum}"
-      | Core.InvalidFormula demonstrandum -> $"invalid formula {demonstrandum}")
+      | Core.RefutedFormula demonstrandum -> $"invalid formula {demonstrandum}")
     |> Option.map (fun s -> error "failed" s)
     |> Option.toList
 
@@ -85,8 +85,4 @@ let printCalculationResult (r: Core.CheckedCalculation) =
   |> ignore
 
 let checkTheorems (xs: list<unit -> Core.CheckedCalculation>) =
-  xs
-  |> List.iter (fun th ->
-    match th () with
-    | { error = None } -> ()
-    | c -> c |> inspect |> summary |> print |> ignore)
+  xs |> List.iter (fun th -> th () |> printCalculationResult)

@@ -308,7 +308,7 @@ and CalcError =
   | FailedSteps of list<int * Proposition * CheckResult>
   | WrongEvidence of premise: Proposition * consequence: Proposition
   | InsufficientEvidence of demonstrandum: Proposition
-  | InvalidFormula of demonstrandum: Proposition
+  | RefutedFormula of demonstrandum: Proposition
 
 let private stepToPred (s: Step) =
   let boolStep (t: WExpr, u: WExpr) =
@@ -344,7 +344,7 @@ let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (de
     match checkPredicate ctx demonstrandum with
     | Proved -> Ok()
     | Unknown -> Error(InsufficientEvidence demonstrandum)
-    | Refuted _ -> Error(InvalidFormula demonstrandum)
+    | Refuted _ -> Error(RefutedFormula demonstrandum)
   | x :: xs ->
     let r = xs |> List.fold (fun acc x -> And(acc, stepToPred x)) (stepToPred x)
     let evidence = Implies(r, demonstrandum)

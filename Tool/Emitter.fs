@@ -289,9 +289,10 @@ let parseAndEmitProofObligations (source: Source) (writer: TextWriter) =
   let genModule =
     Oak() {
       AnonymousModule() {
-        HashDirective("r", String "nuget: Wybe, 0.0.2")
+        HashDirective("r", String "nuget: Wybe, 0.0.3")
         Open "Wybe"
-        Open("Core").triviaAfter (Newline())
+        Open "Core"
+        Open("Inspect").triviaAfter (Newline())
         CompExprBodyExpr fs
         AppExpr("checkTheorems", ListExpr proofNames)
       }
@@ -348,7 +349,7 @@ let solanaDemo () =
   let genModule =
     Oak() {
       AnonymousModule() {
-        HashDirective("r", String "nuget: Wybe, 0.0.2")
+        HashDirective("r", String "nuget: Wybe, 0.0.3")
         Open "Wybe"
         Open "Core"
         Open "Inspect"

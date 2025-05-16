@@ -126,9 +126,10 @@ let ``parse and emit`` () =
   let fsCode = writer.ToString().Split "\n"
 
   let expected =
-    [| "#r \"nuget: Wybe, 0.0.2\""
+    [| "#r \"nuget: Wybe, 0.0.3\""
        "open Wybe"
        "open Core"
+       "open Inspect"
        ""
        ""
        ""
