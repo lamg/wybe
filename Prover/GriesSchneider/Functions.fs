@@ -2,7 +2,6 @@ module GriesSchneider.Functions
 
 open Core
 open Integers
-open PredicateCalculus
 
 let declFib = Fn("fib", [ WInt; WInt ])
 let fib (x: WExpr) = ExtInteger(App(declFib, [ x ]))

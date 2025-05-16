@@ -13,9 +13,14 @@ type Args =
       | Check _ -> "check the proofs in a Wybe fsx script"
 
 let extract (path: string) =
-  let baseName = System.IO.Path.GetFileNameWithoutExtension path
+  let baseName = System.IO.Path.GetFileName path
   let fsScript = $"{baseName}.fsx"
-  Emitter.parseAndEmitObligations path fsScript
+
+  if baseName = "example_functions.rs" then
+    Emitter.solanaDemo ()
+  else
+    Emitter.parseAndEmitObligations path fsScript
+
   0
 
 let version () =

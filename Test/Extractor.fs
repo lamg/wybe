@@ -103,7 +103,7 @@ let ``extract proof obligations`` () =
   let fortyTwoExceedsFive =
     Core.Exceeds(Core.Integer 42, Core.Integer 5) :> Core.WExpr |> Core.ExtBoolOp
 
-  Assert.Equal<(string * Core.Proposition) list>([ "foo_0", fortyTwoExceedsFive ], obligations)
+  Assert.Equal<(string * List<Core.Var> * Core.Proposition) list>([ "foo_0", [], fortyTwoExceedsFive ], obligations)
 
 [<Fact>]
 let ``parse and emit`` () =
@@ -126,14 +126,15 @@ let ``parse and emit`` () =
   let fsCode = writer.ToString().Split "\n"
 
   let expected =
-    [| "#r \"nuget: Microsoft.Z3, 4.12.2\""
-       "#r \"nuget: Wybe, 0.0.1\""
-       "open Wybe.Core"
+    [| "#r \"nuget: Wybe, 0.0.2\""
+       "open Wybe"
+       "open Core"
        ""
        ""
        ""
        "let add_one_0 () ="
-       """  proof { theorem "add_one_0" (x + 1 > x) }"""
+       ""
+       """  proof { theorem "add_one_0" (x + Integer 1 > x) }"""
        ""
        "checkTheorems [ add_one_0 ]"
        "" |]

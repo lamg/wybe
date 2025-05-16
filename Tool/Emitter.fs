@@ -201,14 +201,13 @@ let extractProofObligations (funcs: TargetFun list) =
       | _ -> None)
 
 
-  funcs |> List.collect extractObligation
-
-
+  funcs
+  |> List.collect (fun f -> extractObligation f |> List.map (fun (name, p) -> name, [], p))
 
 open type Fabulous.AST.Ast
 
-let emitProofObligation (name: string, theoremBody: Proposition) =
-  let wExprToString (expr: WExpr) =
+let emitProofObligation (name: string, vars: Var list, theoremBody: Proposition) =
+  let rec wExprToString (expr: WExpr) =
     let rec propToStr (expr: Proposition) =
       match expr with
       | And(x, y) -> $"{propToStr x} <&&> {propToStr y}"
@@ -220,26 +219,47 @@ let emitProofObligation (name: string, theoremBody: Proposition) =
       | Not x -> $"!{propToStr x}"
       | Forall(vars, body) -> $"∀ {vars} ({propToStr body})"
       | Exists(vars, body) -> $"∃ {vars} ({propToStr body})"
-      | ExtBoolOp op -> $"{op}"
+      | ExtBoolOp op -> $"{wExprToString op}"
       | True -> "True"
       | False -> "False"
-      | Equals(x, y) -> $"{x} = {y}"
-      | Differs(x, y) -> $"{x} != {y}"
+      | Equals(x, y) -> $"({wExprToString x} = {wExprToString y})"
+      | Differs(x, y) -> $"({wExprToString x} != {wExprToString y})"
 
     match expr with
-    | _ when (expr :? Proposition) ->
-      let expr = expr :?> Proposition
-      propToStr expr
+    | :? Proposition as expr -> propToStr expr
+    | :? Integer as t ->
+      match t with
+      | Integer.Plus(x, y) -> $"{wExprToString x} + {wExprToString y}"
+      | Integer.Minus(x, y) -> $"{wExprToString x} - {wExprToString y}"
+      | Integer.Times(x, y) -> $"{wExprToString x} * {wExprToString y}"
+      | Integer.Divide(x, y) -> $"{wExprToString x} / {wExprToString y}"
+      | Integer.Integer u -> $"Integer {u}"
+      | Integer.ExtInteger v -> $"{wExprToString v}"
+      | Integer.Exceeds(x, y) -> $"{wExprToString x} > {wExprToString y}"
+      | _ -> failwith $"not implemented proof obligation emition for {t}"
+    | :? FnApp as App(Fn(name, _), args) ->
+      let strArgs = args |> List.map wExprToString |> String.concat " "
+      $"{name} {strArgs}"
+    | :? Var as Var(name, _) -> name
+    | _ -> failwith "not implemented"
 
-    | _ -> ""
+  let varDeclarations =
+    vars
+    |> List.map (fun (Var(name, varType)) ->
+      match varType with
+      | WBool -> Value(name, AppExpr("mkBoolVar", [ name ]))
+      | WInt -> Value(name, AppExpr("mkIntVar", [ name ]))
+      | WSeq(_) -> failwith "Not Implemented")
 
   Function(
     name,
     UnitPat(),
-    NamedComputationExpr(
-      ConstantExpr(Constant "proof"),
-      CompExprBodyExpr [ AppExpr("theorem", [ $"\"{name}\""; "(" + wExprToString theoremBody + ")" ]) ]
-    )
+    CompExprBodyExpr
+      [ CompExprBodyExpr varDeclarations
+        NamedComputationExpr(
+          ConstantExpr(Constant "proof"),
+          CompExprBodyExpr [ AppExpr("theorem", [ $"\"{name}\""; "(" + wExprToString theoremBody + ")" ]) ]
+        ) ]
   )
 
 type Language =
@@ -259,7 +279,7 @@ let parseAndEmitProofObligations (source: Source) (writer: TextWriter) =
     | ``F#`` -> failwith "not implemented"
     | Golang -> failwith "not implemented"
 
-  let proofNames = proofObligations |> List.map fst
+  let proofNames = proofObligations |> List.map (fun (name, _, _) -> name)
   let fs = proofObligations |> List.map emitProofObligation
 
   let conf =
@@ -269,9 +289,9 @@ let parseAndEmitProofObligations (source: Source) (writer: TextWriter) =
   let genModule =
     Oak() {
       AnonymousModule() {
-        HashDirective("r", String "nuget: Microsoft.Z3, 4.12.2")
-        HashDirective("r", String "nuget: Wybe, 0.0.1")
-        Open("Wybe.Core").triviaAfter (Newline())
+        HashDirective("r", String "nuget: Wybe, 0.0.2")
+        Open "Wybe"
+        Open("Core").triviaAfter (Newline())
         CompExprBodyExpr fs
         AppExpr("checkTheorems", ListExpr proofNames)
       }
@@ -296,3 +316,49 @@ let parseAndEmitObligations (path: string) (fsScript: string) =
 
   use writer = new StreamWriter(fsScript)
   parseAndEmitProofObligations source writer
+
+open GriesSchneider.Functions
+open GriesSchneider.Integers
+
+let solanaDemo () =
+  let (=) = Core.(=)
+  let fsScript = "example_functions.fsx"
+  use writer = new StreamWriter(fsScript)
+  let i, result = mkIntVar "i", mkIntVar "result"
+  let a, b = mkIntVar "a", mkIntVar "b"
+
+  let vars =
+    [ Core.Var("i", WInt)
+      Core.Var("result", WInt)
+      Core.Var("a", WInt)
+      Core.Var("b", WInt) ]
+
+  let proofObligations =
+    [ "factorial", vars, result = fact i ==> (result * i = fact (i + one))
+      "fibonacci", vars, a = fib (i - one) <&&> (b = fib i) ==> (a + b = fib (i + one)) ]
+
+  let fs = proofObligations |> List.map emitProofObligation
+
+  let conf =
+    { Fantomas.Core.FormatConfig.Default with
+        IndentSize = 2 }
+
+  let proofNames = proofObligations |> List.map (fun (name, _, _) -> name)
+
+  let genModule =
+    Oak() {
+      AnonymousModule() {
+        HashDirective("r", String "nuget: Wybe, 0.0.2")
+        Open "Wybe"
+        Open "Core"
+        Open "Inspect"
+        Open "GriesSchneider.Functions"
+        Open "GriesSchneider.Integers"
+        CompExprBodyExpr fs
+        AppExpr("checkTheorems", ListExpr proofNames)
+      }
+    }
+    |> Gen.mkOak
+    |> Gen.runWith conf
+
+  writer.Write genModule

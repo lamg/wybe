@@ -35,19 +35,19 @@ A theorem prover embedded in F#'s computation expressions, using [Z3][3] under t
     dotnet run --project ../Tool/Tool.fsproj -- -e example_functions.rs
     ```
 
-3. complete the necessary steps to prove all the theorems in `example_functions.fsx`
+3. complete the necessary steps to prove all the theorems in `example_functions.fsx`, i.e. if checking a proof fails then more detailed calculations and hints must be provided.
 
 4. check the proofs in `example_functions.fsx`
 
     ```sh
-    dotnet run --project ../Tool/Tool.fsproj -- -c example_functions.fsx
+    dotnet fsi example_functions.fsx
     ```
 
 5. if the output indicates success, you have formally verified all declared properties of the Rust functions in `example_functions.rs`.
 6. add more functions to `example_functions.rs` or modify existing ones
 7. continue extracting proof obligations, completing and checking the proofs
 
-Note: once the Wybe CLI is published as a NuGet package and installed, you can simply run `wybe -e example_functions.rs` and `wybe -c example_functions.fsx`.
+Note: once the Wybe CLI is published as a NuGet package and installed, you can simply run `wybe -e example_functions.rs` to extract proof obligations and `wybe -c example_functions.fsx` to check proofs.
 
 ## Example proof
 

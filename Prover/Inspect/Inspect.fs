@@ -83,3 +83,10 @@ let printCalculationResult (r: Core.CheckedCalculation) =
   |> addLines n
   |> print
   |> ignore
+
+let checkTheorems (xs: list<unit -> Core.CheckedCalculation>) =
+  xs
+  |> List.iter (fun th ->
+    match th () with
+    | { error = None } -> ()
+    | c -> c |> inspect |> summary |> print |> ignore)
