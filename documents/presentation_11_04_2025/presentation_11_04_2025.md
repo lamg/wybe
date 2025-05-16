@@ -8,7 +8,6 @@ backgroundImage: url('https://marp.app/assets/hero-background.svg')
 
 ![bg left:40% 80%](../images/wybe_transparent_background.png)
 
-
 # Formal verification for the masses
 
 ---
@@ -32,6 +31,7 @@ backgroundImage: url('https://marp.app/assets/hero-background.svg')
 = { semantics of the if statement }
   B
 ```
+
 ---
 
 # Smart contracts
@@ -48,7 +48,7 @@ backgroundImage: url('https://marp.app/assets/hero-background.svg')
 
 ![width:300px](./formal_land_logo.png)
 
-https://formal.land
+<https://formal.land>
 
 ---
 
@@ -94,10 +94,10 @@ https://formal.land
 
 ![height:350px](./10_years_ago.png)
 
-https://eltoque.com/programar-sin-computadora
+<https://eltoque.com/programar-sin-computadora>
 
 ---
 
 # Questions?
 
-- https://github.com/lamg
+- <https://github.com/lamg>
