@@ -12,29 +12,39 @@ backgroundImage: url('https://marp.app/assets/hero-background.svg')
 
 ---
 
-- What is formal verification?
+## What is formal verification?
+
+- Mathematical formulas are universally true
 
 ```fs
 2 + 2 = 4
 ```
 
+---
+
+## Programs can be mathematical formulas
+
 ```fs
   if ¬true then A else B
-= { applying ¬ }
+↦ { applying ¬ }
   if false then A else B
-= { semantics of the if statement }
+↦ { semantics of the if statement }
   B
 ```
 
 ---
 
-- How can it be done
+## Zero program errors, but no 100% security
+
+---
+
+## How can it be done
 
 ![width:1000px](../presentation_11_04_2025/agda_proof.png)
 
 ---
 
-- Wybe, an accessible and powerful tool
+## Wybe, an accessible and powerful tool
 
 ![width:500px height:330px](../images/double_negation.png)
 

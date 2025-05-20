@@ -3,17 +3,30 @@
 What is formal verification:
 
 - Formal verification is a way of making sure that a program has no errors
-- Am I crazy? 100% security? No and no.
-- if you agree that `2 + 2 = 4` always, then you also agree that a program can have 0 errors
-- why, because a program can be represented as a mathematical formula
-- in order to understand this you have to acknowledge the difference between a calculator and mathematics.
-- a calculator can say that `2 + 2 = 5`, but then you say the calculator is broken, not that mathematics is broken
-- I'm building a calculator, but instead of numbers, this calculates properties of programs, like `user allowed to mint NFT only if balance > 0`.
-- You still could be hacked because this tool can have errors, or the underlying machine can be compromised.
+- how is that possible?
+- first we need to acknowledge that mathematical formulas are universally true
+- it doesn't matter if all the calculators in the world say that `2 + 2 = 5`, we still agree that `2 + 2 = 4`, because that result doesn't originate from calculators, but from following rules, which the calculators have to implement correctly
 
-How can it be done:
+Programs can be represented as mathematical formulas
 
-- you need a theorem prover and a tool for extracting the mathematical properties from the language you use for writing smart contracts (Rust, Python, Solidity, etc.)
+- their results can also follow simple rules rather than being tied to a specific implementation
+- these rules are called formal semantics
+- while some languages still use certain implementations as their "semantic" authorities, it's becoming more common to use such universally valid rules, which means they are independent of any implementation
+
+Zero program errors, but no 100% security
+
+- I'm implementing a calculator for computer programs, which can have errors
+- This calculators are known as theorem provers
+- The underlying computer for developing or deploying your program can also be compromised
+
+
+How can it be done
+
+- theorem provers allow you to represent arbitrary abstractions in their languages, like any other programming language
+- the difference with the typical programming language is that these abstractions are meant to be used in mathematical proofs, to be checked by the theorem prover.
+- in a typical programming language the abstractions are there to facilitate the expression of code to be executed.
+- in particular, you can represent properties of your programs in the language of the theorem prover
+- this properties can be automatically extracted from any common programming language like (Rust, Python, etc.)
 - the extracted formulas are checked by the theorem prover with the user providing some missing steps
 - In the picture you see a proof in Agda, which is a theorem prover
 - However Agda is written by and for people with PhDs
