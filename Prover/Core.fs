@@ -55,15 +55,23 @@ and Integer =
       | Minus(x, y) -> ctx.MkSub(toExp x, toExp y)
       | Times(x, y) -> ctx.MkMul(toExp x, toExp y)
       | Divide(x, y) -> ctx.MkDiv(toExp x, toExp y)
-      | Exceeds(Integer n, Integer m) -> ctx.MkGt(ctx.MkInt n, ctx.MkInt m)
-      | LessThan(Integer n, Integer m) -> ctx.MkLt(ctx.MkInt n, ctx.MkInt m)
-      | AtLeast(Integer n, Integer m) -> ctx.MkGe(ctx.MkInt n, ctx.MkInt m)
-      | AtMost(Integer n, Integer m) -> ctx.MkLe(ctx.MkInt n, ctx.MkInt m)
-      | IsDivisor(Integer n, Integer m) ->
+      | Exceeds(n, m) ->
+        let p, q = toExp n, toExp m
+        ctx.MkGt(p, q)
+      | LessThan(n, m) ->
+        let p, q = toExp n, toExp m
+        ctx.MkLt(p, q)
+      | AtLeast(n, m) ->
+        let p, q = toExp n, toExp m
+        ctx.MkGe(p, q)
+      | AtMost(n, m) ->
+        let p, q = toExp n, toExp m
+        ctx.MkLe(p, q)
+      | IsDivisor(n, m) ->
         // exists x such n*x = m
-        // ctx.MkExists()
-        failwith "TODO divides"
-      | _ -> failwith $"cannot handle {this} as an integer expression"
+        let x = ctx.MkIntConst "x" // TODO could this cause a name colision
+        let p, q = toExp n, toExp m
+        ctx.MkExists([| x |], ctx.MkEq(ctx.MkMul(p, x), q))
 
 and Predicate = WExpr list * Proposition
 
@@ -179,7 +187,7 @@ and Proposition =
         ctx.MkExists(z3Vars, z3Body)
 
 and Sequence =
-  | Empty of WSort
+  | Empty
   | ExtSeq of WExpr
   | Cons of WExpr * Sequence
   | Concat of Sequence * Sequence
@@ -191,7 +199,9 @@ and Sequence =
       let toSeqExpr (x: WExpr) = x.toZ3Expr ctx :?> SeqExpr
 
       match this with
-      | Empty sort -> ctx.MkEmptySeq(sort.toZ3Sort ctx)
+      | Empty ->
+        let s = ctx.MkUninterpretedSort "a"
+        ctx.MkEmptySeq s
       | ExtSeq e -> e.toZ3Expr ctx
       | Cons(x, xs) ->
         let x = ctx.MkUnit(x.toZ3Expr ctx)
@@ -204,14 +214,16 @@ and Sequence =
 and WSort =
   | WInt
   | WBool
-  | WSeq of WSort
+  | WSeq
+  | WVarSort of string
 
   member this.toZ3Sort(ctx: Context) =
     let rec mkSort sort =
       match sort with
       | WInt -> ctx.IntSort :> Sort
       | WBool -> ctx.BoolSort
-      | WSeq s -> ctx.MkSeqSort(mkSort s)
+      | WSeq -> ctx.MkSeqSort(ctx.MkUninterpretedSort "a")
+      | WVarSort s -> ctx.MkSeqSort(ctx.MkUninterpretedSort s)
 
     mkSort this
 
@@ -230,7 +242,8 @@ and Var =
         match sort with
         | WInt -> ctx.IntSort :> Sort
         | WBool -> ctx.BoolSort
-        | WSeq s -> ctx.MkSeqSort(mkSort s)
+        | WSeq -> ctx.MkSeqSort(ctx.MkUninterpretedSort "a")
+        | WVarSort v -> ctx.MkUninterpretedSort v
 
       ctx.MkConst(v, mkSort sort)
 

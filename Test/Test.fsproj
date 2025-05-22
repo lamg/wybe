@@ -9,9 +9,12 @@
   <ItemGroup>
     <Compile Include="DiffObject.fs" />
     <Compile Include="InspectTest.fs" />
-    <Compile Include="CheckAllTheorems.fs" />
+    <Compile Include="PredicateCalculusTest.fs" />
     <Compile Include="Z3Test.fs" />
     <Compile Include="Extractor.fs" />
+    <Compile Include="IntegersTest.fs" />
+    <Compile Include="SequenceTest.fs" />
+
     <Compile Include="Program.fs" />
   </ItemGroup>
 

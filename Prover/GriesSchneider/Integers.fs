@@ -42,3 +42,16 @@ let ``× zero`` () =
     ``==`` { }
     zero
   }
+
+let pos x = x > zero
+
+let ``GS 15.23`` () = proof { lemma (-x * -y = x * y) }
+
+let ``GS 15.34`` () =
+  proof { lemma (x != zero ==> pos (x * x)) }
+
+let ``GS 15.35`` () =
+  proof { lemma (pos x ==> (pos y === pos (x * y))) }
+
+let monotonicity () =
+  proof { lemma (x < y ==> (x + z < y + z)) }

@@ -249,7 +249,8 @@ let emitProofObligation (name: string, vars: Var list, theoremBody: Proposition)
       match varType with
       | WBool -> Value(name, AppExpr("mkBoolVar", [ $"\"{name}\"" ]))
       | WInt -> Value(name, AppExpr("mkIntVar", [ $"\"{name}\"" ]))
-      | WSeq _ -> failwith "Not Implemented")
+      | WSeq -> failwith "Not Implemented"
+      | WVarSort _ -> failwith "not implemented")
 
   Function(
     name,

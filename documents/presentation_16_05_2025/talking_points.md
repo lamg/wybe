@@ -5,7 +5,10 @@ What is formal verification:
 - Formal verification is a way of making sure that a program has no errors
 - how is that possible?
 - first we need to acknowledge that mathematical formulas are universally true
-- it doesn't matter if all the calculators in the world say that `2 + 2 = 5`, we still agree that `2 + 2 = 4`, because that result doesn't originate from calculators, but from following rules, which the calculators have to implement correctly
+- what's the meaning of that?
+- this means mathematical formulas are true because they follow some rules that are independent of culture, epoch or any other particular circumstance
+- we could argue that mathematical formulas capture something essential to being a human being
+- one of those particular circumstances could be having a broken calculator that says that `2 + 2 = 5`
 
 Programs can be represented as mathematical formulas
 
@@ -24,11 +27,11 @@ How can it be done
 
 - theorem provers allow you to represent arbitrary abstractions in their languages, like any other programming language
 - the difference with the typical programming language is that these abstractions are meant to be used in mathematical proofs, to be checked by the theorem prover.
-- in a typical programming language the abstractions are there to facilitate the expression of code to be executed.
+- while in a typical programming language we tend to have abstractions to facilitate numerical calculations, the creation of user interfaces, concurrent tasks and so on
 - in particular, you can represent properties of your programs in the language of the theorem prover
 - this properties can be automatically extracted from any common programming language like (Rust, Python, etc.)
 - the extracted formulas are checked by the theorem prover with the user providing some missing steps
-- In the picture you see a proof in Agda, which is a theorem prover
+- In the picture you see a proof in Agda, which is a language and theorem prover
 - However Agda is written by and for people with PhDs
 - and is not particularly specialized in extracting proof obligations from smart contracts
 

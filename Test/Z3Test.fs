@@ -33,14 +33,6 @@ let ``double negation with Z3`` () =
 
   Assert.True calcRes.error.IsNone
 
-[<Fact>]
-let ``test sequence`` () =
-  let empty = Empty(WSeq WBool)
-  let ctx = new Microsoft.Z3.Context()
-  // FIXME
-  let _ = (empty :> WExpr).toZ3Expr ctx
-  ()
-
 
 [<Fact>]
 let ``simple integer proof`` () =

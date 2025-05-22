@@ -2,21 +2,18 @@ module GriesSchneider.Sequences
 
 open Core
 
-let a s = ExtSeq(Var("a", s))
-let b s = ExtSeq(Var("b", s))
-let w sort = ExtSeq(Var("x", sort))
-let x sort = ExtSeq(Var("x", WSeq sort))
-let y sort = ExtSeq(Var("y", WSeq sort))
-let z sort = ExtSeq(Var("y", WSeq sort))
+let a = ExtSeq(Var("a", WVarSort "a"))
+let b = ExtSeq(Var("b", WVarSort "a"))
+let w = ExtSeq(Var("x", WSeq))
+let x = ExtSeq(Var("x", WSeq))
+let y = ExtSeq(Var("y", WSeq))
+let z = ExtSeq(Var("y", WSeq))
 
-let ``ϵ`` s = Empty s
+let ``ϵ`` = Empty
 
-let prepend s =
-  Cons(a s, ``ϵ`` s) != ``ϵ`` s |> axiom "prepend"
+let prepend = Cons(a, ``ϵ``) != ``ϵ`` |> axiom "prepend"
 
-let equality s =
-  Cons(a s, x s) = Cons(b s, y s) === (a s = b s <&&> x s = y s)
-  |> axiom "equality"
+let equality = Cons(a, x) = Cons(b, y) === (a = b <&&> (x = y)) |> axiom "equality"
 
-let ``GS 13.7`` (s: WSort) =
-  proof { theorem "GS 13.7" (Cons(a s, x s) != x s) }
+let ``GS 13.7`` () =
+  proof { theorem "GS 13.7" (Cons(a, x) != x) }

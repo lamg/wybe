@@ -1,4 +1,4 @@
-module CheckAllTheorems
+module PredicateCalculusTest
 
 open Xunit
 open GriesSchneider.PredicateCalculus
@@ -25,16 +25,8 @@ let ``check all theorems`` () =
     ``∧ over ∧``
     contradiction
     ``∧ ∨ absorption``
-    ``∨ ∧ absorption``
-    GriesSchneider.Integers.``× zero``
-    GriesSchneider.Integers.``+ cancellation``
-    fun _ -> GriesSchneider.Sequences.``GS 13.7`` Core.WBool ]
-  |> List.iter (fun th ->
-    match th () with
-    | { error = None } -> ()
-    | c ->
-      let msg = c |> inspect |> summary |> _.accumulated |> String.concat "\n"
-      failwith msg)
+    ``∨ ∧ absorption`` ]
+  |> findFailingProof
 
 open Core
 open GriesSchneider.Functions
