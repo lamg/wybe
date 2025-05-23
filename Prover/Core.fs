@@ -193,6 +193,7 @@ and Sequence =
   | Concat of Sequence * Sequence
   | Prefix of Sequence * Sequence
   | Suffix of Sequence * Sequence
+  | Length of Sequence
 
   interface WExpr with
     member this.toZ3Expr(ctx: Context) : Expr =
@@ -200,8 +201,10 @@ and Sequence =
 
       match this with
       | Empty ->
-        let s = ctx.MkUninterpretedSort "a"
-        ctx.MkEmptySeq s
+        // Create an empty sequence sort over the uninterpreted element sort "a"
+        let elemSort = ctx.MkUninterpretedSort "a"
+        let seqSort = ctx.MkSeqSort elemSort
+        ctx.MkEmptySeq seqSort
       | ExtSeq e -> e.toZ3Expr ctx
       | Cons(x, xs) ->
         let x = ctx.MkUnit(x.toZ3Expr ctx)
@@ -209,6 +212,7 @@ and Sequence =
       | Concat(xs, ys) -> ctx.MkConcat(toSeqExpr xs, toSeqExpr ys)
       | Suffix(xs, ys) -> ctx.MkSuffixOf(toSeqExpr xs, toSeqExpr ys)
       | Prefix(xs, ys) -> ctx.MkPrefixOf(toSeqExpr xs, toSeqExpr ys)
+      | Length xs -> ctx.MkLength(toSeqExpr xs)
 
 
 and WSort =

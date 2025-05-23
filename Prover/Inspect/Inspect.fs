@@ -58,7 +58,7 @@ let calculationSummary (calc: Core.CheckedCalculation) =
       | Core.WrongEvidence(premise, consequence) ->
         $"calculation reduces to: {premise}, but does not implies {consequence}"
       | Core.InsufficientEvidence demonstrandum -> $"insufficient evidence for: {demonstrandum}"
-      | Core.RefutedFormula demonstrandum -> $"invalid formula {demonstrandum}")
+      | Core.RefutedFormula demonstrandum -> $"refuted formula {demonstrandum}")
     |> Option.map (fun s -> error "failed" s)
     |> Option.toList
 
