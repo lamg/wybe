@@ -10,7 +10,7 @@ open Microsoft.Z3
 // 3: ¬
 // 4: = ≠ > < ≤ ≥
 // 5: + - × ÷
-// 6: # :: ++ |> <|
+// 6: # :: ++ ◁ ▷
 // 7: variables and other atoms like true, false, ∀, ∃, ϵ
 
 type Symbol = { symbol: string; precedence: int }
@@ -276,10 +276,10 @@ and Sequence =
         { node = { symbol = "++"; precedence = 6 }
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
       | Prefix(xs, ys) ->
-        { node = { symbol = "<|"; precedence = 6 }
+        { node = { symbol = "◁"; precedence = 6 }
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
       | Suffix(xs, ys) ->
-        { node = { symbol = "|>"; precedence = 6 }
+        { node = { symbol = "▷"; precedence = 6 }
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
 
     member this.toZ3Expr(ctx: Context) : Expr =

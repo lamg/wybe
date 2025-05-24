@@ -23,9 +23,9 @@ let ``length basic tests`` () =
 [<Fact>]
 let ``sequences string representation`` () =
 
-  [ Cons(a, Cons(a, ``ϵ``)), "a :: a :: ϵ"
+  [ Cons(a, Cons(a, ``ϵ``)), "a :: a :: ϵ" // Latex \epsilon
     Length x, "#x"
-    Prefix(a, x), "a <| x"
-    Suffix(a, x), "a |> x"
+    Prefix(a, x), "a ◁ x" // Latex \triangleleft
+    Suffix(a, x), "a ▷ x" // Latex \triangleright
     Concat(x, y), "x ++ y" ]
   |> List.iter (fun (x, s) -> Assert.Equal(s, x.ToString()))
