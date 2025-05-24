@@ -95,3 +95,8 @@ let findFailingProof (xs: list<unit -> Core.CheckedCalculation>) =
     | c ->
       let msg = c |> inspect |> summary |> _.accumulated |> String.concat "\n"
       failwith msg)
+
+let failIfNotProved (x: Inspection) =
+  match x.calc.error with 
+  | Some e -> failwith $"{e}"
+  | None -> ()
