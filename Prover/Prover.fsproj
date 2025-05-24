@@ -42,4 +42,6 @@
 
   </ItemGroup>
 
+  <!-- <PropertyGroup><OtherFlags>$(OtherFlags) -richerrors+</OtherFlags></PropertyGroup> -->
+
 </Project>

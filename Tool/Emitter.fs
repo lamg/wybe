@@ -146,6 +146,7 @@ let extractProofObligations (funcs: TargetFun list) =
             | Var("$e", _) -> e
             | _ -> Integer.ExtInteger n
           | _ -> failwith "not implemented"
+        | Integer.UnaryMinus _ -> failwith "Not implmented"
         | Integer.Plus(_, _) -> failwith "Not Implemented plus"
         | Integer.Minus(_, _) -> failwith "Not Implemented minus"
         | Integer.Times(_, _) -> failwith "Not Implemented times"
