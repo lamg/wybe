@@ -8,7 +8,7 @@ let one = Integer 1
 
 #nowarn 86
 let (>=) (x: Integer) (y: Integer) = ExtBoolOp(AtLeast(x, y))
-let (<=) (x: Integer, y: Integer) = ExtBoolOp(AtMost(x, y))
+let (<=) (x: Integer) (y: Integer) = ExtBoolOp(AtMost(x, y))
 let (<) (x: Integer) (y: Integer) = ExtBoolOp(LessThan(x, y))
 let (>) (x: Integer) (y: Integer) = ExtBoolOp(Exceeds(x, y))
 

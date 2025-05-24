@@ -19,3 +19,13 @@ let ``length basic tests`` () =
   let xs = Cons(a, Cons(a, ``ϵ``))
   let p () = proof { lemma (Length xs = one + one) }
   Inspect.findFailingProof [ p ]
+
+[<Fact>]
+let ``sequences string representation`` () =
+
+  [ Cons(a, Cons(a, ``ϵ``)), "a :: a :: ϵ"
+    Length x, "#x"
+    Prefix(a, x), "a <| x"
+    Suffix(a, x), "a |> x"
+    Concat(x, y), "x ++ y" ]
+  |> List.iter (fun (x, s) -> Assert.Equal(s, x.ToString()))

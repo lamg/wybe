@@ -3,12 +3,50 @@ module Core
 open Microsoft.Z3
 #nowarn 86
 
+// precedence of operators
+// 0: ≡ ≢
+// 1: ⇒  ⇐
+// 2: ∧ ∨
+// 3: ¬
+// 4: = ≠ > < ≤ ≥
+// 5: + - × ÷
+// 6: # :: ++ |> <|
+// 7: variables and other atoms like true, false, ∀, ∃, ϵ
+
+type Symbol = { symbol: string; precedence: int }
+
+type SymbolTree =
+  { node: Symbol
+    children: SymbolTree list }
+
+  override this.ToString() =
+    let parenthesise (parent: Symbol) (child: SymbolTree) =
+      if parent.precedence > child.node.precedence then
+        $"({child})"
+      else
+        let chainableOps = Set [ "≡"; "≢"; parent.symbol ]
+
+        let areChainable =
+          Set.isSubset (Set [ parent.symbol; child.node.symbol ]) chainableOps
+
+        if not areChainable && parent.precedence = child.node.precedence then
+          $"({child})"
+        else
+          child.ToString()
+
+    match this with
+    | { node = x; children = [ left; right ] } -> $"{parenthesise x left} {x.symbol} {parenthesise x right}"
+    | { node = x; children = [ right ] } -> $"{x.symbol}{parenthesise x right}"
+    | { node = x } -> x.symbol
+
 type WExpr =
   abstract member toZ3Expr: Context -> Expr
+  abstract member toSymbolTree: unit -> SymbolTree
 
 and Integer =
   | ExtInteger of WExpr
   | Integer of int64
+  | UnaryMinus of Integer
   | Plus of Integer * Integer
   | Minus of Integer * Integer
   | Times of Integer * Integer
@@ -21,23 +59,12 @@ and Integer =
   | IsDivisor of Integer * Integer // ∣
 
   override this.ToString() : string =
-    match this with
-    | ExtInteger e -> e.ToString()
-    | Integer n -> n.ToString()
-    | Plus(x, y) -> $"{x} + {y}"
-    | Minus(x, y) -> $"{x} - {y}"
-    | Times(x, y) -> $"{x} × {y}"
-    | Divide(x, y) -> $"{x} / {y}"
-    | Exceeds(x, y) -> $"{x} > {y}"
-    | LessThan(x, y) -> $"{x} < {y}"
-    | AtLeast(x, y) -> $"{x} ≥ {y}"
-    | AtMost(x, y) -> $"{x} ≤ {y}"
-    | IsDivisor(x, y) -> $"{x} ∣ {y}"
+    (this :> WExpr).toSymbolTree().ToString()
 
   static member (~-)(x: Integer) =
     match x with
-    | Integer n -> Integer(-n)
-    | _ -> Minus(Integer 0, x)
+    | Integer n -> Integer -n
+    | _ -> UnaryMinus x
 
   static member (+)(x: Integer, y: Integer) = Plus(x, y)
   static member (-)(x: Integer, y: Integer) = Minus(x, y)
@@ -45,12 +72,50 @@ and Integer =
   static member (/)(x: Integer, y: Integer) = Divide(x, y)
 
   interface WExpr with
+    member this.toSymbolTree() =
+      match this with
+      | ExtInteger e -> e.toSymbolTree ()
+      | Integer i ->
+        { node = { symbol = $"{i}"; precedence = 7 }
+          children = [] }
+      | UnaryMinus n ->
+        { node = { symbol = "-"; precedence = 6 }
+          children = [ (n :> WExpr).toSymbolTree () ] }
+      | Plus(x, y) ->
+        { node = { symbol = "+"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+      | Minus(x, y) ->
+        { node = { symbol = "-"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+      | Times(x, y) ->
+        { node = { symbol = "×"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+      | Divide(x, y) ->
+        { node = { symbol = "÷"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+      | Exceeds(x, y) ->
+        { node = { symbol = ">"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+      | LessThan(x, y) ->
+        { node = { symbol = "<"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+      | AtLeast(x, y) ->
+        { node = { symbol = "≥"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+      | AtMost(x, y) ->
+        { node = { symbol = "≤"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+      | IsDivisor(x, y) ->
+        { node = { symbol = "∣"; precedence = 5 }
+          children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
+
     member this.toZ3Expr(ctx: Context) : Expr =
       let toExp n = (n :> WExpr).toZ3Expr ctx :?> ArithExpr
 
       match this with
       | ExtInteger e -> e.toZ3Expr ctx
       | Integer n -> ctx.MkInt n
+      | UnaryMinus n -> ctx.MkMul(ctx.MkInt -1, toExp n)
       | Plus(x, y) -> ctx.MkAdd(toExp x, toExp y)
       | Minus(x, y) -> ctx.MkSub(toExp x, toExp y)
       | Times(x, y) -> ctx.MkMul(toExp x, toExp y)
@@ -92,72 +157,68 @@ and Proposition =
   | Exists of Predicate
 
   override this.ToString() : string =
-    let parenthesize
-      (parentBindingPower: int)
-      (parentOperator: string)
-      (childBindingPower: int)
-      (childOperator: string option)
-      (child: string)
-      =
-      if childBindingPower >= parentBindingPower then
-        match childOperator with
-        | Some childOp when childBindingPower = parentBindingPower && childOp <> parentOperator ->
-          let mutualAssocOps = [ "≡"; "≢" ]
-          let haveMutualAssoc = Set [ childOp; parentOperator ] = Set mutualAssocOps
-
-          if not haveMutualAssoc then $"({child})" else child
-        | _ -> child
-      else
-        $"({child})"
-
-    let rec binaryOpFormat (pred: int) (symbol: string) (left: Proposition) (right: Proposition) =
-      let l, symLeft, predLeft = loop left
-      let r, symRight, predRight = loop right
-
-      let x = parenthesize pred symbol predLeft symLeft l
-      let y = parenthesize pred symbol predRight symRight r
-
-      $"{x} {symbol} {y}", Some symbol, pred
-
-    and loop (p: Proposition) =
-      match p with
-      | True -> "true", None, 4
-      | False -> "false", None, 4
-      | ExtBoolOp x -> $"{x}", None, 4
-      | Equals(x, y) -> $"{x} = {y}", None, 4
-      | Differs(x, y) -> $"{x} ≠ {y}", None, 4
-      | Not p ->
-        let notPred = 3
-        let r, _, childOpBindingPower = loop p
-
-        let t =
-          if childOpBindingPower >= notPred then
-            $"¬{r}"
-          else
-            $"¬({r})"
-
-        t, Some "¬", notPred
-      | And(left, right) -> binaryOpFormat 2 "∧" left right
-
-      | Or(left, right) -> binaryOpFormat 2 "∨" left right
-      | Implies(left, right) -> binaryOpFormat 1 "⇒" left right
-
-      | Follows(left, right) -> binaryOpFormat 1 "⇐" left right
-      | Equiv(left, right) -> binaryOpFormat 0 "≡" left right
-      | Inequiv(left, right) -> binaryOpFormat 0 "≢" left right
-      | Forall(vars, body) ->
-        let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
-        let p, _, _ = loop body
-        $"⟨∀{vs} → {p}⟩", None, 5
-      | Exists(vars, body) ->
-        let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
-        let p, _, _ = loop body
-        $"⟨∃{vs} → {p}⟩", None, 5
-
-    let r, _, _ = loop this
-    r
+    (this :> WExpr).toSymbolTree().ToString()
 
   interface WExpr with
+    member this.toSymbolTree() =
+      match this with
+      | True ->
+        { node = { symbol = "true"; precedence = 7 }
+          children = [] }
+      | False ->
+        { node = { symbol = "false"; precedence = 7 }
+          children = [] }
+      | ExtBoolOp x -> x.toSymbolTree ()
+      | Equals(x, y) ->
+        { node =
+            { symbol = $"{x} = {y}"
+              precedence = 4 }
+          children = [] }
+      | Differs(x, y) ->
+        { node =
+            { symbol = $"{x} ≠ {y}"
+              precedence = 4 }
+          children = [] }
+      | Not right ->
+        { node = { symbol = "¬"; precedence = 3 }
+          children = [ (right :> WExpr).toSymbolTree () ] }
+      | And(left, right) ->
+        { node = { symbol = "∧"; precedence = 2 }
+          children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
+      | Or(left, right) ->
+        { node = { symbol = "∨"; precedence = 2 }
+          children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
+      | Implies(left, right) ->
+        { node = { symbol = "⇒"; precedence = 1 }
+          children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
+      | Follows(left, right) ->
+        { node = { symbol = "⇐"; precedence = 1 }
+          children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
+      | Equiv(left, right) ->
+        let l = (left :> WExpr).toSymbolTree ()
+        let r = (right :> WExpr).toSymbolTree ()
+
+        { node = { symbol = "≡"; precedence = 0 }
+          children = [ l; r ] }
+      | Inequiv(left, right) ->
+        { node = { symbol = "≢"; precedence = 0 }
+          children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
+      | Forall(vars, body)
+      | Exists(vars, body) ->
+        let symbol =
+          match this with
+          | Forall _ -> "∀"
+          | Exists _ -> "∃"
+          | _ -> failwith "unexpected case"
+
+        let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
+        let p = (body :> WExpr).toSymbolTree().ToString()
+
+        { node =
+            { symbol = $"⟨{symbol}{vs} → {p}⟩"
+              precedence = 7 }
+          children = [] }
+
     member this.toZ3Expr(ctx: Context) : Expr =
       let toExp (p: WExpr) = p.toZ3Expr ctx :?> BoolExpr
 
@@ -195,7 +256,32 @@ and Sequence =
   | Suffix of Sequence * Sequence
   | Length of Sequence
 
+  override this.ToString() : string =
+    (this :> WExpr).toSymbolTree().ToString()
+
   interface WExpr with
+    member this.toSymbolTree() : SymbolTree =
+      match this with
+      | Length x ->
+        { node = { symbol = "#"; precedence = 6 }
+          children = [ (x :> WExpr).toSymbolTree () ] }
+      | Empty ->
+        { node = { symbol = "ϵ"; precedence = 7 }
+          children = [] }
+      | ExtSeq x -> x.toSymbolTree ()
+      | Cons(x, xs) ->
+        { node = { symbol = "::"; precedence = 6 }
+          children = [ x.toSymbolTree (); (xs :> WExpr).toSymbolTree () ] }
+      | Concat(xs, ys) ->
+        { node = { symbol = "++"; precedence = 6 }
+          children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
+      | Prefix(xs, ys) ->
+        { node = { symbol = "<|"; precedence = 6 }
+          children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
+      | Suffix(xs, ys) ->
+        { node = { symbol = "|>"; precedence = 6 }
+          children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
+
     member this.toZ3Expr(ctx: Context) : Expr =
       let toSeqExpr (x: WExpr) = x.toZ3Expr ctx :?> SeqExpr
 
@@ -239,6 +325,12 @@ and Var =
     v
 
   interface WExpr with
+    member this.toSymbolTree() : SymbolTree =
+      let (Var(v, _)) = this
+
+      { node = { symbol = v; precedence = 7 }
+        children = [] }
+
     member this.toZ3Expr(ctx: Context) =
       let (Var(v, sort)) = this
 
@@ -271,6 +363,12 @@ and FnApp =
   | App of Function * (WExpr list)
 
   interface WExpr with
+    member this.toSymbolTree() : SymbolTree =
+      let (App(Fn(f, _), args)) = this
+
+      { node = { symbol = f; precedence = 7 }
+        children = args |> List.map _.toSymbolTree() }
+
     member this.toZ3Expr(ctx: Context) =
       let (App(f, args)) = this
       let z3Args = args |> List.map (fun v -> v.toZ3Expr ctx) |> List.toArray
@@ -509,13 +607,13 @@ let ``⇐`` = LawsCE StepOperator.Follows
 
 let private toProposition (x: WExpr) =
   match x with
-  | _ when (x :? Var) ->
-    let (Var(_, t)) = x :?> Var
+  | :? Var as x ->
+    let (Var(_, t)) = x
 
     match t with
     | WBool -> ExtBoolOp x
     | _ -> failwith $"expecting boolean variable {x}"
-  | _ when (x :? Proposition) -> x :?> Proposition
+  | :? Proposition as x -> x
   | _ -> failwith $"expecting proposition {x}"
 
 let (!) x = Not(toProposition x)
