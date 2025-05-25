@@ -21,6 +21,7 @@ A theorem prover embedded in F#'s computation expressions, using [Z3][3] under t
 
 ## Installation instructions
 
+- Install Antlr4 (in Debian it works with `sudo apt install antlr4`)
 - Install the [dotnet 9](https://dotnet.microsoft.com/en-us/download) CLI
 - Clone this repository locally
 
