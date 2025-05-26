@@ -44,4 +44,61 @@ match solver.Check() with
 | Status.UNKNOWN -> printfn "?! Z3 gave UNKNOWN"
 | r -> printfn "Unexpected result: %A" r
 
-0
+
+// ## What is a “pattern” (aka a trigger) in Z3?
+
+// Z3 is a DPLL(T)-based SMT solver, and quantifiers (∀/∃) are handled by instantiation rather than by higher‑order proof
+// search.  In order to know when to instantiate a universally‑quantified formula, Z3 uses patterns (also called triggers).
+
+
+// A pattern is simply a collection of terms from your quantified formula that contain the bound variables.  Intuitively,
+// you tell Z3:
+
+//     “Whenever you see a ground term matching one of these patterns in your context, instantiate the quantifier by
+// equating the bound variable(s) to the argument(s) of that ground term.”
+
+// Without a good pattern, Z3 either
+
+//     1. tries to pick its own (often sub‑optimal) default trigger,
+//     2. or gives up instantiating that quantifier altogether,
+//     3. leading to *no proof* (or non‑termination or spurious “unknown”).
+
+// -----------------------------------------------------------------------------------------------------------------------
+
+// ## Why we need an explicit pattern in this Fibonacci proof
+
+// Our recurrence axiom is (∀n -> fib n + fib (n+1) = fib(n+1))
+
+// To prove that fib 3 + fib 4 = fib 5, Z3 must “unfold” the recurrence at (n=3) (to relate
+// (fib 3, fib 4, fib 5) and also at (n=4) (to relate
+// (fib 4,fib 5, fib 6), etc.  By supplying the pattern
+
+//     [| fib n; fib n+1 |]
+
+
+// we are telling Z3:
+
+//     “As soon as you see a term of the form fib(…) or fib(…+1) in the proof context, instantiate this ∀‑axiom with that
+// value of n.”
+
+// In particular:
+
+//     * When we later assert `fib(3)` and `fib(4)`, those ground terms match our trigger, so Z3 instantiates the
+// quantifier at \(n=3\) and at \(n=4\).
+//     * That gives us the equations needed to derive \(\mathit{fib}(3)+\mathit{fib}(4)=\mathit{fib}(5)\).
+//     * **Without** that explicit pattern, Z3’s automatic trigger selection might *not* pick `fib(n)` or `fib(n+1)`, and
+// the recurrence axiom would never fire on the terms we actually care about.
+
+// -----------------------------------------------------------------------------------------------------------------------
+
+// ### Summary
+
+//     1. **Patterns = triggers for quantifier instantiation.**
+//     2. You create one via `ctx.MkPattern`, passing the sub‑terms (here `fib(n)` and `fib(n+1)`) that contain *all* bound
+//  variables.
+//     3. You supply that pattern to `MkForall` so Z3 knows *when* to instantiate the quantifier.
+//     4. In the Fibonacci example, we need the trigger so that Z3 will actually unfold the recurrence for the specific
+// numeric arguments (3 and 4) used in the proof.
+
+// Hope this clarifies why ctx.MkPattern is needed here! Let me know if you’d like to dive deeper into Z3’s
+// quantifier‐instantiation heuristics.

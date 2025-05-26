@@ -19,7 +19,7 @@ let ``test fibonacci function`` () =
   }
   |> inspect
   |> ignore
-  //|> failIfNotProved
+//|> failIfNotProved
 
 [<Fact>]
 let ``test fibonacci invariant`` () =

@@ -39,8 +39,10 @@ type SymbolTree =
     | { node = x; children = [ right ] } -> $"{x.symbol}{parenthesise x right}"
     | { node = x } -> x.symbol
 
+type BoundVars = Map<string, Expr>
+
 type WExpr =
-  abstract member toZ3Expr: Context -> Expr
+  abstract member toZ3Expr: Context * BoundVars -> Expr
   abstract member toSymbolTree: unit -> SymbolTree
 
 and Integer =
@@ -109,11 +111,12 @@ and Integer =
         { node = { symbol = "∣"; precedence = 5 }
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
 
-    member this.toZ3Expr(ctx: Context) : Expr =
-      let toExp n = (n :> WExpr).toZ3Expr ctx :?> ArithExpr
+    member this.toZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
+      let toExp n =
+        (n :> WExpr).toZ3Expr (ctx, boundVars) :?> ArithExpr
 
       match this with
-      | ExtInteger e -> e.toZ3Expr ctx
+      | ExtInteger e -> e.toZ3Expr (ctx, boundVars)
       | Integer n -> ctx.MkInt n
       | UnaryMinus n -> ctx.MkMul(ctx.MkInt -1, toExp n)
       | Plus(x, y) -> ctx.MkAdd(toExp x, toExp y)
@@ -138,7 +141,9 @@ and Integer =
         let p, q = toExp n, toExp m
         ctx.MkExists([| x |], ctx.MkEq(ctx.MkMul(p, x), q))
 
-and Predicate = WExpr list * Proposition
+and Quantifier =
+  | Forall
+  | Exists
 
 and Proposition =
   | ExtBoolOp of WExpr // used for wrapping other operators that return booleans besides Equals and Differs (variables, >, <, etc.)
@@ -153,11 +158,98 @@ and Proposition =
   | Inequiv of left: Proposition * right: Proposition
   | Implies of left: Proposition * right: Proposition
   | Follows of left: Proposition * right: Proposition
-  | Forall of Predicate
-  | Exists of Predicate
+  | Quantifier of Quantifier * WExpr list * Proposition
 
   override this.ToString() : string =
     (this :> WExpr).toSymbolTree().ToString()
+
+  static member extractPatternFromRecurrence(ctx: Context, boundVars: BoundVars, e: WExpr) =
+
+    let rec loop (e: WExpr) =
+      match e with
+      | :? Proposition as p ->
+        match p with
+        | ExtBoolOp m -> loop m
+        | True
+        | False -> [], []
+        | Equals(x, y) ->
+          let rx = loop x
+          let ry = loop y
+
+          match rx, ry with
+          | ([], [ _ ]), ([], rs) -> [ rs ], []
+          | ([], rs), ([], [ _ ]) -> [ rs ], []
+          | _ -> [], []
+        | Differs(_, _) -> [], []
+        | Not right -> loop right
+        | And(left, right)
+        | Or(left, right)
+        | Equiv(left, right)
+        | Inequiv(left, right)
+        | Implies(left, right)
+        | Follows(left, right) ->
+          // I'm assuming here there are no recurrence relations with booleans
+          // that recurrence relations are only going to happen with Integers, Sequences
+          // and other "non-glue" types
+          let l, _ = loop left
+          let r, _ = loop right
+          l @ r, []
+        | Quantifier(_, _, body) -> loop body
+      | :? Integer as p ->
+        match p with
+        | ExtInteger m -> loop m
+        | Integer(_) -> [], []
+        | UnaryMinus m -> loop m
+        | Plus(x, y)
+        | Minus(x, y)
+        | Times(x, y)
+        | Divide(x, y)
+        | Exceeds(x, y)
+        | LessThan(x, y)
+        | AtLeast(x, y)
+        | AtMost(x, y)
+        | IsDivisor(x, y) ->
+          let _, l = loop x
+          let _, r = loop y
+          [], l @ r
+      | :? Sequence as p ->
+        match p with
+        | Empty -> [], []
+        | ExtSeq m -> loop m
+        | Length m -> loop m
+        | Cons(l, r) ->
+          let _, rl = loop l
+          let _, rr = loop r
+          [], rl @ rr
+        | Concat(l, r)
+        | Prefix(l, r)
+        | Suffix(l, r) ->
+          let _, rl = loop l
+          let _, rr = loop r
+          [], rl @ rr
+      | :? FnApp as p ->
+        let (App(Fn(f, signature), args)) = p
+
+        let splitLast xs =
+          match List.rev xs with
+          | y :: ys -> List.rev ys, y
+          | _ -> failwith "cannot split empty list"
+
+        let signArgs, ret = splitLast signature
+        let z3ArgSorts = signArgs |> List.map (fun a -> a.toZ3Sort ctx) |> List.toArray
+        let z3Ret = ret.toZ3Sort ctx
+        let decl = ctx.MkFuncDecl(f, z3ArgSorts, z3Ret)
+
+        let exps =
+          args |> List.map (fun arg -> arg.toZ3Expr (ctx, boundVars)) |> List.toArray
+
+        [], [ decl.Apply exps ]
+      | _ -> [], []
+
+    loop e
+    |> fst
+    |> List.choose (function | [] -> None | ps -> Some (ctx.MkPattern(List.toArray ps)))
+    |> List.toArray
 
   interface WExpr with
     member this.toSymbolTree() =
@@ -203,35 +295,30 @@ and Proposition =
       | Inequiv(left, right) ->
         { node = { symbol = "≢"; precedence = 0 }
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
-      | Forall(vars, body)
-      | Exists(vars, body) ->
+      | Quantifier(q, vars, body) ->
         let symbol =
-          match this with
-          | Forall _ -> "∀"
-          | Exists _ -> "∃"
-          | _ -> failwith "unexpected case"
+          match q with
+          | Forall -> "∀"
+          | Exists -> "∃"
 
         let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
         let p = (body :> WExpr).toSymbolTree().ToString()
 
         { node =
-            { symbol = $"⟨{symbol}{vs} → {p}⟩"
+            { symbol = $"⟨{symbol}{vs} → {p}⟩" // \langle \rangle ⟨⟩
               precedence = 7 }
           children = [] }
 
-    member this.toZ3Expr(ctx: Context) : Expr =
-      let toExp (p: WExpr) = p.toZ3Expr ctx :?> BoolExpr
 
-      let toZ3Pred (vars: List<WExpr>, body) =
-        let z3Body = (body :> WExpr).toZ3Expr ctx
-        let z3Vars = vars |> List.map (fun v -> v.toZ3Expr ctx) |> List.toArray
-        z3Vars, z3Body
+    member this.toZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
+      let toExp (p: WExpr) =
+        p.toZ3Expr (ctx, boundVars) :?> BoolExpr
 
       match this with
       | True -> ctx.MkBool true
       | False -> ctx.MkBool false
-      | ExtBoolOp b -> b.toZ3Expr ctx
-      | Equals(n, m) -> ctx.MkEq(n.toZ3Expr ctx, m.toZ3Expr ctx)
+      | ExtBoolOp b -> b.toZ3Expr (ctx, boundVars)
+      | Equals(n, m) -> ctx.MkEq(n.toZ3Expr (ctx, boundVars), m.toZ3Expr (ctx, boundVars))
       | Differs(n, m) -> ctx.MkNot(Equals(n, m) |> toExp)
       | Not right -> ctx.MkNot(toExp right)
       | And(left, right) -> ctx.MkAnd(toExp left, toExp right)
@@ -240,12 +327,40 @@ and Proposition =
       | Inequiv(left, right) -> toExp (Not(Equiv(left, right)))
       | Implies(left, right) -> ctx.MkImplies(toExp left, toExp right)
       | Follows(left, right) -> ctx.MkImplies(toExp right, toExp left)
-      | Forall(vars, body) ->
-        let z3Vars, z3Body = toZ3Pred (vars, body)
-        ctx.MkForall(z3Vars, z3Body)
-      | Exists(vars, body) ->
-        let z3Vars, z3Body = toZ3Pred (vars, body)
-        ctx.MkExists(z3Vars, z3Body)
+      | Quantifier(q, vars, body) ->
+        let z3Body = (body :> WExpr).toZ3Expr (ctx, boundVars)
+        let z3Vars = vars |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
+
+        let rec mkBoundExpr i (v: WExpr) =
+          match v with
+          | :? Var as v ->
+            let (Var(v, s)) = v
+            v, ctx.MkBound(uint32 i, s.toZ3Sort ctx)
+          | :? Proposition as p ->
+            match p with
+            | ExtBoolOp e -> mkBoundExpr i e
+            | _ -> failwith $"only variables are allowed in quantifier variable section, got {p}"
+          | :? Sequence as s ->
+            match s with
+            | ExtSeq e -> mkBoundExpr i e
+            | _ -> failwith $"only variables are allowed in quantifier variable section, got {s}"
+          | :? Integer as n ->
+            match n with
+            | ExtInteger e -> mkBoundExpr i e
+            | _ -> failwith $"only variables are allowed in quantifier variable section, got {n}"
+          | _ -> failwith $"only variables are allowed in quantifier variable section, got {v}"
+
+        let boundVars =
+          vars
+          |> List.mapi mkBoundExpr
+          |> List.fold (fun m (k, v) -> Map.add k v m) boundVars
+
+        let patterns = Proposition.extractPatternFromRecurrence (ctx, boundVars, body)
+
+
+        match q with
+        | Forall -> ctx.MkForall(z3Vars, body = z3Body, patterns = patterns)
+        | Exists -> ctx.MkExists(z3Vars, body = z3Body, patterns = patterns)
 
 and Sequence =
   | Empty
@@ -282,8 +397,8 @@ and Sequence =
         { node = { symbol = "▷"; precedence = 6 }
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
 
-    member this.toZ3Expr(ctx: Context) : Expr =
-      let toSeqExpr (x: WExpr) = x.toZ3Expr ctx :?> SeqExpr
+    member this.toZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
+      let toSeqExpr (x: WExpr) = x.toZ3Expr (ctx, boundVars) :?> SeqExpr
 
       match this with
       | Empty ->
@@ -291,9 +406,9 @@ and Sequence =
         let elemSort = ctx.MkUninterpretedSort "a"
         let seqSort = ctx.MkSeqSort elemSort
         ctx.MkEmptySeq seqSort
-      | ExtSeq e -> e.toZ3Expr ctx
+      | ExtSeq e -> e.toZ3Expr (ctx, boundVars)
       | Cons(x, xs) ->
-        let x = ctx.MkUnit(x.toZ3Expr ctx)
+        let x = ctx.MkUnit(x.toZ3Expr (ctx, boundVars))
         ctx.MkConcat(x, toSeqExpr xs)
       | Concat(xs, ys) -> ctx.MkConcat(toSeqExpr xs, toSeqExpr ys)
       | Suffix(xs, ys) -> ctx.MkSuffixOf(toSeqExpr xs, toSeqExpr ys)
@@ -331,7 +446,7 @@ and Var =
       { node = { symbol = v; precedence = 7 }
         children = [] }
 
-    member this.toZ3Expr(ctx: Context) =
+    member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
       let (Var(v, sort)) = this
 
       let rec mkSort sort =
@@ -341,7 +456,9 @@ and Var =
         | WSeq -> ctx.MkSeqSort(ctx.MkUninterpretedSort "a")
         | WVarSort v -> ctx.MkUninterpretedSort v
 
-      ctx.MkConst(v, mkSort sort)
+      match Map.tryFind v boundVars with
+      | Some e -> e
+      | None -> ctx.MkConst(v, mkSort sort)
 
 and Function =
   | Fn of string * (WSort list)
@@ -369,9 +486,9 @@ and FnApp =
       { node = { symbol = f; precedence = 7 }
         children = args |> List.map _.toSymbolTree() }
 
-    member this.toZ3Expr(ctx: Context) =
+    member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
       let (App(f, args)) = this
-      let z3Args = args |> List.map (fun v -> v.toZ3Expr ctx) |> List.toArray
+      let z3Args = args |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
 
       let funcDecl = f.toZ3FnDecl ctx
       funcDecl.Apply z3Args
@@ -381,7 +498,11 @@ and FnApp =
     let argsStr = args |> List.map (fun a -> a.ToString()) |> String.concat ", "
 
     match f with
-    | Fn(name, _) -> $"{name}({argsStr})"
+    | Fn(name, _) -> $"{name} {argsStr}"
+
+and RecurrencePattern =
+  { lhs: FnApp
+    recursiveCalls: FnApp list }
 
 type Calculation =
   { demonstrandum: Law; steps: Step list }
@@ -432,17 +553,25 @@ let private stepToPred (s: Step) =
     with _ ->
       failwith $"not supported step operator for steps {t} and {u}"
 
-  match s.stepOp with
-  | StepOperator.Equiv -> (s.fromExp, s.toExp) |> boolStep |> Equiv
-  | StepOperator.Follows -> (s.fromExp, s.toExp) |> boolStep |> Follows
-  | StepOperator.Implies -> (s.fromExp, s.toExp) |> boolStep |> Implies
-  | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
+
+  let stepProp =
+    match s.stepOp with
+    | StepOperator.Equiv -> (s.fromExp, s.toExp) |> boolStep |> Equiv
+    | StepOperator.Follows -> (s.fromExp, s.toExp) |> boolStep |> Follows
+    | StepOperator.Implies -> (s.fromExp, s.toExp) |> boolStep |> Implies
+    | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
+  match s.laws with
+  | [] -> stepProp
+  | x::xs ->
+    let lawsProp =
+      xs |> List.map _.body |> List.fold (fun acc p -> And(acc, p)) x.body
+    Implies(lawsProp, stepProp)
 
 
 let internal checkPredicate (ctx: Context) (p: Proposition) =
   let solver = ctx.MkSolver()
   let zp = p :> WExpr
-  let exp = zp.toZ3Expr ctx :?> BoolExpr
+  let exp = zp.toZ3Expr (ctx, Map.empty) :?> BoolExpr
   solver.Add(ctx.MkNot exp)
 
   match solver.Check() with
@@ -488,7 +617,7 @@ let private buildBasic (lines: ProofLine list) =
       match lines with
       | [] -> Error { expected = ExpectingTheorem }
       | Theorem t :: lines -> Ok(t, lines)
-      | l :: _ -> Error { expected = ExpectingTheorem } // TODO pass a parameter to ExpectingTheorem to
+      | _ :: _ -> Error { expected = ExpectingTheorem } // TODO pass a parameter to ExpectingTheorem to
     // make easier to find the invalid line
 
     let steps, lines =
@@ -631,8 +760,8 @@ let (<==) x y =
 
 let (<&&>) x y = And(toProposition x, toProposition y)
 let (<||>) x y = Or(toProposition x, toProposition y)
-let ``∀`` vars f = Forall(vars, f)
-let ``∃`` vars f = Exists(vars, f)
+let ``∀`` vars f = Quantifier(Forall, vars, f)
+let ``∃`` vars f = Quantifier(Exists, vars, f)
 
 let axiom name (pred: Proposition) = { identifier = name; body = pred }
 

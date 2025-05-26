@@ -97,6 +97,6 @@ let findFailingProof (xs: list<unit -> Core.CheckedCalculation>) =
       failwith msg)
 
 let failIfNotProved (x: Inspection) =
-  match x.calc.error with 
+  match x.calc.error with
   | Some e -> failwith $"{e}"
   | None -> ()

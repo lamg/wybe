@@ -1,8 +1,8 @@
-#r "nuget: Wybe, 0.0.1"
+#r "nuget: Wybe, 0.0.5"
 
 open Wybe
 open Core
-open Inspect.Inspect
+open Inspect
 
 let x = mkBoolVar "x"
 

@@ -133,8 +133,7 @@ let extractProofObligations (funcs: TargetFun list) =
         | Inequiv(left, right) -> failwith "Not Implemented"
         | Implies(left, right) -> failwith "Not Implemented"
         | Follows(left, right) -> failwith "Not Implemented"
-        | Forall _ -> failwith "Not Implemented"
-        | Exists _ -> failwith "Not Implemented"
+        | Quantifier _ -> failwith "Not Implemented"
         | _ -> p
       | _ when (p :? Integer) ->
         match p :?> Integer with
@@ -218,8 +217,8 @@ let emitProofObligation (name: string, vars: Var list, theoremBody: Proposition)
       | Implies(x, y) -> $"{propToStr x} ==> {propToStr y}"
       | Follows(x, y) -> $"{propToStr x} <== {propToStr y}"
       | Not x -> $"!{propToStr x}"
-      | Forall(vars, body) -> $"∀ {vars} ({propToStr body})"
-      | Exists(vars, body) -> $"∃ {vars} ({propToStr body})"
+      | Quantifier(Forall, vars, body) -> $"∀ {vars} ({propToStr body})"
+      | Quantifier(Exists, vars, body) -> $"∃ {vars} ({propToStr body})"
       | ExtBoolOp op -> $"{wExprToString op}"
       | True -> "True"
       | False -> "False"

@@ -365,8 +365,8 @@ let consequence = x <== y === (y ==> x) |> axiom "consquence"
 
 // 9 Predicate Calculus
 
-let ``∨ over ∀`` ((vars, p): Predicate) =
+let ``∨ over ∀`` (vars: WExpr list, p: Proposition) =
   y <||> ``∀`` vars p === ``∀`` vars (y <||> p) |> axiom "∨ over ∀"
 
-let ``De Morgan`` ((vars, p): Predicate) =
+let ``De Morgan`` (vars: WExpr list, p: Proposition) =
   !(``∀`` vars p) === ``∃`` vars !p |> axiom "De Morgan"

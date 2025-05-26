@@ -27,5 +27,3 @@ let ``check all theorems`` () =
     ``∧ ∨ absorption``
     ``∨ ∧ absorption`` ]
   |> findFailingProof
-
-

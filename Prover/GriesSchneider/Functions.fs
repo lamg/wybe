@@ -6,6 +6,8 @@ open Integers
 let declFib = Fn("fib", [ WInt; WInt ])
 let fib (x: WExpr) = ExtInteger(App(declFib, [ x ]))
 
+let forall (v: Var) (body: WExpr) = ()
+
 let fibProp =
   let n = mkIntVar "n"
 
