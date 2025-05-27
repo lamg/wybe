@@ -3,24 +3,15 @@ module GriesSchneider.Functions
 open Core
 open Integers
 
-let declFib = Fn("fib", [ WInt; WInt ])
-let fib (x: WExpr) = ExtInteger(App(declFib, [ x ]))
+let fib (x: WExpr) =
+  let declFib = Fn("fib", [ WInt; WInt ])
+  ExtInteger(App(declFib, [ x ]))
 
-let forall (v: Var) (body: WExpr) = ()
-
-let fibProp =
-  let n = mkIntVar "n"
-
-  ``∀``
-    [ n ]
-    (n >= zero
-     <&&> (fib n + fib (n + one) = fib (n + Integer 2))
-     <&&> (fib zero = zero)
-     <&&> (fib one = one))
+let n = mkIntVar "n"
+let fibProp = ``∀`` [ n ] (n >= zero <&&> (fib n + fib (n + 1) = fib (n + 2)))
 
 let declFact = Fn("fact", [ WInt; WInt ])
 let fact (x: WExpr) = ExtInteger(App(declFact, [ x ]))
 
 let factProp =
-  let n = mkIntVar "n"
-  ``∀`` [ n ] (n >= zero <&&> (fact (n + one) = fact n * (n + one)) <&&> (fact zero = one))
+  ``∀`` [ n ] (n >= zero <&&> (fact (n + 1) = fact n * (n + 1)) <&&> (fact zero = one))

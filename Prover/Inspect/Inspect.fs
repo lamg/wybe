@@ -98,5 +98,6 @@ let findFailingProof (xs: list<unit -> Core.CheckedCalculation>) =
 
 let failIfNotProved (x: Inspection) =
   match x.calc.error with
+  | Some(Core.WrongEvidence(p, c)) -> failwith $"Wrong evidence: {p} doesn't imply {c}"
   | Some e -> failwith $"{e}"
   | None -> ()

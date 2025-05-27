@@ -3,6 +3,7 @@ module Core
 open Microsoft.Z3
 #nowarn 86
 
+
 // precedence of operators
 // 0: ≡ ≢
 // 1: ⇒  ⇐
@@ -35,6 +36,8 @@ type SymbolTree =
           child.ToString()
 
     match this with
+    | { node = x; children = [ left; right ] } when x.symbol = "," ->
+      $"{parenthesise x left}{x.symbol} {parenthesise x right}"
     | { node = x; children = [ left; right ] } -> $"{parenthesise x left} {x.symbol} {parenthesise x right}"
     | { node = x; children = [ right ] } -> $"{x.symbol}{parenthesise x right}"
     | { node = x } -> x.symbol
@@ -69,8 +72,11 @@ and Integer =
     | _ -> UnaryMinus x
 
   static member (+)(x: Integer, y: Integer) = Plus(x, y)
+  static member (+)(x: Integer, y: int) = Plus(x, Integer y)
   static member (-)(x: Integer, y: Integer) = Minus(x, y)
+  static member (-)(x: Integer, y: int) = Minus(x, Integer y)
   static member (*)(x: Integer, y: Integer) = Times(x, y)
+  static member (*)(x: int, y: Integer) = Times(Integer x, y)
   static member (/)(x: Integer, y: Integer) = Divide(x, y)
 
   interface WExpr with
@@ -163,8 +169,12 @@ and Proposition =
   override this.ToString() : string =
     (this :> WExpr).toSymbolTree().ToString()
 
+  /// <summary>extract Z3 pattern from recursive definitions like fib (n+2) = fib(n+1) + fib n</summary>
+  /// <param name="ctx"></param>
+  /// <param name="boundVars">variables bound by a quantifier</param>
+  /// <param name="e">expression containing a recurrence relation</param>
+  /// <returns></returns>
   static member extractPatternFromRecurrence(ctx: Context, boundVars: BoundVars, e: WExpr) =
-
     let rec loop (e: WExpr) =
       match e with
       | :? Proposition as p ->
@@ -233,7 +243,7 @@ and Proposition =
         let splitLast xs =
           match List.rev xs with
           | y :: ys -> List.rev ys, y
-          | _ -> failwith "cannot split empty list"
+          | _ -> failwith "signature cannot be empty"
 
         let signArgs, ret = splitLast signature
         let z3ArgSorts = signArgs |> List.map (fun a -> a.toZ3Sort ctx) |> List.toArray
@@ -248,7 +258,9 @@ and Proposition =
 
     loop e
     |> fst
-    |> List.choose (function | [] -> None | ps -> Some (ctx.MkPattern(List.toArray ps)))
+    |> List.choose (function
+      | [] -> None
+      | ps -> Some(ctx.MkPattern(List.toArray ps)))
     |> List.toArray
 
   interface WExpr with
@@ -483,8 +495,24 @@ and FnApp =
     member this.toSymbolTree() : SymbolTree =
       let (App(Fn(f, _), args)) = this
 
-      { node = { symbol = f; precedence = 7 }
-        children = args |> List.map _.toSymbolTree() }
+      match args with
+      | _ :: _ ->
+        let rargs = List.rev args
+        let x, xs = List.head rargs, List.tail rargs
+
+        let argTree =
+          xs
+          |> List.fold
+            (fun acc x ->
+              { node = { symbol = ","; precedence = 0 }
+                children = [ x.toSymbolTree (); acc ] })
+            (x.toSymbolTree ())
+
+        { node = { symbol = f; precedence = 7 }
+          children = [ argTree ] }
+      | [] ->
+        { node = { symbol = f; precedence = 7 }
+          children = [] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
       let (App(f, args)) = this
@@ -492,13 +520,6 @@ and FnApp =
 
       let funcDecl = f.toZ3FnDecl ctx
       funcDecl.Apply z3Args
-
-  override this.ToString() : string =
-    let (App(f, args)) = this
-    let argsStr = args |> List.map (fun a -> a.ToString()) |> String.concat ", "
-
-    match f with
-    | Fn(name, _) -> $"{name} {argsStr}"
 
 and RecurrencePattern =
   { lhs: FnApp
@@ -546,7 +567,7 @@ and CalcError =
   | InsufficientEvidence of demonstrandum: Proposition
   | RefutedFormula of demonstrandum: Proposition
 
-let private stepToPred (s: Step) =
+let private stepToProposition (s: Step) =
   let boolStep (t: WExpr, u: WExpr) =
     try
       t :?> Proposition, u :?> Proposition
@@ -554,19 +575,20 @@ let private stepToPred (s: Step) =
       failwith $"not supported step operator for steps {t} and {u}"
 
 
-  let stepProp =
-    match s.stepOp with
-    | StepOperator.Equiv -> (s.fromExp, s.toExp) |> boolStep |> Equiv
-    | StepOperator.Follows -> (s.fromExp, s.toExp) |> boolStep |> Follows
-    | StepOperator.Implies -> (s.fromExp, s.toExp) |> boolStep |> Implies
-    | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
+  match s.stepOp with
+  | StepOperator.Equiv -> (s.fromExp, s.toExp) |> boolStep |> Equiv
+  | StepOperator.Follows -> (s.fromExp, s.toExp) |> boolStep |> Follows
+  | StepOperator.Implies -> (s.fromExp, s.toExp) |> boolStep |> Implies
+  | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
+
+let private stepImpliedByLaws (s: Step) =
+  let stepProp = stepToProposition s
+
   match s.laws with
   | [] -> stepProp
-  | x::xs ->
-    let lawsProp =
-      xs |> List.map _.body |> List.fold (fun acc p -> And(acc, p)) x.body
+  | x :: xs ->
+    let lawsProp = xs |> List.map _.body |> List.fold (fun acc p -> And(acc, p)) x.body
     Implies(lawsProp, stepProp)
-
 
 let internal checkPredicate (ctx: Context) (p: Proposition) =
   let solver = ctx.MkSolver()
@@ -590,7 +612,10 @@ let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (de
     | Unknown -> Error(InsufficientEvidence demonstrandum)
     | Refuted _ -> Error(RefutedFormula demonstrandum)
   | x :: xs ->
-    let r = xs |> List.fold (fun acc x -> And(acc, stepToPred x)) (stepToPred x)
+    let r =
+      xs
+      |> List.fold (fun acc x -> And(acc, stepToProposition x)) (stepToProposition x)
+
     let evidence = Implies(r, demonstrandum)
 
     match checkPredicate ctx evidence with
@@ -682,7 +707,7 @@ type CalculationCE() =
       let failed =
         calc.steps
         |> List.mapi (fun i s ->
-          let p = stepToPred s
+          let p = stepImpliedByLaws s
 
           match checkPredicate ctx p with
           | Proved -> []

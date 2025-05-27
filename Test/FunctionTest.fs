@@ -18,27 +18,45 @@ let ``test fibonacci function`` () =
     fib one + fib zero
   }
   |> inspect
-  |> ignore
-//|> failIfNotProved
+  |> failIfNotProved
 
 [<Fact>]
 let ``test fibonacci invariant`` () =
   let i, a, b = mkIntVar "i", mkIntVar "a", mkIntVar "b"
 
   // a = fibonacci (i - 1) ∧ b = fibonacci i ⇒ a + b = fibonacci (i + 1)
-  proof { lemma (a = fib (i - one) <&&> (b = fib i) ==> (a + b = fib (i + one))) }
+  // TODO shouldn't this proof fail because there's no i > 0 restriction?
+  proof {
+    lemma ((a = fib (i - 1)) <&&> (b = fib i) ==> (a + b = fib (i + 1)))
+    a = fib (i - 1) <&&> (b = fib i)
+    ``⇒`` { fibProp }
+    a + b = fib (i + 1)
+  }
   |> inspect
-  |> calculationError
-  |> print
+  |> failIfNotProved
 
 [<Fact>]
 let ``test factorial invariant`` () =
-  // result = factorial i ⇒ result * i = factorial (i + 1)
   let i = mkIntVar "i"
   let result = mkIntVar "result"
 
-  // result = factorial i ⇒ result * i = factorial (i + 1)
-  proof { lemma (result = fact i ==> (result * i = fact (i + one))) }
+  proof {
+    lemma (result = fact i ==> (result * i = fact (i + one)))
+    result = fact i
+    ``⇒`` { factProp }
+    result * i = fact (i + 1)
+  }
   |> inspect
-  |> calculationError
-  |> print
+  |> failIfNotProved
+
+[<Fact>]
+let ``print functions`` () =
+  let ackermann (x, y) =
+    let decl = Fn("ackermann", [ WInt; WInt; WInt ])
+    ExtInteger(App(decl, [ x; y ]))
+
+  [ fib zero, "fib(0)"
+    fib (n + 1), "fib(n + 1)"
+    ackermann (zero, zero), "ackermann(0, 0)"
+    ackermann (n + 1, n + 1), "ackermann(n + 1, n + 1)" ]
+  |> List.iter (fun (f, r) -> Assert.Equal(f.ToString(), r))
