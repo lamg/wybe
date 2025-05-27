@@ -3,14 +3,18 @@ module GriesSchneider.Sequences
 open Core
 open GriesSchneider.Integers
 
-let mkSeqElem a = ExtSeq(Var(a, WVarSort "a"))
-let mkSeq x = ExtSeq(Var(x, WSeq))
+let sortA = WVarSort "a"
+let mkSeqElem a = ExtSeq(Var(a, sortA))
+let mkSeq x = ExtSeq(Var(x, WSeq sortA))
+
+let wList (xs: int list) =
+  xs |> List.rev |> List.fold (fun acc x -> Cons(Integer x, acc)) (Empty WInt)
 
 let a, b = mkSeqElem "a", mkSeqElem "b"
 
 let w, x, y, z = mkSeq "w", mkSeq "x", mkSeq "y", mkSeq "z"
 
-let ``ϵ`` = Empty
+let ``ϵ`` = Empty sortA
 
 let (.|) x y = Cons(x, y)
 let (++) x y = Concat(x, y)

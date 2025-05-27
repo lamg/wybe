@@ -224,7 +224,7 @@ and Proposition =
           [], l @ r
       | :? Sequence as p ->
         match p with
-        | Empty -> [], []
+        | Empty _ -> [], []
         | ExtSeq m -> loop m
         | Length m -> loop m
         | Cons(l, r) ->
@@ -260,7 +260,9 @@ and Proposition =
     |> fst
     |> List.choose (function
       | [] -> None
-      | ps -> Some(ctx.MkPattern(List.toArray ps)))
+      | ps ->
+        printfn $"length {ps.Length}; ps {ps}"
+        Some(ctx.MkPattern(List.toArray ps)))
     |> List.toArray
 
   interface WExpr with
@@ -375,7 +377,7 @@ and Proposition =
         | Exists -> ctx.MkExists(z3Vars, body = z3Body, patterns = patterns)
 
 and Sequence =
-  | Empty
+  | Empty of WSort
   | ExtSeq of WExpr
   | Cons of WExpr * Sequence
   | Concat of Sequence * Sequence
@@ -392,7 +394,7 @@ and Sequence =
       | Length x ->
         { node = { symbol = "#"; precedence = 6 }
           children = [ (x :> WExpr).toSymbolTree () ] }
-      | Empty ->
+      | Empty _ ->
         { node = { symbol = "ϵ"; precedence = 7 }
           children = [] }
       | ExtSeq x -> x.toSymbolTree ()
@@ -413,9 +415,9 @@ and Sequence =
       let toSeqExpr (x: WExpr) = x.toZ3Expr (ctx, boundVars) :?> SeqExpr
 
       match this with
-      | Empty ->
+      | Empty s ->
         // Create an empty sequence sort over the uninterpreted element sort "a"
-        let elemSort = ctx.MkUninterpretedSort "a"
+        let elemSort = s.toZ3Sort ctx
         let seqSort = ctx.MkSeqSort elemSort
         ctx.MkEmptySeq seqSort
       | ExtSeq e -> e.toZ3Expr (ctx, boundVars)
@@ -431,7 +433,7 @@ and Sequence =
 and WSort =
   | WInt
   | WBool
-  | WSeq
+  | WSeq of WSort
   | WVarSort of string
 
   member this.toZ3Sort(ctx: Context) =
@@ -439,7 +441,7 @@ and WSort =
       match sort with
       | WInt -> ctx.IntSort :> Sort
       | WBool -> ctx.BoolSort
-      | WSeq -> ctx.MkSeqSort(ctx.MkUninterpretedSort "a")
+      | WSeq s -> ctx.MkSeqSort(mkSort s)
       | WVarSort s -> ctx.MkSeqSort(ctx.MkUninterpretedSort s)
 
     mkSort this
@@ -465,7 +467,7 @@ and Var =
         match sort with
         | WInt -> ctx.IntSort :> Sort
         | WBool -> ctx.BoolSort
-        | WSeq -> ctx.MkSeqSort(ctx.MkUninterpretedSort "a")
+        | WSeq s -> ctx.MkSeqSort(mkSort s)
         | WVarSort v -> ctx.MkUninterpretedSort v
 
       match Map.tryFind v boundVars with
