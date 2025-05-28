@@ -91,23 +91,20 @@ let ``insert function`` () =
   let y' = mkIntVar "y"
   // let ins0 = ``∀`` [ n; x ] (xs = Empty ==> insert (n, xs) = Cons(n, xs))
 
-  let ins1 =
-    ``∀`` [ n; xs ] (xs = Cons(y, ys)) <&&> (n <= y')
-    ==> (insert (n, xs) = Cons(n, xs))
+  let ins1 = ``∀`` [n;xs] (xs = (y <. ys)) <&&> (n <= y') ==> (insert (n, xs) = (n <. xs)) |> axiom "ins1"
 
   let ins2 =
-    ``∀`` [ n; xs;ys ] (xs = Cons(y, ys) <&&> (n > y') ==> (insert (n, xs) = Cons(y, insert (n, ys))))
+    ``∀`` [ n; xs ] (xs = (y <. ys) <&&> (n > y') ==> (insert (n, xs) = (y <. insert (n, ys)))) |> axiom "ins2"
 
   let five = Integer 5
-  // WARNING: (0,0): pattern does not contain all quantified variables.
-  // length 1; ps [(insert (:var 0) ys)]
+
   proof {
     lemma (insert (five, wList [ 1; 4; 6 ]) = wList [ 1; 4; 5; 6 ])
     insert (five, wList [ 1; 4; 5 ])
     ``==`` { ins2 }
-    Cons(one, insert (five, wList [ 4; 6 ]))
+    one <. insert (five, wList [ 4; 6 ])
     ``==`` { ins2 }
-    Cons(Integer 1, Cons(Integer 4, insert (five, wList [ 6 ])))
+    one <. (Integer 4 <. insert (five, wList [ 6 ]))
     ``==`` { ins1 }
     wList [ 1; 4; 5; 6 ]
   }

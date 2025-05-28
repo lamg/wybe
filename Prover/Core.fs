@@ -14,7 +14,15 @@ open Microsoft.Z3
 // 6: # :: ++ ◁ ▷
 // 7: variables and other atoms like true, false, ∀, ∃, ϵ
 
-type Symbol = { symbol: string; precedence: int }
+type Symbol =
+  { symbol: string
+    precedence: int
+    isVar: bool }
+
+let nonVarSymbol symbol precedence =
+  { symbol = symbol
+    precedence = precedence
+    isVar = false }
 
 type SymbolTree =
   { node: Symbol
@@ -41,6 +49,10 @@ type SymbolTree =
     | { node = x; children = [ left; right ] } -> $"{parenthesise x left} {x.symbol} {parenthesise x right}"
     | { node = x; children = [ right ] } -> $"{x.symbol}{parenthesise x right}"
     | { node = x } -> x.symbol
+
+  member this.existsNode(p: Symbol -> bool) =
+    p this.node || this.children |> List.exists (fun c -> c.existsNode p)
+
 
 type BoundVars = Map<string, Expr>
 
@@ -84,37 +96,37 @@ and Integer =
       match this with
       | ExtInteger e -> e.toSymbolTree ()
       | Integer i ->
-        { node = { symbol = $"{i}"; precedence = 7 }
+        { node = nonVarSymbol $"{i}" 7
           children = [] }
       | UnaryMinus n ->
-        { node = { symbol = "-"; precedence = 6 }
+        { node = nonVarSymbol "-" 6
           children = [ (n :> WExpr).toSymbolTree () ] }
       | Plus(x, y) ->
-        { node = { symbol = "+"; precedence = 5 }
+        { node = nonVarSymbol "+" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | Minus(x, y) ->
-        { node = { symbol = "-"; precedence = 5 }
+        { node = nonVarSymbol "-" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | Times(x, y) ->
-        { node = { symbol = "×"; precedence = 5 }
+        { node = nonVarSymbol "×" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | Divide(x, y) ->
-        { node = { symbol = "÷"; precedence = 5 }
+        { node = nonVarSymbol "÷" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | Exceeds(x, y) ->
-        { node = { symbol = ">"; precedence = 5 }
+        { node = nonVarSymbol ">" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | LessThan(x, y) ->
-        { node = { symbol = "<"; precedence = 5 }
+        { node = nonVarSymbol "<" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | AtLeast(x, y) ->
-        { node = { symbol = "≥"; precedence = 5 }
+        { node = nonVarSymbol "≥" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | AtMost(x, y) ->
-        { node = { symbol = "≤"; precedence = 5 }
+        { node = nonVarSymbol "≤" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | IsDivisor(x, y) ->
-        { node = { symbol = "∣"; precedence = 5 }
+        { node = nonVarSymbol "∣" 5
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
@@ -182,14 +194,12 @@ and Proposition =
         | ExtBoolOp m -> loop m
         | True
         | False -> [], []
-        | Equals(x, y) ->
+        | Equals(x, _) ->
           let rx = loop x
-          let ry = loop y
 
-          match rx, ry with
-          | ([], [ _ ]), ([], rs) -> [ rs ], []
-          | ([], rs), ([], [ _ ]) -> [ rs ], []
-          | _ -> [], []
+          match rx with
+          | rs, [] -> rs, []
+          | rs, ts -> ts :: rs, []
         | Differs(_, _) -> [], []
         | Not right -> loop right
         | And(left, right)
@@ -249,65 +259,64 @@ and Proposition =
         let z3ArgSorts = signArgs |> List.map (fun a -> a.toZ3Sort ctx) |> List.toArray
         let z3Ret = ret.toZ3Sort ctx
         let decl = ctx.MkFuncDecl(f, z3ArgSorts, z3Ret)
-
+        // only if an argument contains a bound variable it should appear in the pattern
         let exps =
-          args |> List.map (fun arg -> arg.toZ3Expr (ctx, boundVars)) |> List.toArray
+          args
+          |> List.choose (function
+            | arg when arg.toSymbolTree().existsNode _.isVar -> Some(arg.toZ3Expr (ctx, boundVars))
+            | _ -> None)
 
-        [], [ decl.Apply exps ]
+        match exps with
+        | [] -> [], []
+        | _ -> [], [ decl.Apply(List.toArray exps) ]
       | _ -> [], []
 
     loop e
     |> fst
     |> List.choose (function
       | [] -> None
-      | ps ->
-        printfn $"length {ps.Length}; ps {ps}"
-        Some(ctx.MkPattern(List.toArray ps)))
+      | ps -> Some(ctx.MkPattern(List.toArray ps)))
     |> List.toArray
 
   interface WExpr with
     member this.toSymbolTree() =
       match this with
       | True ->
-        { node = { symbol = "true"; precedence = 7 }
+        { node = nonVarSymbol "true" 7
           children = [] }
       | False ->
-        { node = { symbol = "false"; precedence = 7 }
+        { node = nonVarSymbol "false" 7
           children = [] }
       | ExtBoolOp x -> x.toSymbolTree ()
       | Equals(x, y) ->
-        { node =
-            { symbol = $"{x} = {y}"
-              precedence = 4 }
+        { node = nonVarSymbol $"{x} = {y}" 4
           children = [] }
       | Differs(x, y) ->
-        { node =
-            { symbol = $"{x} ≠ {y}"
-              precedence = 4 }
+        { node = nonVarSymbol $"{x} ≠ {y}" 4
           children = [] }
       | Not right ->
-        { node = { symbol = "¬"; precedence = 3 }
+        { node = nonVarSymbol "¬" 3
           children = [ (right :> WExpr).toSymbolTree () ] }
       | And(left, right) ->
-        { node = { symbol = "∧"; precedence = 2 }
+        { node = nonVarSymbol "∧" 2
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Or(left, right) ->
-        { node = { symbol = "∨"; precedence = 2 }
+        { node = nonVarSymbol "∨" 2
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Implies(left, right) ->
-        { node = { symbol = "⇒"; precedence = 1 }
+        { node = nonVarSymbol "⇒" 1
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Follows(left, right) ->
-        { node = { symbol = "⇐"; precedence = 1 }
+        { node = nonVarSymbol "⇐" 1
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Equiv(left, right) ->
         let l = (left :> WExpr).toSymbolTree ()
         let r = (right :> WExpr).toSymbolTree ()
 
-        { node = { symbol = "≡"; precedence = 0 }
+        { node = nonVarSymbol "≡" 0
           children = [ l; r ] }
       | Inequiv(left, right) ->
-        { node = { symbol = "≢"; precedence = 0 }
+        { node = nonVarSymbol "≢" 0
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Quantifier(q, vars, body) ->
         let symbol =
@@ -318,9 +327,7 @@ and Proposition =
         let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
         let p = (body :> WExpr).toSymbolTree().ToString()
 
-        { node =
-            { symbol = $"⟨{symbol}{vs} → {p}⟩" // \langle \rangle ⟨⟩
-              precedence = 7 }
+        { node = nonVarSymbol $"⟨{symbol}{vs} → {p}⟩" 7 // \langle \rangle ⟨⟩
           children = [] }
 
 
@@ -392,23 +399,23 @@ and Sequence =
     member this.toSymbolTree() : SymbolTree =
       match this with
       | Length x ->
-        { node = { symbol = "#"; precedence = 6 }
+        { node = nonVarSymbol "#" 6
           children = [ (x :> WExpr).toSymbolTree () ] }
       | Empty _ ->
-        { node = { symbol = "ϵ"; precedence = 7 }
+        { node = nonVarSymbol "ϵ" 7
           children = [] }
       | ExtSeq x -> x.toSymbolTree ()
       | Cons(x, xs) ->
-        { node = { symbol = "::"; precedence = 6 }
+        { node = nonVarSymbol "::" 6
           children = [ x.toSymbolTree (); (xs :> WExpr).toSymbolTree () ] }
       | Concat(xs, ys) ->
-        { node = { symbol = "++"; precedence = 6 }
+        { node = nonVarSymbol "++" 6
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
       | Prefix(xs, ys) ->
-        { node = { symbol = "◁"; precedence = 6 }
+        { node = nonVarSymbol "◁" 6
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
       | Suffix(xs, ys) ->
-        { node = { symbol = "▷"; precedence = 6 }
+        { node = nonVarSymbol "▷" 6
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
@@ -442,7 +449,7 @@ and WSort =
       | WInt -> ctx.IntSort :> Sort
       | WBool -> ctx.BoolSort
       | WSeq s -> ctx.MkSeqSort(mkSort s)
-      | WVarSort s -> ctx.MkSeqSort(ctx.MkUninterpretedSort s)
+      | WVarSort s -> ctx.MkUninterpretedSort s
 
     mkSort this
 
@@ -457,7 +464,10 @@ and Var =
     member this.toSymbolTree() : SymbolTree =
       let (Var(v, _)) = this
 
-      { node = { symbol = v; precedence = 7 }
+      { node =
+          { symbol = v
+            precedence = 7
+            isVar = true }
         children = [] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
@@ -506,14 +516,14 @@ and FnApp =
           xs
           |> List.fold
             (fun acc x ->
-              { node = { symbol = ","; precedence = 0 }
+              { node = nonVarSymbol "," 0
                 children = [ x.toSymbolTree (); acc ] })
             (x.toSymbolTree ())
 
-        { node = { symbol = f; precedence = 7 }
+        { node = nonVarSymbol f 7
           children = [ argTree ] }
       | [] ->
-        { node = { symbol = f; precedence = 7 }
+        { node = nonVarSymbol f 7
           children = [] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =

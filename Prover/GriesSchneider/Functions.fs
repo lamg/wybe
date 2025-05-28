@@ -8,7 +8,7 @@ let fib (x: WExpr) =
   ExtInteger(App(declFib, [ x ]))
 
 let n = mkIntVar "n"
-let fibProp = ``∀`` [ n ] (n >= zero <&&> (fib n + fib (n + 1) = fib (n + 2)))
+let fibProp = ``∀`` [ n ] (n >= zero <&&> (fib (n + 2) = fib n + fib (n + 1)))
 
 let declFact = Fn("fact", [ WInt; WInt ])
 let fact (x: WExpr) = ExtInteger(App(declFact, [ x ]))
