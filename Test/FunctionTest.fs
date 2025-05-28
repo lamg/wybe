@@ -81,22 +81,49 @@ let ``insert function`` () =
   //  [1; 4; 5; 6]
 
 
+  let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
   let insert (n, xs) =
-    let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
     ExtSeq(App(decl, [ n; xs ]))
 
   let xs = ExtSeq(Var("xs", WSeq WInt))
   let ys = ExtSeq(Var("ys", WSeq WInt))
   let y = ExtSeq(Var("y", WInt))
   let y' = mkIntVar "y"
-  // let ins0 = ``∀`` [ n; x ] (xs = Empty ==> insert (n, xs) = Cons(n, xs))
+  let five = Integer 5
+  
+  let ins0 = ``∀`` [ n; xs ] (xs = Empty WInt ==> (insert (n, xs) = Cons(n, xs)))
 
-  let ins1 = ``∀`` [n;xs] (xs = (y <. ys)) <&&> (n <= y') ==> (insert (n, xs) = (n <. xs)) |> axiom "ins1"
+  let ctx = new Microsoft.Z3.Context()
+  decl.toZ3FnDecl ctx |> ignore
+
+  let ax0 = insert(n,xs) = Cons(n,xs)
+  let s0 = ax0 <&&> (insert(five, Empty WInt) = Cons(five, Empty WInt))
+  
+  let solver = ctx.MkSolver()
+  //solver.Add(((ax0 :> WExpr).toZ3Expr ctx)) 
+  Core.checkPredicate ctx s0
+  |> printfn "r = %A"
+
+
+  let ins1 =
+    ``∀`` [ n; xs ] (xs = (y <. ys)) <&&> (n <= y') ==> (insert (n, xs) = (n <. xs))
+    |> axiom "ins1"
 
   let ins2 =
-    ``∀`` [ n; xs ] (xs = (y <. ys) <&&> (n > y') ==> (insert (n, xs) = (y <. insert (n, ys)))) |> axiom "ins2"
+    ``∀`` [ n; xs ] (xs = (y <. ys) <&&> (n > y') ==> (insert (n, xs) = (y <. insert (n, ys))))
+    |> axiom "ins2"
 
-  let five = Integer 5
+
+  proof {
+    lemma ( insert(five, wList []) = wList [5])
+    insert(five, wList [])
+    ``==`` {ins0}
+    wList [5]
+  }
+  |> inspect
+  |> summary
+  |> print
+  |> ignore
 
   proof {
     lemma (insert (five, wList [ 1; 4; 6 ]) = wList [ 1; 4; 5; 6 ])
@@ -109,5 +136,6 @@ let ``insert function`` () =
     wList [ 1; 4; 5; 6 ]
   }
   |> inspect
+  |> stepPropAt 0
   |> summary
   |> print

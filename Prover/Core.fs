@@ -593,7 +593,7 @@ let private stepToProposition (s: Step) =
   | StepOperator.Implies -> (s.fromExp, s.toExp) |> boolStep |> Implies
   | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
 
-let private stepImpliedByLaws (s: Step) =
+let internal stepImpliedByLaws (s: Step) =
   let stepProp = stepToProposition s
 
   match s.laws with
@@ -602,12 +602,7 @@ let private stepImpliedByLaws (s: Step) =
     let lawsProp = xs |> List.map _.body |> List.fold (fun acc p -> And(acc, p)) x.body
     Implies(lawsProp, stepProp)
 
-let internal checkPredicate (ctx: Context) (p: Proposition) =
-  let solver = ctx.MkSolver()
-  let zp = p :> WExpr
-  let exp = zp.toZ3Expr (ctx, Map.empty) :?> BoolExpr
-  solver.Add(ctx.MkNot exp)
-
+let internal checkSolver (solver: Solver) exp =
   match solver.Check() with
   | Status.SATISFIABLE ->
     let r = solver.Model.Evaluate exp
@@ -616,6 +611,13 @@ let internal checkPredicate (ctx: Context) (p: Proposition) =
   | Status.UNKNOWN -> Unknown
   | v -> failwith $"unexpected enum value {v}"
 
+let internal checkPredicate (ctx: Context) (p: Proposition) =
+  let solver = ctx.MkSolver()
+  let zp = p :> WExpr
+  let exp = zp.toZ3Expr (ctx, Map.empty) :?> BoolExpr
+  solver.Add(ctx.MkNot exp)
+  checkSolver solver exp
+  
 let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Proposition) =
   match steps with
   | [] ->

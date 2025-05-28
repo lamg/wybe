@@ -20,12 +20,12 @@ let calculation (n: Inspection) =
   |> addLines n
 
 let stepAt (i: int) (n: Inspection) =
-  match List.tryItem i n.calc.calculation.steps with
-  | Some s -> printStep s |> addLines n
-  | None ->
-    [ sectionBody "step at" "19"
-      error "out of range" $"0 ≤ {i} < {n.calc.calculation.steps.Length}" ]
-    |> addLines n
+  (match List.tryItem i n.calc.calculation.steps with
+   | Some s -> printStep s
+   | None ->
+     [ sectionBody "step at" $"{i}"
+       error "out of range" $"0 ≤ {i} < {n.calc.calculation.steps.Length}" ])
+  |> addLines n
 
 let hintAt (step: int) (n: Inspection) =
   let hint =
@@ -101,3 +101,13 @@ let failIfNotProved (x: Inspection) =
   | Some(Core.WrongEvidence(p, c)) -> failwith $"Wrong evidence: {p} doesn't imply {c}"
   | Some e -> failwith $"{e}"
   | None -> ()
+
+let stepPropAt (i: int) (n: Inspection) =
+  (match List.tryItem i n.calc.calculation.steps with
+   | Some s ->
+     [ sectionBody "step proposition at" $"{i}"
+       (Core.stepImpliedByLaws s).ToString() ]
+   | None ->
+     [ sectionBody "step at" $"{i}"
+       error "out of range" $"0 ≤ {i} < {n.calc.calculation.steps.Length}" ])
+  |> addLines n
