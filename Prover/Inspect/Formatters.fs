@@ -53,13 +53,17 @@ let printCheckedCalculation (calc: CheckedCalculation) =
 let printCalculationError (calc: CheckedCalculation) =
   match calc.error with
   | Some(FailedSteps xs) -> error "failed steps" "" :: (xs |> List.map (fun (i, p, r) -> $"{i}: {p} | {r}"))
-  | Some(WrongEvidence(premise, conclusion)) ->
-    let implication = premise ==> conclusion
+  | Some(WrongEvidence(counterExample, premise, conclusion)) ->
+    let implication = premise |> List.map (_.ToString()) |> String.concat ", "
 
     [ error "invalid evidence" ""
-      $"calculation reduces to: {premise}"
-      $"❌ implication does not hold: {implication}" ]
+      $"❌ counter-example found: {counterExample}"
+      $"assuming: {implication}"
+      $"to conclude: {conclusion}" ]
   | Some(FailedParsing e) -> [ $"failed parsing: {e}" ]
-  | Some(InsufficientEvidence d) -> [ error "insufficient evidence" $"{d}" ]
+  | Some(InsufficientEvidence(assumptions, d)) ->
+    [ error "insufficient evidence" ""
+      $"assumptions {assumptions}"
+      $"conclusion {d}" ]
   | Some(RefutedFormula d) -> [ error $"❌ refuted formula" $"{d}" ]
   | None -> []

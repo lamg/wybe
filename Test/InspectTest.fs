@@ -77,7 +77,9 @@ let ``failed proof summary`` () =
       "  z"
       "▢"
       ColorMessages.info "❌ theorem" "x ≡ y"
-      ColorMessages.error "failed" "0, 1" ]
+      ColorMessages.error "failed steps"  ""
+      "0: x ≡ y | Refuted \"false\""
+      "1: y ≡ z | Refuted \"false\""]
 
   proof {
     theorem "x ≡ y" (x === y)
@@ -141,8 +143,9 @@ let ``inspect calculation steps with error`` () =
 let ``inspect calculation with wrong evidence`` () =
   let expected =
     [ ColorMessages.error "invalid evidence" ""
-      "calculation reduces to: x ≡ x"
-      "❌ implication does not hold: (x ≡ x) ⇒ (x ≡ y)" ]
+      $"❌ counter-example found: false"
+      $"assuming: x ≡ x"
+      $"to conclude: x ≡ y" ]
 
   proof {
     theorem "x ≡ y" (x === y)

@@ -50,17 +50,7 @@ let printToResult (n: Inspection) = n |> print |> _.calc |> Ok
 let calculationSummary (calc: Core.CheckedCalculation) =
   let theoremName = calc.calculation.demonstrandum.identifier
 
-  let failed =
-    calc.error
-    |> Option.map (function
-      | Core.FailedSteps xs -> xs |> List.map (fun (i, _, _) -> $"{i}") |> String.concat ", "
-      | Core.FailedParsing e -> $"{e}"
-      | Core.WrongEvidence(premise, consequence) ->
-        $"calculation reduces to: {premise}, but does not implies {consequence}"
-      | Core.InsufficientEvidence demonstrandum -> $"insufficient evidence for: {demonstrandum}"
-      | Core.RefutedFormula demonstrandum -> $"refuted formula {demonstrandum}")
-    |> Option.map (fun s -> error "failed" s)
-    |> Option.toList
+  let failed = printCalculationError calc
 
   let ok = if calc.error.IsNone then "✅" else "❌"
 
@@ -98,7 +88,7 @@ let findFailingProof (xs: list<unit -> Core.CheckedCalculation>) =
 
 let failIfNotProved (x: Inspection) =
   match x.calc.error with
-  | Some(Core.WrongEvidence(p, c)) -> failwith $"Wrong evidence: {p} doesn't imply {c}"
+  | Some(Core.WrongEvidence(counterExample, p, c)) -> failwith $"Counter-example found {counterExample}: {p} doesn't imply {c}"
   | Some e -> failwith $"{e}"
   | None -> ()
 
@@ -106,7 +96,7 @@ let stepPropAt (i: int) (n: Inspection) =
   (match List.tryItem i n.calc.calculation.steps with
    | Some s ->
      [ sectionBody "step proposition at" $"{i}"
-       (Core.stepImpliedByLaws s).ToString() ]
+       (Core.stepToProposition s).ToString() ]
    | None ->
      [ sectionBody "step at" $"{i}"
        error "out of range" $"0 ≤ {i} < {n.calc.calculation.steps.Length}" ])

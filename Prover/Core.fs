@@ -575,11 +575,11 @@ and CheckResult =
 and CalcError =
   | FailedParsing of ParseError
   | FailedSteps of list<int * Proposition * CheckResult>
-  | WrongEvidence of premise: Proposition * consequence: Proposition
-  | InsufficientEvidence of demonstrandum: Proposition
+  | WrongEvidence of counterExample:string * premise: Proposition list * consequence: Proposition
+  | InsufficientEvidence of assumptions: Proposition list * demonstrandum: Proposition
   | RefutedFormula of demonstrandum: Proposition
 
-let private stepToProposition (s: Step) =
+let internal stepToProposition (s: Step) =
   let boolStep (t: WExpr, u: WExpr) =
     try
       t :?> Proposition, u :?> Proposition
@@ -593,16 +593,15 @@ let private stepToProposition (s: Step) =
   | StepOperator.Implies -> (s.fromExp, s.toExp) |> boolStep |> Implies
   | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
 
-let internal stepImpliedByLaws (s: Step) =
-  let stepProp = stepToProposition s
+let internal checkAssuming (ctx: Context) (assumptions: Proposition list) (p: Proposition) =
+  let solver = ctx.MkSolver()
 
-  match s.laws with
-  | [] -> stepProp
-  | x :: xs ->
-    let lawsProp = xs |> List.map _.body |> List.fold (fun acc p -> And(acc, p)) x.body
-    Implies(lawsProp, stepProp)
+  assumptions
+  |> List.iter (fun l -> solver.Assert((l :> WExpr).toZ3Expr (ctx, Map.empty) :?> BoolExpr))
 
-let internal checkSolver (solver: Solver) exp =
+  let exp = ((p :> WExpr).toZ3Expr (ctx, Map.empty)) :?> BoolExpr
+  solver.Assert(ctx.MkNot exp)
+
   match solver.Check() with
   | Status.SATISFIABLE ->
     let r = solver.Model.Evaluate exp
@@ -611,38 +610,18 @@ let internal checkSolver (solver: Solver) exp =
   | Status.UNKNOWN -> Unknown
   | v -> failwith $"unexpected enum value {v}"
 
-let internal checkPredicate (ctx: Context) (p: Proposition) =
-  let solver = ctx.MkSolver()
-  match p with
-  | Implies(x,y) when x.IsQuantifier ->
-    let a = (x :> WExpr).toZ3Expr(ctx, Map.empty)
-    solver.Assert(a :?> BoolExpr)
-    let b = (y :> WExpr).toZ3Expr(ctx, Map.empty)
-    solver.Assert (ctx.MkNot (b :?> BoolExpr))
-    checkSolver solver b
-  | _ ->
-    let zp = p :> WExpr
-    let exp = zp.toZ3Expr (ctx, Map.empty) :?> BoolExpr
-    solver.Add(ctx.MkNot exp)
-    checkSolver solver exp
-  
+let internal checkStep (ctx: Context) (s: Step) =
+  let assumptions = s.laws |> List.map _.body
+  let stepProp = stepToProposition s
+  checkAssuming ctx assumptions stepProp
+
 let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Proposition) =
-  match steps with
-  | [] ->
-    match checkPredicate ctx demonstrandum with
-    | Proved -> Ok()
-    | Unknown -> Error(InsufficientEvidence demonstrandum)
-    | Refuted _ -> Error(RefutedFormula demonstrandum)
-  | x :: xs ->
-    let r =
-      xs
-      |> List.fold (fun acc x -> And(acc, stepToProposition x)) (stepToProposition x)
+  let assumptions = steps |> List.map stepToProposition
 
-    let evidence = Implies(r, demonstrandum)
-
-    match checkPredicate ctx evidence with
-    | Proved -> Ok()
-    | _ -> Error(WrongEvidence(r, demonstrandum))
+  match checkAssuming ctx assumptions demonstrandum with
+  | Proved -> Ok()
+  | Refuted counterExample -> Error(WrongEvidence(counterExample,assumptions, demonstrandum))
+  | Unknown -> Error(InsufficientEvidence(assumptions, demonstrandum))
 
 open FsToolkit.ErrorHandling
 
@@ -724,16 +703,16 @@ type CalculationCE() =
   member _.Run(xs: ProofLine list) =
     match buildBasic xs with
     | Ok calc ->
-      let ctx = new Context()
+      let cfg = System.Collections.Generic.Dictionary<string, string>()
+      cfg.Add("model", "true")
+      let ctx = new Context(cfg)
 
       let failed =
         calc.steps
         |> List.mapi (fun i s ->
-          let p = stepImpliedByLaws s
-
-          match checkPredicate ctx p with
+          match checkStep ctx s with
           | Proved -> []
-          | e -> [ i, p, e ])
+          | e -> [ i, stepToProposition s, e ])
         |> List.concat
 
       let error =
