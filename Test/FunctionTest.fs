@@ -79,6 +79,50 @@ let ``insert(5, ϵ) = [5]`` () =
   |> inspect
   |> failIfNotProved
 
+[<Fact>]
+let ``insert(5, xs) = 5::xs`` () =
+  let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
+  let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
+  let xs = ExtSeq(Var("xs", WSeq WInt))
+  let ins0 = ``∀`` [ n ] (insert (n, xs) = Cons(n, xs))
+  let five = Integer 5
+
+  proof {
+    lemma (insert (five, xs) = (five <. xs))
+    insert (five, xs)
+    ``==`` { ins0 }
+    five <. xs
+  }
+  |> inspect
+  |> failIfNotProved
+
+
+[<Fact>]
+let ``insert after first element`` () =
+  let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
+  let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
+
+  let xs = ExtSeq(Var("xs", WSeq WInt))
+
+  let ins2 =
+    ``∀`` [ n ] (len xs != zero <&&> (insert (n, xs) = (Head xs <. insert (n, Tail xs))))
+    |> axiom "ins2"
+
+  proof {
+    lemma (insert (zero, wList [ 1; 4; 6 ]) = (one <. insert (zero, wList [ 4; 6 ])))
+    insert (zero, wList [ 1; 4; 6 ])
+
+    ``==`` {
+      ins2
+      xs = wList [ 1; 4; 6 ]
+    }
+
+    one <. insert (zero, wList [ 4; 6 ])
+  }
+  |> inspect
+  |> summary
+  |> print
+
 
 [<Fact>]
 let ``insert function`` () =
@@ -103,29 +147,24 @@ let ``insert function`` () =
   let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
 
   let xs = ExtSeq(Var("xs", WSeq WInt))
-  let ys = ExtSeq(Var("ys", WSeq WInt))
-  let y = ExtSeq(Var("y", WInt))
-  let y' = mkIntVar "y"
+  let y = ExtInteger(Head xs)
   let five = Integer 5
 
-  let ins0 = ``∀`` [ n ] (insert (n, Empty WInt) = Cons(n, Empty WInt))
-
   let ins1 =
-    ``∀`` [ n; xs ] (xs = (y <. ys)) <&&> (n <= y') ==> (insert (n, xs) = (n <. xs))
-    |> axiom "ins1"
+    ``∀`` [ n ] ((n <= y) ==> (insert (n, xs) = (n <. xs))) |> axiom "ins1"
 
   let ins2 =
-    ``∀`` [ n; xs ] (xs = (y <. ys) <&&> (n > y') ==> (insert (n, xs) = (y <. insert (n, ys))))
+    ``∀`` [ n ] (len xs != zero <&&> (insert (n, xs) = (Head xs <. insert (n, Tail xs))))
     |> axiom "ins2"
 
   proof {
-    lemma (insert (five, wList [ 1; 4; 6 ]) = wList [ 1; 4; 5; 6 ])
-    insert (five, wList [ 1; 4; 5 ])
-    ``==`` { ins2 }
+    lemma (insert (five, wList [ 1; 4; 6 ]) = wList [ 1; 4; 5 ; 6 ])
+    insert (five, wList [ 1; 4; 6 ])
+    ``==`` { ins2; xs = wList [ 1; 4; 6 ] }
     one <. insert (five, wList [ 4; 6 ])
-    ``==`` { ins2 }
+    ``==`` { ins2; xs = wList [ 4;6 ]  }
     one <. (Integer 4 <. insert (five, wList [ 6 ]))
-    ``==`` { ins1 }
+    ``==`` { ins1; xs = wList [6] }
     wList [ 1; 4; 5; 6 ]
   }
   |> inspect

@@ -8,7 +8,7 @@ let mkSeqElem a = ExtSeq(Var(a, sortA))
 let mkSeq x = ExtSeq(Var(x, WSeq sortA))
 
 let wList (xs: int list) =
-  xs |> List.rev |> List.fold (fun acc x -> Cons(Integer x, acc)) (Empty WInt)
+  xs |> Seq.rev |> Seq.fold (fun acc x -> Cons(Integer x, acc)) (Empty WInt)
 
 let a, b = mkSeqElem "a", mkSeqElem "b"
 

@@ -12,7 +12,7 @@ open Microsoft.Z3
 // 4: = ≠ > < ≤ ≥
 // 5: + - × ÷
 // 6: # :: ++ ◁ ▷
-// 7: variables and other atoms like true, false, ∀, ∃, ϵ
+// 7: variables, function applications, and other atoms like true, false, ∀, ∃, ϵ
 
 type Symbol =
   { symbol: string
@@ -236,6 +236,8 @@ and Proposition =
         match p with
         | Empty _ -> [], []
         | ExtSeq m -> loop m
+        | Head m
+        | Tail m
         | Length m -> loop m
         | Cons(l, r) ->
           let _, rl = loop l
@@ -391,6 +393,8 @@ and Sequence =
   | Prefix of Sequence * Sequence
   | Suffix of Sequence * Sequence
   | Length of Sequence
+  | Head of Sequence
+  | Tail of Sequence
 
   override this.ToString() : string =
     (this :> WExpr).toSymbolTree().ToString()
@@ -417,6 +421,12 @@ and Sequence =
       | Suffix(xs, ys) ->
         { node = nonVarSymbol "▷" 6
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
+      | Head xs ->
+        { node = nonVarSymbol "head" 7
+          children = [ (xs :> WExpr).toSymbolTree () ] }
+      | Tail xs ->
+        { node = nonVarSymbol "tail" 7
+          children = [ (xs :> WExpr).toSymbolTree () ] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toSeqExpr (x: WExpr) = x.toZ3Expr (ctx, boundVars) :?> SeqExpr
@@ -435,7 +445,12 @@ and Sequence =
       | Suffix(xs, ys) -> ctx.MkSuffixOf(toSeqExpr xs, toSeqExpr ys)
       | Prefix(xs, ys) -> ctx.MkPrefixOf(toSeqExpr xs, toSeqExpr ys)
       | Length xs -> ctx.MkLength(toSeqExpr xs)
-
+      | Head xs -> (toSeqExpr xs).Item(ctx.MkInt 0)
+      | Tail xs ->
+        let xs = toSeqExpr xs
+        let one = ctx.MkInt 1 :> IntExpr
+        let tailLength = ctx.MkSub(ctx.MkLength xs, ctx.MkInt 1) :?> IntExpr
+        ctx.MkExtract(xs, one, tailLength)
 
 and WSort =
   | WInt
