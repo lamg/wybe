@@ -54,13 +54,12 @@ let ``inspect hint`` () =
 [<Fact>]
 let ``proof of true summary`` () =
   let expected =
-    [ ColorMessages.section "summary"
-      ColorMessages.info "demonstrandum" "true"
+    [ ColorMessages.section "proof"
+      ColorMessages.info "  theorem" "true ✅"
       "  x ≡ y ≡ y ≡ x"
       "≡ {  }"
       "  true"
-      "▢"
-      ColorMessages.info "✅ theorem" "true theorem" ]
+      ColorMessages.section "▢" ]
 
   trueTheorem () |> inspect |> summary |> accEqual expected
 
@@ -68,18 +67,17 @@ let ``proof of true summary`` () =
 let ``failed proof summary`` () =
 
   let expected =
-    [ ColorMessages.section "summary"
-      ColorMessages.info "demonstrandum" "x ≡ y"
+    [ ColorMessages.section "proof"
+      ColorMessages.info "  theorem" "x ≡ y ❌"
       "  x"
       "≡ {  }"
       "  y"
       "≡ {  }"
       "  z"
-      "▢"
-      ColorMessages.info "❌ theorem" "x ≡ y"
-      ColorMessages.error "failed steps"  ""
+      ColorMessages.section "▢"
+      ColorMessages.error "failed steps" ""
       "0: x ≡ y | Refuted \"false\""
-      "1: y ≡ z | Refuted \"false\""]
+      "1: y ≡ z | Refuted \"false\"" ]
 
   proof {
     theorem "x ≡ y" (x === y)
@@ -162,13 +160,12 @@ let ``testing De Morgan's law`` () =
   let ``De Morgan`` = GriesSchneider.PredicateCalculus.``De Morgan``
 
   let expected =
-    [ ColorMessages.section "summary"
-      ColorMessages.info "demonstrandum" "¬⟨∀x → x ∧ x⟩ ≡ ⟨∃x → ¬x⟩"
+    [ ColorMessages.section "proof"
+      ColorMessages.info "  theorem" "¬⟨∀x → x ∧ x⟩ ≡ ⟨∃x → ¬x⟩ ✅"
       "  ¬⟨∀x → x ∧ x⟩"
       "≡ { De Morgan }"
       "  ⟨∃x → ¬x⟩"
-      "▢"
-      ColorMessages.info "✅ theorem" "testing ∀ and ∃" ]
+      ColorMessages.section "▢" ]
 
   let testFormula = !(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x
 

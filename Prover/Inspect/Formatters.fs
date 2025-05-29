@@ -34,21 +34,20 @@ let printCalculation (calc: Calculation) =
     header :: (first @ nextSteps @ lastStep)
 
 let printCheckedCalculation (calc: CheckedCalculation) =
-
   let c = calc.calculation
-
-  let header = info "demonstrandum" (c.demonstrandum.body.ToString())
-
+  let header = section "proof"
+  let ok = if calc.error.IsNone then "✅" else "❌"
+  let theorem = info "  theorem" $"{c.demonstrandum.body} {ok}"
   match c.steps with
-  | [] -> [ "▢" ]
+  | [] -> [ header; theorem; section "▢" ]
   | x :: xs ->
     let first = printStep x
 
     let nextSteps = xs |> List.collect (fun x -> [ printHint x; $"  {x.toExp}" ])
 
-    let lastStep = [ "▢" ]
-
-    header :: (first @ nextSteps @ lastStep)
+    let lastStep = [ section "▢" ]
+    
+    header :: theorem :: (first @ nextSteps @ lastStep)
 
 let printCalculationError (calc: CheckedCalculation) =
   match calc.error with

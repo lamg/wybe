@@ -48,15 +48,9 @@ let printAndClear (n: Inspection) =
 let printToResult (n: Inspection) = n |> print |> _.calc |> Ok
 
 let calculationSummary (calc: Core.CheckedCalculation) =
-  let theoremName = calc.calculation.demonstrandum.identifier
-
   let failed = printCalculationError calc
-
-  let ok = if calc.error.IsNone then "✅" else "❌"
-
-  let calculation = section "summary" :: printCheckedCalculation calc
-
-  calculation @ [ info $"{ok} theorem" theoremName ] @ failed
+  let calculation = printCheckedCalculation calc
+  calculation @ failed
 
 let summary (n: Inspection) =
   n.calc |> calculationSummary |> addLines n

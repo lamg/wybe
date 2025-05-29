@@ -168,6 +168,5 @@ let ``insert function`` () =
     wList [ 1; 4; 5; 6 ]
   }
   |> inspect
-  |> stepPropAt 0
   |> summary
   |> print
