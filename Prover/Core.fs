@@ -267,8 +267,8 @@ and Proposition =
             | _ -> None)
 
         match exps with
-        | [] -> [], []
-        | _ -> [], [ decl.Apply(List.toArray exps) ]
+        | _ when exps.Length = signArgs.Length -> [], [ decl.Apply(List.toArray exps) ]
+        | _ -> [], []
       | _ -> [], []
 
     loop e
@@ -613,10 +613,18 @@ let internal checkSolver (solver: Solver) exp =
 
 let internal checkPredicate (ctx: Context) (p: Proposition) =
   let solver = ctx.MkSolver()
-  let zp = p :> WExpr
-  let exp = zp.toZ3Expr (ctx, Map.empty) :?> BoolExpr
-  solver.Add(ctx.MkNot exp)
-  checkSolver solver exp
+  match p with
+  | Implies(x,y) when x.IsQuantifier ->
+    let a = (x :> WExpr).toZ3Expr(ctx, Map.empty)
+    solver.Assert(a :?> BoolExpr)
+    let b = (y :> WExpr).toZ3Expr(ctx, Map.empty)
+    solver.Assert (ctx.MkNot (b :?> BoolExpr))
+    checkSolver solver b
+  | _ ->
+    let zp = p :> WExpr
+    let exp = zp.toZ3Expr (ctx, Map.empty) :?> BoolExpr
+    solver.Add(ctx.MkNot exp)
+    checkSolver solver exp
   
 let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (demonstrandum: Proposition) =
   match steps with
