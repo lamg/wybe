@@ -351,9 +351,6 @@ and Proposition =
       | Implies(left, right) -> ctx.MkImplies(toExp left, toExp right)
       | Follows(left, right) -> ctx.MkImplies(toExp right, toExp left)
       | Quantifier(q, vars, body) ->
-        let z3Body = (body :> WExpr).toZ3Expr (ctx, boundVars)
-        let z3Vars = vars |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
-
         let rec mkBoundExpr i (v: WExpr) =
           match v with
           | :? Var as v ->
@@ -373,13 +370,14 @@ and Proposition =
             | _ -> failwith $"only variables are allowed in quantifier variable section, got {n}"
           | _ -> failwith $"only variables are allowed in quantifier variable section, got {v}"
 
+        let z3Vars = vars |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
         let boundVars =
           vars
           |> List.mapi mkBoundExpr
           |> List.fold (fun m (k, v) -> Map.add k v m) boundVars
 
+        let z3Body = (body :> WExpr).toZ3Expr (ctx, boundVars)
         let patterns = Proposition.extractPatternFromRecurrence (ctx, boundVars, body)
-
 
         match q with
         | Forall -> ctx.MkForall(z3Vars, body = z3Body, patterns = patterns)
@@ -544,7 +542,6 @@ and FnApp =
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
       let (App(f, args)) = this
       let z3Args = args |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
-
       let funcDecl = f.toZ3FnDecl ctx
       funcDecl.Apply z3Args
 
@@ -590,7 +587,7 @@ and CheckResult =
 and CalcError =
   | FailedParsing of ParseError
   | FailedSteps of list<int * Proposition * CheckResult>
-  | WrongEvidence of counterExample:string * premise: Proposition list * consequence: Proposition
+  | WrongEvidence of counterExample: string * premise: Proposition list * consequence: Proposition
   | InsufficientEvidence of assumptions: Proposition list * demonstrandum: Proposition
   | RefutedFormula of demonstrandum: Proposition
 
@@ -635,7 +632,7 @@ let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (de
 
   match checkAssuming ctx assumptions demonstrandum with
   | Proved -> Ok()
-  | Refuted counterExample -> Error(WrongEvidence(counterExample,assumptions, demonstrandum))
+  | Refuted counterExample -> Error(WrongEvidence(counterExample, assumptions, demonstrandum))
   | Unknown -> Error(InsufficientEvidence(assumptions, demonstrandum))
 
 open FsToolkit.ErrorHandling

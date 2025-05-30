@@ -105,7 +105,7 @@ let ``insert after first element`` () =
   let xs = ExtSeq(Var("xs", WSeq WInt))
 
   let ins2 =
-    ``∀`` [ n ] (len xs != zero <&&> (insert (n, xs) = (Head xs <. insert (n, Tail xs))))
+    ``∀`` [ n; xs ] (len xs != zero <&&> (insert (n, xs) = (Head xs <. insert (n, Tail xs))))
     |> axiom "ins2"
 
   proof {
@@ -114,15 +114,13 @@ let ``insert after first element`` () =
 
     ``==`` {
       ins2
-      xs = wList [ 1; 4; 6 ]
+    //xs = wList [ 1; 4; 6 ] // is the pattern failing to instantiate xs?
     }
 
     one <. insert (zero, wList [ 4; 6 ])
   }
   |> inspect
-  |> summary
-  |> print
-
+  |> failIfNotProved
 
 [<Fact>]
 let ``insert function`` () =
@@ -151,22 +149,24 @@ let ``insert function`` () =
   let five = Integer 5
 
   let ins1 =
-    ``∀`` [ n ] ((n <= y) ==> (insert (n, xs) = (n <. xs))) |> axiom "ins1"
+    ``∀`` [ n; xs ] ((n <= y) ==> (insert (n, xs) = (n <. xs))) |> axiom "ins1"
 
   let ins2 =
-    ``∀`` [ n ] (len xs != zero <&&> (insert (n, xs) = (Head xs <. insert (n, Tail xs))))
+    ``∀``
+      [ n; xs ]
+      (Length xs != zero <&&> (n > y)
+       ==> (insert (n, xs) = (Head xs <. insert (n, Tail xs))))
     |> axiom "ins2"
 
   proof {
-    lemma (insert (five, wList [ 1; 4; 6 ]) = wList [ 1; 4; 5 ; 6 ])
+    lemma (insert (five, wList [ 1; 4; 6 ]) = wList [ 1; 4; 5; 6 ])
     insert (five, wList [ 1; 4; 6 ])
-    ``==`` { ins2; xs = wList [ 1; 4; 6 ] }
+    ``==`` { ins2 }
     one <. insert (five, wList [ 4; 6 ])
-    ``==`` { ins2; xs = wList [ 4;6 ]  }
+    ``==`` { ins2 }
     one <. (Integer 4 <. insert (five, wList [ 6 ]))
-    ``==`` { ins1; xs = wList [6] }
+    ``==`` { ins1 }
     wList [ 1; 4; 5; 6 ]
   }
   |> inspect
-  |> summary
-  |> print
+  |> failIfNotProved
