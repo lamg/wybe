@@ -10,6 +10,7 @@
     <PackageVersion Include="FParsec" Version="1.1.1" />
     <PackageVersion Include="FSharp.Compiler.Service" Version="43.9.300" />
     <PackageVersion Include="FSharp.Core" Version="9.0.100" />
+    <PackageVersion Include="FSharp.TypeProviders.SDK" Version="8.1.0" />
     <PackageVersion Include="FSharpPlus" Version="1.7.0" />
   </ItemGroup>
   <ItemGroup>

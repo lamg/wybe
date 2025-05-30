@@ -23,6 +23,8 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Core.fs" />
+
+    <!-- FsDefinitions depends on GriesSchneider modules, so compile it after those -->
     <Compile Include="Inspect\ColorMessages.fs" />
     <Compile Include="Inspect\Formatters.fs" />
     <Compile Include="Inspect\Inspect.fs" />
@@ -30,6 +32,7 @@
     <Compile Include="GriesSchneider\Integers.fs" />
     <Compile Include="GriesSchneider\Sequences.fs" />
     <Compile Include="GriesSchneider\Functions.fs" />
+    <Compile Include="FsDefinitions.fs" />
 
     
     <Content Include="..\README.md" Pack="true" PackagePath="\" />
@@ -37,6 +40,8 @@
   </ItemGroup>
   
   <ItemGroup>
+    <PackageReference Include="FSharp.Compiler.Service" />
+    <PackageReference Include="FSharp.TypeProviders.SDK" />
     <PackageReference Include="FsToolkit.ErrorHandling" />
     <PackageReference Include="Microsoft.Z3" />
 

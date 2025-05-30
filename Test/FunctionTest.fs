@@ -129,18 +129,7 @@ let ``insert function`` () =
   //  | [] -> [ n ]
   //  | x :: xs when n <= x -> n :: x :: xs
   //  | x :: xs -> x :: insert n xs
-  //
-  //  insert 5 [1; 4; 6]
-  // = { insert.branch.2 }
-  //  1 :: insert 5 [4;6]
-  // = { insert.branch.2 }
-  //  1 :: 4 :: insert 5 [6]
-  // = { insert.branch.1 }
-  //  1 :: 4 :: 5 :: 6 :: []
-  // = { cons operator }
-  //  [1; 4; 5; 6]
-
-
+  
   let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
   let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
 
@@ -148,10 +137,11 @@ let ``insert function`` () =
   let y = ExtInteger(Head xs)
   let five = Integer 5
 
-  let ins1 =
-    ``∀`` [ n; xs ] ((n <= y) ==> (insert (n, xs) = (n <. xs))) |> axiom "ins1"
+  let branch1 =
+    ``∀`` [ n; xs ] (Length xs != zero <&&> (n <= y) ==> (insert (n, xs) = (n <. xs)))
+    |> axiom "ins1"
 
-  let ins2 =
+  let branch2 =
     ``∀``
       [ n; xs ]
       (Length xs != zero <&&> (n > y)
@@ -161,11 +151,11 @@ let ``insert function`` () =
   proof {
     lemma (insert (five, wList [ 1; 4; 6 ]) = wList [ 1; 4; 5; 6 ])
     insert (five, wList [ 1; 4; 6 ])
-    ``==`` { ins2 }
+    ``==`` { branch2 }
     one <. insert (five, wList [ 4; 6 ])
-    ``==`` { ins2 }
+    ``==`` { branch2 }
     one <. (Integer 4 <. insert (five, wList [ 6 ]))
-    ``==`` { ins1 }
+    ``==`` { branch1 }
     wList [ 1; 4; 5; 6 ]
   }
   |> inspect

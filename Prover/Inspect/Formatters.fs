@@ -29,7 +29,7 @@ let printCalculation (calc: Calculation) =
 
     let nextSteps = xs |> List.collect (fun x -> [ printHint x; $"  {x.toExp}" ])
 
-    let lastStep = [ "▢" ]
+    let lastStep = [ "▢" ] // \squoval character
 
     header :: (first @ nextSteps @ lastStep)
 

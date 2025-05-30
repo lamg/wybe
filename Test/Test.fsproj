@@ -15,6 +15,7 @@
     <Compile Include="IntegersTest.fs" />
     <Compile Include="SequenceTest.fs" />
     <Compile Include="FunctionTest.fs" />
+    <Compile Include="FsDefinitionsTest.fs" />
 
     <Compile Include="Program.fs" />
   </ItemGroup>
