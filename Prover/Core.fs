@@ -3,8 +3,14 @@ module Core
 open Microsoft.Z3
 #nowarn 86
 
+// This module allows the expression of properties about boolean, integers, sequences and functions
+// this is implemented by the types that implement the WExpr interface (Proposition, Integer,
+// Sequence, FnApp and Var).
+// The type Proposition acts like the glue for putting together properties involving the remaining types
+// The Proposition.ExtBoolOp union case allows to put any type implementing WExpr inside a boolean expression
 
-// precedence of operators
+// The SymbolTree type allows to build string representations of any WExpr instance
+// precedence of operators used in string representations
 // 0: ≡ ≢
 // 1: ⇒  ⇐
 // 2: ∧ ∨
@@ -13,6 +19,21 @@ open Microsoft.Z3
 // 5: + - × ÷
 // 6: # :: ++ ◁ ▷
 // 7: variables, function applications, and other atoms like true, false, ∀, ∃, ϵ
+
+// This module also allows the expression of proofs involving formulas that are instances of WExpr
+// This is implemented by CalculationCE and LawsCE
+
+// Proofs are checked by checking all the steps one by one, and if that works then
+// in a context where all the steps are considered true, the demonstrandum is checked
+
+// Checking a step is done by getting its Z3 equivalent and checking it. A proof step like:
+// X
+// = { law }
+// Y
+// is checked by adding `law.toZ3Expr()` as Z3 constraint and checking `(X = Y).toZ3Expr`
+
+// Checking the whole proof is done by adding the steps formulas as Z3 constraints, like  `X = Y`
+// and then cheking in the same Z3 context `¬(demonstrandum.toZ3Expr())`
 
 type Symbol =
   { symbol: string
