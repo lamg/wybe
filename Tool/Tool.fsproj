@@ -25,10 +25,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Types.fs" />
-    <Compile Include="RustParser.fs" />
-    <Compile Include="Emitter.fs" />
-    <Compile Include="Runner.fs" />
     <Compile Include="Program.fs" />
     <Content Include="..\README.md" Pack="true" PackagePath="\" />
     <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
@@ -45,7 +41,6 @@
   
   <ItemGroup>
     <ProjectReference Include="..\Parsers\RustParserCs\RustParserCs.csproj" />
-    <ProjectReference Include="..\Prover\Prover.fsproj" />
   </ItemGroup>
 
 </Project>
