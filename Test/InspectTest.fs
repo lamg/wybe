@@ -4,6 +4,7 @@ open Inspect
 open Core
 open Xunit
 open FsUnit
+open GriesSchneider
 
 
 let accEqual (expected: string list) (n: Inspection) =
@@ -28,8 +29,8 @@ let trueTheorem () =
 [<Fact>]
 let ``inspect a calculation`` () =
   let expected =
-    [ ColorMessages.section "calculation"
-      ColorMessages.info "demonstrandum" "true"
+    [ section "calculation"
+      info "demonstrandum" "true"
       "  x ≡ y ≡ y ≡ x"
       "≡ {  }"
       "  true"
@@ -46,7 +47,7 @@ let ``inspect a step`` () =
 
 [<Fact>]
 let ``inspect hint`` () =
-  let expected = [ ColorMessages.sectionBody "hint at 0" "≡ {  }" ]
+  let expected = [ sectionBody "hint at 0" "≡ {  }" ]
 
   trueTheorem () |> inspect |> hintAt 0 |> accEqual expected
 
@@ -54,12 +55,12 @@ let ``inspect hint`` () =
 [<Fact>]
 let ``proof of true summary`` () =
   let expected =
-    [ ColorMessages.section "proof"
-      ColorMessages.info "  theorem" "true ✅"
+    [ section "proof"
+      info "  theorem" "true ✅"
       "  x ≡ y ≡ y ≡ x"
       "≡ {  }"
       "  true"
-      ColorMessages.section "▢" ]
+      section "▢" ]
 
   trueTheorem () |> inspect |> summary |> accEqual expected
 
@@ -67,15 +68,15 @@ let ``proof of true summary`` () =
 let ``failed proof summary`` () =
 
   let expected =
-    [ ColorMessages.section "proof"
-      ColorMessages.info "  theorem" "x ≡ y ❌"
+    [ section "proof"
+      info "  theorem" "x ≡ y ❌"
       "  x"
       "≡ {  }"
       "  y"
       "≡ {  }"
       "  z"
-      ColorMessages.section "▢"
-      ColorMessages.error "failed steps" ""
+      section "▢"
+      error "failed steps" ""
       "0: x ≡ y | Refuted \"false\""
       "1: y ≡ z | Refuted \"false\"" ]
 
@@ -94,8 +95,8 @@ let ``failed proof summary`` () =
 [<Fact>]
 let ``out of bounds step`` () =
   let expected =
-    [ ColorMessages.sectionBody "step at" "19"
-      ColorMessages.error "out of range" "0 ≤ 19 < 1" ]
+    [ sectionBody "step at" "19"
+      error "out of range" "0 ≤ 19 < 1" ]
 
   trueTheorem () |> inspect |> stepAt 19 |> accEqual expected
 
@@ -120,7 +121,7 @@ let ``print predicates`` () =
 [<Fact>]
 let ``inspect calculation steps with error`` () =
   let expected =
-    [ ColorMessages.error "failed steps" ""
+    [ error "failed steps" ""
       "0: x ≡ y | Refuted \"false\""
       "1: y ≡ z | Refuted \"false\"" ]
 
@@ -140,7 +141,7 @@ let ``inspect calculation steps with error`` () =
 [<Fact>]
 let ``inspect calculation with wrong evidence`` () =
   let expected =
-    [ ColorMessages.error "invalid evidence" ""
+    [ error "invalid evidence" ""
       $"❌ counter-example found: false"
       $"assuming: x ≡ x"
       $"to conclude: x ≡ y" ]
@@ -157,15 +158,14 @@ let ``inspect calculation with wrong evidence`` () =
 
 [<Fact>]
 let ``testing De Morgan's law`` () =
-  let ``De Morgan`` = GriesSchneider.PredicateCalculus.``De Morgan``
 
   let expected =
-    [ ColorMessages.section "proof"
-      ColorMessages.info "  theorem" "¬⟨∀x → x ∧ x⟩ ≡ ⟨∃x → ¬x⟩ ✅"
+    [ section "proof"
+      info "  theorem" "¬⟨∀x → x ∧ x⟩ ≡ ⟨∃x → ¬x⟩ ✅"
       "  ¬⟨∀x → x ∧ x⟩"
       "≡ { De Morgan }"
       "  ⟨∃x → ¬x⟩"
-      ColorMessages.section "▢" ]
+      section "▢" ]
 
   let testFormula = !(``∀`` [ x ] (x <&&> x)) === ``∃`` [ x ] !x
 

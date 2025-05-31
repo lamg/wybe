@@ -2,7 +2,7 @@ module IntegerTests
 
 open Xunit
 open Core
-open GriesSchneider.Integers
+open GriesSchneider
 
 [<Fact>]
 let ``check integer theorems`` () =
@@ -18,14 +18,14 @@ let ``check integer theorems`` () =
 
 [<Fact>]
 let ``integer string representation`` () =
-  [ x + y, "x + y"
-    -x, "-x"
-    x - y, "x - y"
-    x * y, "x × y"
-    x / y, "x ÷ y"
-    IsDivisor(x, y), "x ∣ y"
-    Exceeds(x, y), "x > y"
-    AtLeast(x, y), "x ≥ y"
-    LessThan(x, y), "x < y"
-    AtMost(x, y), "x ≤ y" ]
-  |> List.iter (fun (x, s) -> Assert.Equal(s, x.ToString()))
+  [ n + m, "n + m"
+    -n, "-n"
+    n - m, "n - m"
+    n * m, "n × m"
+    n / m, "n ÷ m"
+    IsDivisor(n, m), "n ∣ m"
+    Exceeds(n, m), "n > m"
+    AtLeast(n, m), "n ≥ m"
+    LessThan(n, m), "n < m"
+    AtMost(n, m), "n ≤ m" ]
+  |> List.iter (fun (n, s) -> Assert.Equal(s, n.ToString()))

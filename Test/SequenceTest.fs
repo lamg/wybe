@@ -3,8 +3,7 @@ module SequenceTest
 open Xunit
 open Core
 open Inspect
-open GriesSchneider.Integers
-open GriesSchneider.Sequences
+open GriesSchneider
 
 [<Fact>]
 let ``sequence theorems`` () =
@@ -35,10 +34,10 @@ let ``sequence tail`` () =
 let ``sequences string representation`` () =
 
   [ Cons(a, Cons(a, ``ϵ``)), "a :: a :: ϵ" // Latex \epsilon
-    Length x, "#x"
-    Prefix(a, x), "a ◁ x" // Latex \triangleleft
-    Suffix(a, x), "a ▷ x" // Latex \triangleright
-    Concat(x, y), "x ++ y"
-    Tail x, "tail(x)"
-    Head x, "head(x)" ]
+    Length xs, "#xs"
+    Prefix(a, xs), "a ◁ xs" // Latex \triangleleft
+    Suffix(a, xs), "a ▷ xs" // Latex \triangleright
+    Concat(xs, ys), "xs ++ ys"
+    Tail xs, "tail(xs)"
+    Head xs, "head(xs)" ]
   |> List.iter (fun (x, s) -> Assert.Equal(s, x.ToString()))

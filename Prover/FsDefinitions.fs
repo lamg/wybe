@@ -56,7 +56,7 @@ open GriesSchneider
 let (=) = FSharp.Core.Operators.(=)
 
 /// Retrieves the specified branch proposition for a function (currently only "insert").
-let internal getBranch (projectFile: string) (_moduleName: string) (functionName: string) (branchIdx: int) =
+let getBranch (projectFile: string) (_moduleName: string) (functionName: string) (branchIdx: int) =
   if functionName = "insert" then
     let insertFn = Core.Fn("insert", [ Core.WInt; Core.WSeq sortA ])
     let call = Core.App(insertFn, [ n; xs ])
@@ -88,16 +88,16 @@ let internal getBranch (projectFile: string) (_moduleName: string) (functionName
     failwithf "function %s not supported" functionName
 
 /// Runtime helper for module access.
-let internal getModule (_projectFile: string) (_moduleName: string) : obj = new obj ()
+let getModule (_projectFile: string) (_moduleName: string) : obj = new obj ()
 
 /// Runtime helper for function access.
-let internal getFunction (_projectFile: string) (_moduleName: string) (functionName: string) : obj = new obj ()
+let getFunction (_projectFile: string) (_moduleName: string) (functionName: string) : obj = new obj ()
 
 let ns = "FsDefinitions"
 let asm = Assembly.GetExecutingAssembly()
 let providedType = ProvidedTypeDefinition(asm, ns, "FromProject", Some typeof<obj>)
 
-[<TypeProvider>]
+// [<TypeProvider>] // disabled: no compile-time type provider in Prover assembly
 type FromProjectTypeProvider(config: TypeProviderConfig) as this =
   inherit TypeProviderForNamespaces(config, ns, [ providedType ], sourceAssemblies = [ asm ])
 
@@ -145,5 +145,3 @@ type FromProjectTypeProvider(config: TypeProviderConfig) as this =
 
   do this.AddNamespace(ns, [ providedType ])
 
-[<TypeProviderAssembly>]
-do ()

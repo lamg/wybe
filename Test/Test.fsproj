@@ -11,7 +11,6 @@
     <Compile Include="InspectTest.fs" />
     <Compile Include="PredicateCalculusTest.fs" />
     <Compile Include="Z3Test.fs" />
-    <Compile Include="Extractor.fs" />
     <Compile Include="IntegersTest.fs" />
     <Compile Include="SequenceTest.fs" />
     <Compile Include="FunctionTest.fs" />
@@ -33,7 +32,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Prover\Prover.fsproj" />
-    <ProjectReference Include="..\Tool\Tool.fsproj" />
     <ProjectReference Include="..\Parsers\RustParserCs\RustParserCs.csproj" />
   </ItemGroup>
 </Project>

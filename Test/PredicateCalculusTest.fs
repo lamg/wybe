@@ -1,7 +1,7 @@
 module PredicateCalculusTest
 
 open Xunit
-open GriesSchneider.PredicateCalculus
+open GriesSchneider
 open Inspect
 
 [<Fact>]

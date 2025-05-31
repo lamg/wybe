@@ -3,9 +3,7 @@ module FunctionTest
 open Xunit
 open Core
 open Inspect
-open GriesSchneider.Functions
-open GriesSchneider.Integers
-open GriesSchneider.Sequences
+open GriesSchneider
 
 [<Fact>]
 let ``test fibonacci function`` () =

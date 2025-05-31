@@ -3,8 +3,8 @@ module Z3Test
 open Xunit
 open FsUnit
 open Core
+open GriesSchneider
 
-let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 
 [<Fact>]
 let ``check implication`` () =
