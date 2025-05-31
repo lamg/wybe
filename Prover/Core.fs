@@ -791,3 +791,5 @@ let ``≡`` = LawsCE StepOperator.Equiv
 let ``⇒`` = LawsCE StepOperator.Implies
 
 let ``⇐`` = LawsCE StepOperator.Follows
+
+let ``==`` = LawsCE StepOperator.Equals

@@ -49,7 +49,6 @@ let lemma pred =
 /// this would make the proofs look closer to syntax we are used to
 let (=) x y = Equals(x, y)
 let (!=) x y = Differs(x, y)
-let ``==`` = LawsCE StepOperator.Equals
 
 let mkBoolVar n = ExtBoolOp(Var(n, WBool))
 
