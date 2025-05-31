@@ -391,6 +391,7 @@ and Proposition =
           | _ -> failwith $"only variables are allowed in quantifier variable section, got {v}"
 
         let z3Vars = vars |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
+
         let boundVars =
           vars
           |> List.mapi mkBoundExpr

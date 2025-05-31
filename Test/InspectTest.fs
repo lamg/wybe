@@ -94,9 +94,7 @@ let ``failed proof summary`` () =
 
 [<Fact>]
 let ``out of bounds step`` () =
-  let expected =
-    [ sectionBody "step at" "19"
-      error "out of range" "0 ≤ 19 < 1" ]
+  let expected = [ sectionBody "step at" "19"; error "out of range" "0 ≤ 19 < 1" ]
 
   trueTheorem () |> inspect |> stepAt 19 |> accEqual expected
 

@@ -127,7 +127,7 @@ let ``insert function`` () =
   //  | [] -> [ n ]
   //  | x :: xs when n <= x -> n :: x :: xs
   //  | x :: xs -> x :: insert n xs
-  
+
   let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
   let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
 

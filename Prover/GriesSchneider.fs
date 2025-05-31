@@ -130,17 +130,10 @@ let ``mutual interchangeability`` () =
 // GS 3.4 Disjunction
 
 let ``∨ zero`` () =
-
-  proof {
-    theorem "∨ zero" (x <||> True === True)
-
-  }
+  proof { theorem "∨ zero" (x <||> True === True) }
 
 let ``∨ identity`` () =
-  proof {
-    theorem "∨ identity" (x <||> False === x)
-
-  }
+  proof { theorem "∨ identity" (x <||> False === x) }
 
 let ``∨ over ∨`` () =
   proof { theorem "∨ over ∨" (x <||> (y <||> z) === (x <||> y <||> (x <||> z))) }
@@ -265,7 +258,8 @@ let ``non empty`` = a <. xs != ``ϵ``
 
 let equality = a <. xs = (b <. ys) === (a = b <&&> (xs = ys)) |> axiom "equality"
 
-let ``GS 13.7`` () = proof { theorem "GS 13.7" (a <. xs != xs) }
+let ``GS 13.7`` () =
+  proof { theorem "GS 13.7" (a <. xs != xs) }
 
 let ``length of ϵ`` = len ``ϵ`` = zero |> axiom "length of ϵ"
 
@@ -276,14 +270,17 @@ let ``length of concat`` () =
 
 // Functions
 
+/// fibonacci function
 let fib (x: WExpr) =
   let declFib = Fn("fib", [ WInt; WInt ])
   ExtInteger(App(declFib, [ x ]))
 
 let fibProp = ``∀`` [ n ] (n >= zero <&&> (fib (n + 2) = fib n + fib (n + 1)))
 
-let declFact = Fn("fact", [ WInt; WInt ])
-let fact (x: WExpr) = ExtInteger(App(declFact, [ x ]))
+/// factorial function
+let fact (x: WExpr) =
+  let declFact = Fn("fact", [ WInt; WInt ])
+  ExtInteger(App(declFact, [ x ]))
 
 let factProp =
   ``∀`` [ n ] (n >= zero <&&> (fact (n + 1) = fact n * (n + 1)) <&&> (fact zero = one))

@@ -70,6 +70,7 @@ let printCheckedCalculation (calc: CheckedCalculation) =
   let header = section "proof"
   let ok = if calc.error.IsNone then "✅" else "❌"
   let theorem = info "  theorem" $"{c.demonstrandum.body} {ok}"
+
   match c.steps with
   | [] -> [ header; theorem; section "▢" ]
   | x :: xs ->
@@ -78,7 +79,7 @@ let printCheckedCalculation (calc: CheckedCalculation) =
     let nextSteps = xs |> List.collect (fun x -> [ printHint x; $"  {x.toExp}" ])
 
     let lastStep = [ section "▢" ]
-    
+
     header :: theorem :: (first @ nextSteps @ lastStep)
 
 let printCalculationError (calc: CheckedCalculation) =
@@ -180,7 +181,8 @@ let findFailingProof (xs: list<unit -> Core.CheckedCalculation>) =
 
 let failIfNotProved (x: Inspection) =
   match x.calc.error with
-  | Some(Core.WrongEvidence(counterExample, p, c)) -> failwith $"Counter-example found {counterExample}: {p} doesn't imply {c}"
+  | Some(Core.WrongEvidence(counterExample, p, c)) ->
+    failwith $"Counter-example found {counterExample}: {p} doesn't imply {c}"
   | Some e -> failwith $"{e}"
   | None -> ()
 

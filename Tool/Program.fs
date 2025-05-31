@@ -68,8 +68,8 @@ let main args =
   try
     match true with
     | _ when results.Contains Version -> version ()
-//  | _ when results.Contains Extract -> <@ Extract @> |> results.TryGetResult |> _.Value |> extract
-//    | _ when results.Contains Check -> <@ Check @> |> results.TryGetResult |> _.Value |> check
+    //  | _ when results.Contains Extract -> <@ Extract @> |> results.TryGetResult |> _.Value |> extract
+    //    | _ when results.Contains Check -> <@ Check @> |> results.TryGetResult |> _.Value |> check
     | _ ->
       eprintfn "unrecognized argument"
       1

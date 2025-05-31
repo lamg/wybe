@@ -47,101 +47,14 @@ open System
 open System.IO
 open System.Reflection
 open Microsoft.FSharp.Core.CompilerServices
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Text
+open FSharp.Compiler.Symbols
 open ProviderImplementation.ProvidedTypes
-//open FSharp.Compiler.SourceCodeServices
-//open FSharp.Compiler.Text
+open Core
+
 open GriesSchneider
 
-#nowarn 86
-let (=) = FSharp.Core.Operators.(=)
+let private checker = FSharpChecker.Create()
 
-/// Retrieves the specified branch proposition for a function (currently only "insert").
-let getBranch (projectFile: string) (_moduleName: string) (functionName: string) (branchIdx: int) =
-  if functionName = "insert" then
-    let insertFn = Core.Fn("insert", [ Core.WInt; Core.WSeq sortA ])
-    let call = Core.App(insertFn, [ n; xs ])
-
-    match branchIdx with
-    | 0 ->
-      // branch0: ⟨∀ n,xs → Length xs = 0 ⇒ insert n = [n]⟩
-      let cond = Core.Equals(Core.Length xs, zero)
-      let body = Core.Equals(call, Core.Cons(n, Core.Empty Core.WInt))
-      ``∀`` [ n; xs ] (cond ==> body)
-    | 1 ->
-      // branch1: ⟨∀ n,xs → Length xs > 0 ∧ n ≤ Head xs ⇒ insert(n,xs) = n :: xs⟩
-      let headX = Core.ExtInteger(Core.Head xs)
-      let cond = len xs > zero <&&> (n <= headX)
-      let body = Core.Equals(call, Core.Cons(n, xs))
-      ``∀`` [ n; xs ] (cond ==> body)
-    | 2 ->
-      // branch2: ⟨∀ n,xs → Length xs > 0 ∧ n > Head xs ⇒ Head xs :: insert n (Tail xs)⟩
-      let headX = Core.ExtInteger(Core.Head xs)
-      let tailX = Core.Tail xs
-
-      let body =
-        Core.Equals(call, Core.Cons(headX, Core.ExtSeq(Core.App(insertFn, [ n; tailX ]))))
-
-      let cond = len xs > zero <&&> (n > headX)
-      ``∀`` [ n; xs ] (cond ==> body)
-    | _ -> failwithf "branch %d not defined for function %s" branchIdx functionName
-  else
-    failwithf "function %s not supported" functionName
-
-/// Runtime helper for module access.
-let getModule (_projectFile: string) (_moduleName: string) : obj = new obj ()
-
-/// Runtime helper for function access.
-let getFunction (_projectFile: string) (_moduleName: string) (functionName: string) : obj = new obj ()
-
-let ns = "FsDefinitions"
-let asm = Assembly.GetExecutingAssembly()
-let providedType = ProvidedTypeDefinition(asm, ns, "FromProject", Some typeof<obj>)
-
-// [<TypeProvider>] // disabled: no compile-time type provider in Prover assembly
-type FromProjectTypeProvider(config: TypeProviderConfig) as this =
-  inherit TypeProviderForNamespaces(config, ns, [ providedType ], sourceAssemblies = [ asm ])
-
-  do
-    providedType.DefineStaticParameters(
-      [ ProvidedStaticParameter("projectFile", typeof<string>) ],
-      (fun typeName args ->
-        let projectFile = args.[0] :?> string
-        let projectType = ProvidedTypeDefinition(asm, ns, typeName, Some typeof<obj>)
-
-        let moduleName = "module0"
-        let moduleType = ProvidedTypeDefinition(moduleName, Some typeof<obj>)
-
-        let insertName = "insert"
-        let insertType = ProvidedTypeDefinition(insertName, Some typeof<obj>)
-
-        for idx in 0..2 do
-          let branchName = sprintf "branch%d" idx
-
-          let prop =
-            ProvidedProperty(
-              branchName,
-              typeof<Core.Proposition>,
-              getterCode = fun _ -> <@@ getBranch projectFile moduleName insertName idx @@>
-            )
-
-          insertType.AddMember(prop)
-
-        let insertProp =
-          ProvidedProperty(
-            insertName,
-            insertType,
-            getterCode = fun _ -> <@@ getFunction projectFile moduleName insertName @@>
-          )
-
-        moduleType.AddMember(insertProp)
-
-        let moduleProp =
-          ProvidedProperty(moduleName, moduleType, getterCode = (fun _ -> <@@ getModule projectFile moduleName @@>))
-
-        projectType.AddMember(moduleProp)
-
-        projectType)
-    )
-
-  do this.AddNamespace(ns, [ providedType ])
-
+// https://fsharp.github.io/fsharp-compiler-docs/fcs/project.html
