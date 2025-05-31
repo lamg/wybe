@@ -1,7 +1,6 @@
 module Core
 
 open Microsoft.Z3
-#nowarn 86
 
 // This module allows the expression of properties about boolean, integers, sequences and functions
 // this is implemented by the types that implement the WExpr interface (Proposition, Integer,
@@ -792,51 +791,3 @@ let ``≡`` = LawsCE StepOperator.Equiv
 let ``⇒`` = LawsCE StepOperator.Implies
 
 let ``⇐`` = LawsCE StepOperator.Follows
-
-let private toProposition (x: WExpr) =
-  match x with
-  | :? Var as x ->
-    let (Var(_, t)) = x
-
-    match t with
-    | WBool -> ExtBoolOp x
-    | _ -> failwith $"expecting boolean variable {x}"
-  | :? Proposition as x -> x
-  | _ -> failwith $"expecting proposition {x}"
-
-let (!) x = Not(toProposition x)
-
-let (===) (x: WExpr) (y: WExpr) = Equiv(toProposition x, toProposition y)
-
-let (!==) x y =
-  Inequiv(toProposition x, toProposition y)
-
-let (==>) x y =
-  Implies(toProposition x, toProposition y)
-
-let (<==) x y =
-  Follows(toProposition x, toProposition y)
-
-let (<&&>) x y = And(toProposition x, toProposition y)
-let (<||>) x y = Or(toProposition x, toProposition y)
-let ``∀`` vars f = Quantifier(Forall, vars, f)
-let ``∃`` vars f = Quantifier(Exists, vars, f)
-
-let axiom name (pred: Proposition) = { identifier = name; body = pred }
-
-let theorem name pred =
-  Theorem { identifier = name; body = pred }
-
-let lemma pred =
-  Theorem
-    { identifier = pred.ToString()
-      body = pred }
-
-/// NOTE: redefining the operator `=` in F# is not recommended, but for most Wybe scripts
-/// this would make the proofs look closer to syntax we are used to
-let (=) x y = Equals(x, y)
-let (!=) x y = Differs(x, y)
-let ``==`` = LawsCE StepOperator.Equals
-
-let mkBoolVar n = ExtBoolOp(Var(n, WBool))
-let mkIntVar x = ExtInteger(Var(x, WInt))

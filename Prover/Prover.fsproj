@@ -23,17 +23,9 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Core.fs" />
-
-    <!-- FsDefinitions depends on GriesSchneider modules, so compile it after those -->
-    <Compile Include="Inspect\ColorMessages.fs" />
-    <Compile Include="Inspect\Formatters.fs" />
-    <Compile Include="Inspect\Inspect.fs" />
-    <Compile Include="GriesSchneider\PredicateCalculus.fs" />
-    <Compile Include="GriesSchneider\Integers.fs" />
-    <Compile Include="GriesSchneider\Sequences.fs" />
-    <Compile Include="GriesSchneider\Functions.fs" />
+    <Compile Include="Inspect.fs" />
+    <Compile Include="GriesSchneider.fs" />
     <Compile Include="FsDefinitions.fs" />
-
     
     <Content Include="..\README.md" Pack="true" PackagePath="\" />
     <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
@@ -46,7 +38,5 @@
     <PackageReference Include="Microsoft.Z3" />
 
   </ItemGroup>
-
-  <!-- <PropertyGroup><OtherFlags>$(OtherFlags) -richerrors+</OtherFlags></PropertyGroup> -->
 
 </Project>

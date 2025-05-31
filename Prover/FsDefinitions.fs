@@ -50,19 +50,16 @@ open Microsoft.FSharp.Core.CompilerServices
 open ProviderImplementation.ProvidedTypes
 //open FSharp.Compiler.SourceCodeServices
 //open FSharp.Compiler.Text
-open GriesSchneider.Integers
-open GriesSchneider.Sequences
+open GriesSchneider
+
+#nowarn 86
+let (=) = FSharp.Core.Operators.(=)
 
 /// Retrieves the specified branch proposition for a function (currently only "insert").
 let internal getBranch (projectFile: string) (_moduleName: string) (functionName: string) (branchIdx: int) =
   if functionName = "insert" then
-    let n = Core.mkIntVar "n"
-    let xs = mkSeq "xs"
     let insertFn = Core.Fn("insert", [ Core.WInt; Core.WSeq sortA ])
     let call = Core.App(insertFn, [ n; xs ])
-    let (==>) = Core.(==>)
-    let (<&&>) = Core.(<&&>)
-    let ``∀`` = Core.``∀``
 
     match branchIdx with
     | 0 ->
