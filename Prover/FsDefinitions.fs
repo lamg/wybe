@@ -43,6 +43,11 @@ module FsDefinitions
 
 // Implementation of a simple type provider for extracting propositions from F# functions
 
+// Plan:
+// get the function signatures given a module
+// filter functions that for which Wybe can prove properties, by their signature
+// implement proposition extraction for supported functions
+
 open System
 open System.IO
 open System.Reflection
@@ -53,8 +58,198 @@ open FSharp.Compiler.Symbols
 open ProviderImplementation.ProvidedTypes
 open Core
 
+#nowarn 86
+let (=) = FSharp.Core.Operators.(=)
+
 open GriesSchneider
 
 let private checker = FSharpChecker.Create()
 
-// https://fsharp.github.io/fsharp-compiler-docs/fcs/project.html
+let parseAndTypeCheckSingleFile (file, input) =
+  async {
+    let! projOptions, errors = checker.GetProjectOptionsFromScript(file, input, assumeDotNetFramework = false)
+
+    match errors with
+    | [] ->
+      let! parseFileResults, checkFileResults = checker.ParseAndCheckFileInProject(file, 0, input, projOptions)
+
+      return
+        match checkFileResults with
+        | FSharpCheckFileAnswer.Succeeded res -> Ok(parseFileResults, res)
+        | FSharpCheckFileAnswer.Aborted -> Error [ $"failed type checking of {file}" ]
+    | _ -> return errors |> List.map string |> Error
+  }
+
+let rec checkType =
+  function
+  | (t: FSharpType) when t.IsGenericParameter || t.IsFunctionType || t.IsTupleType -> None
+  | t when t.HasTypeDefinition ->
+    let def = t.TypeDefinition
+    let name = def.LogicalName
+    let args = t.GenericArguments
+
+    match name with
+    | "list"
+    | "array"
+    | "seq" when args.Count.Equals 1 ->
+      match checkType args[0] with
+      | Some s -> Some(WSort.WSeq s)
+      | None -> None
+    | "bool" -> Some WBool
+    | "int" -> Some WInt
+    | _ -> None
+  | _ -> None
+
+let getTypedVariables (paramLists: FSharpMemberOrFunctionOrValue list list) =
+  // filter functions whose signatures have as basic types: boolean, integer, string, unit,
+  // and sequences (list or seq) of the previous types
+  let hasWybeSupport (param: FSharpParameter) =
+    param.Type |> checkType |> Option.map (fun t -> param.DisplayName, t)
+
+  let args =
+    paramLists
+    |> List.collect (List.collect (_.CurriedParameterGroups >> Seq.map Seq.toList >> Seq.toList))
+    |> List.concat
+
+  args
+  |> List.map hasWybeSupport
+  |> List.fold
+    (fun acc x ->
+      match x with
+      | Some v -> v :: acc
+      | None -> [])
+    []
+  |> function
+    | [] -> None
+    | xs -> xs |> List.map Var |> Some
+
+let getPropositions (parentFnApp: WExpr) (expr: FSharpExpr) =
+  let rec visitExpr (parentFnApp: WExpr) (e: FSharpExpr) =
+
+    match e with
+    | FSharpExprPatterns.AddressOf(lvalueExpr) -> visitExpr parentFnApp lvalueExpr
+    | FSharpExprPatterns.AddressSet(lvalueExpr, rvalueExpr) ->
+      visitExpr parentFnApp lvalueExpr @ visitExpr parentFnApp rvalueExpr
+    | FSharpExprPatterns.Application(funcExpr, _typeArgs, argExprs) ->
+      visitExpr parentFnApp funcExpr @ visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.Call(objExprOpt, _memberOrFunc, _typeArgs1, _typeArgs2, argExprs) ->
+      visitObjArg parentFnApp objExprOpt @ visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.Coerce(_targetType, inpExpr) -> visitExpr parentFnApp inpExpr
+    | FSharpExprPatterns.FastIntegerForLoop(startExpr, limitExpr, consumeExpr, _isUp, _, _) ->
+      visitExpr parentFnApp startExpr
+      @ visitExpr parentFnApp limitExpr
+      @ visitExpr parentFnApp consumeExpr
+    | FSharpExprPatterns.ILAsm(_asmCode, _typeArgs, argExprs) -> visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.ILFieldGet(objExprOpt, _fieldType, _fieldName) -> visitObjArg parentFnApp objExprOpt
+    | FSharpExprPatterns.ILFieldSet(objExprOpt, _fieldType, _fieldName, _valueExpr) ->
+      visitObjArg parentFnApp objExprOpt
+    | FSharpExprPatterns.IfThenElse(guardExpr, thenExpr, elseExpr) ->
+      // make proposition (guardExpr ⇒ parentExpr = thenExpr) ∨ (¬guardExpr ⇒ parentExpr = elseExpr)
+      let guard = visitExpr parentFnApp guardExpr |> List.head
+      let ok = visitExpr parentFnApp thenExpr |> List.head
+      let notOk = visitExpr parentFnApp elseExpr |> List.head
+
+      [ guard ==> Core.Equals(parentFnApp, ok)
+        <||> (!guard ==> Core.Equals(parentFnApp, notOk)) ]
+    | FSharpExprPatterns.Lambda(_lambdaVar, bodyExpr) -> visitExpr parentFnApp bodyExpr
+    | FSharpExprPatterns.Let((_bindingVar, bindingExpr, _dbg), bodyExpr) ->
+      match checkType _bindingVar.FullType with
+      | Some t ->
+        let parentFnApp = Var(_bindingVar.DisplayName, t)
+        visitExpr parentFnApp bindingExpr @ visitExpr parentFnApp bodyExpr
+      | None -> []
+    | FSharpExprPatterns.LetRec(recursiveBindings, bodyExpr) ->
+      let xs =
+        recursiveBindings
+        |> List.collect (fun (bindingVar, bindingExpr, _) ->
+          match checkType bindingVar.FullType with
+          | Some t ->
+            let parentFnApp = Var(bindingVar.DisplayName, t)
+            visitExpr parentFnApp bindingExpr @ visitExpr parentFnApp bodyExpr
+          | None -> [])
+
+      xs @ visitExpr parentFnApp bodyExpr
+    | FSharpExprPatterns.NewArray(_arrayType, argExprs) -> visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.NewDelegate(_delegateType, delegateBodyExpr) -> visitExpr parentFnApp delegateBodyExpr
+    | FSharpExprPatterns.NewObject(_objType, _typeArgs, argExprs) -> visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.NewRecord(_recordType, argExprs) -> visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.NewAnonRecord(_recordType, argExprs) -> visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.NewTuple(_tupleType, argExprs) -> visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.NewUnionCase(_unionType, _unionCase, argExprs) -> visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.Quote(quotedExpr) -> visitExpr parentFnApp quotedExpr
+    | FSharpExprPatterns.FSharpFieldGet(objExprOpt, _recordOrClassType, _fieldInfo) ->
+      visitObjArg parentFnApp objExprOpt
+    | FSharpExprPatterns.AnonRecordGet(objExpr, _recordOrClassType, _fieldInfo) -> visitExpr parentFnApp objExpr
+    | FSharpExprPatterns.FSharpFieldSet(objExprOpt, _recordOrClassType, _fieldInfo, argExpr) ->
+      visitObjArg parentFnApp objExprOpt @ visitExpr parentFnApp argExpr
+    | FSharpExprPatterns.Sequential(firstExpr, secondExpr) ->
+      visitExpr parentFnApp firstExpr @ visitExpr parentFnApp secondExpr
+    | FSharpExprPatterns.TryFinally(bodyExpr, finalizeExpr, _dbgTry, _dbgFinally) ->
+      visitExpr parentFnApp bodyExpr @ visitExpr parentFnApp finalizeExpr
+    | FSharpExprPatterns.TryWith(bodyExpr, _, _, _catchVar, catchExpr, _dbgTry, _dbgWith) ->
+      visitExpr parentFnApp bodyExpr @ visitExpr parentFnApp catchExpr
+    | FSharpExprPatterns.TupleGet(_tupleType, _tupleElemIndex, tupleExpr) -> visitExpr parentFnApp tupleExpr
+    | FSharpExprPatterns.DecisionTree(decisionExpr, decisionTargets) ->
+      visitExpr parentFnApp decisionExpr
+      @ List.collect (snd >> visitExpr parentFnApp) decisionTargets
+    | FSharpExprPatterns.DecisionTreeSuccess(_decisionTargetIdx, decisionTargetExprs) ->
+      visitExprs parentFnApp decisionTargetExprs
+    | FSharpExprPatterns.TypeLambda(_genericParam, bodyExpr) -> visitExpr parentFnApp bodyExpr
+    | FSharpExprPatterns.TypeTest(ty, inpExpr) -> visitExpr parentFnApp inpExpr
+    | FSharpExprPatterns.UnionCaseSet(unionExpr, _unionType, _unionCase, _unionCaseField, valueExpr) ->
+      visitExpr parentFnApp unionExpr @ visitExpr parentFnApp valueExpr
+    | FSharpExprPatterns.UnionCaseGet(unionExpr, _unionType, _unionCase, _unionCaseField) ->
+      visitExpr parentFnApp unionExpr
+    | FSharpExprPatterns.UnionCaseTest(unionExpr, _unionType, _unionCase) -> visitExpr parentFnApp unionExpr
+    | FSharpExprPatterns.UnionCaseTag(unionExpr, _unionType) -> visitExpr parentFnApp unionExpr
+    | FSharpExprPatterns.ObjectExpr(_objType, baseCallExpr, overrides, interfaceImplementations) ->
+      visitExpr parentFnApp baseCallExpr
+      @ List.collect (visitObjMember parentFnApp) overrides
+      @ List.collect (snd >> List.collect (visitObjMember parentFnApp)) interfaceImplementations
+    | FSharpExprPatterns.TraitCall(_sourceTypes, _traitName, _typeArgs, _typeInstantiation, _argTypes, argExprs) ->
+      visitExprs parentFnApp argExprs
+    | FSharpExprPatterns.ValueSet(_valToSet, valueExpr) -> visitExpr parentFnApp valueExpr
+    | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr, _dbg) ->
+      visitExpr parentFnApp guardExpr @ visitExpr parentFnApp bodyExpr
+    | FSharpExprPatterns.BaseValue _baseType -> []
+    | FSharpExprPatterns.DefaultValue _defaultType -> []
+    | FSharpExprPatterns.ThisValue _thisType -> []
+    | FSharpExprPatterns.Const(_constValueObj, _constType) ->
+      []
+    | FSharpExprPatterns.Value v ->
+      match checkType v.FullType with
+      | Some t -> 
+          match t with
+          | WBool when v.DisplayName.Equals "true" -> Some True
+          | WBool when v.DisplayName.Equals  "false" -> Some False
+          | WInt  -> Some (ExtBoolOp (Integer (int v.DisplayName)))
+          | _ -> None
+          |> Option.toList
+      | None -> []
+    | _ -> []
+
+
+  and visitExprs parentFnApp exprs =
+    List.collect (visitExpr parentFnApp) exprs
+
+  and visitObjArg parentFnApp objOpt =
+    Option.map (visitExpr parentFnApp) objOpt |> Option.toList |> List.concat
+
+  and visitObjMember parentFnApp memb = visitExpr parentFnApp memb.Body
+  visitExpr parentFnApp expr
+
+let getDeclaration =
+  function
+  | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(value, paramLists, body) ->
+    match checkType value.ReturnParameter.Type with
+    | Some t ->
+      match getTypedVariables paramLists with
+      | Some vars ->
+        let signature = List.map (fun (Var(_, t)) -> t) vars @ [ t ]
+        let args = vars |> List.map (fun v -> v :> WExpr)
+        let parentExpr = App(Fn(value.DisplayName, signature), args)
+        getPropositions parentExpr body
+      | None -> []
+    | None -> []
+  | FSharpImplementationFileDeclaration.InitAction _ -> []
+  | FSharpImplementationFileDeclaration.Entity _ -> []
