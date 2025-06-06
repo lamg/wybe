@@ -16,14 +16,14 @@ let rec tokenizeLine (tokenizer: FSharpLineTokenizer) state =
 
 let tokenizingExample () =
   let src = FSharpSourceTokenizer([], Some "fib_proof.fsx", Some "8.0", None)
-  
+
   let lines =
     """
     // Hello world
     let hello() =
        printfn "Hello world!" """
       .Split('\r', '\n')
-  
+
   /// Print token names for multiple lines of code
   let rec tokenizeLines state count lines =
     match lines with
@@ -35,7 +35,7 @@ let tokenizingExample () =
       // Tokenize the rest using new state
       tokenizeLines state (count + 1) lines
     | [] -> ()
-  
+
   lines |> List.ofSeq |> tokenizeLines FSharpTokenizerLexState.Initial 1
 
 open FSharp.Compiler.CodeAnalysis
@@ -122,25 +122,78 @@ let visitModulesAndNamespaces modulesOrNss =
     printfn "Namespace or module: %A" lid
     visitDeclarations decls
 
-// Sample input for the compiler service
-let input =
-  """
-  let foo() = 
-    let msg = "Hello world"
-    if true then 
-      printfn "%s" msg
-  """
+let parseFullModule () =
+  // Sample input for the compiler service
+  let input =
+    """
+    let foo() =
+      let msg = "Hello world"
+      if true then
+        printfn "%s" msg
+    """
 
-// File name in Unix format
-let file = "/home/user/Test.fsx"
+  // File name in Unix format
+  let file = "/home/user/Test.fsx"
 
-// Get the AST of sample F# code
-let tree = getUntypedTree(file, SourceText.ofString input)
+  // Get the AST of sample F# code
+  let tree = getUntypedTree (file, SourceText.ofString input)
 
-// Extract implementation file details
-match tree with
-| ParsedInput.ImplFile(implFile) ->
+  // Extract implementation file details
+  match tree with
+  | ParsedInput.ImplFile(implFile) ->
     // Extract declarations and walk over them
     let (ParsedImplFileInput(contents = modules)) = implFile
     visitModulesAndNamespaces modules
-| _ -> failwith "F# Interface file (*.fsi) not supported."
+  | _ -> failwith "F# Interface file (*.fsi) not supported."
+
+let parseAndTypeCheckSingleFile (file, input) =
+  // Get context representing a stand-alone (script) file
+  let projOptions, errors =
+    checker.GetProjectOptionsFromScript(file, input, assumeDotNetFramework = false)
+    |> Async.RunSynchronously
+
+  let parseFileResults, checkFileResults =
+    checker.ParseAndCheckFileInProject(file, 0, input, projOptions)
+    |> Async.RunSynchronously
+
+  // Wait until type checking succeeds (or 100 attempts)
+  match checkFileResults with
+  | FSharpCheckFileAnswer.Succeeded(res) -> parseFileResults, res
+  | res -> failwithf "Parsing did not finish... (%A)" res
+
+let file = "/home/user/Test.fsx"
+
+let input2 =
+  """
+[<System.CLSCompliant(true)>]
+let foo(x, y) =
+    let msg = String.Concat("Hello"," ","world")
+    if true then
+        printfn "x = %d, y = %d" x y
+        printfn "%s" msg
+
+type C() =
+    member x.P = 1
+      """
+
+let parseFileResults, checkFileResults =
+  parseAndTypeCheckSingleFile (file, SourceText.ofString input2)
+
+let partialAssemblySignature = checkFileResults.PartialAssemblySignature
+
+// printfn $"entities count = {partialAssemblySignature.Entities.Count}"
+let moduleEntity = partialAssemblySignature.Entities[0]
+
+// printfn $"module entity = {moduleEntity}"
+
+let classEntity = moduleEntity.NestedEntities[0]
+
+let fnVal = moduleEntity.MembersFunctionsAndValues[0]
+
+open FSharp.Compiler.Symbols
+
+
+
+printfn $"fnVal = {fnVal.FullType}"
+
+printf $"class entity = {classEntity}"

@@ -26,7 +26,7 @@ let ``test fibonacci invariant`` () =
   // a = fibonacci (i - 1) ∧ b = fibonacci i ⇒ a + b = fibonacci (i + 1)
   // TODO shouldn't this proof fail because there's no i > 0 restriction?
   proof {
-    lemma ((a = fib (i - 1)) <&&> (b = fib i) ==> (a + b = fib (i + 1)))
+    lemma (a = fib (i - 1) <&&> (b = fib i) ==> (a + b = fib (i + 1)))
     a = fib (i - 1) <&&> (b = fib i)
     ``⇒`` { fibProp }
     a + b = fib (i + 1)

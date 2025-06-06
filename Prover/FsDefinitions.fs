@@ -85,7 +85,7 @@ let rec checkType =
   | (t: FSharpType) when t.IsGenericParameter || t.IsFunctionType || t.IsTupleType -> None
   | t when t.HasTypeDefinition ->
     let def = t.TypeDefinition
-    let name = def.LogicalName
+    let name = def.DisplayName
     let args = t.GenericArguments
 
     match name with
@@ -103,13 +103,11 @@ let rec checkType =
 let getTypedVariables (paramLists: FSharpMemberOrFunctionOrValue list list) =
   // filter functions whose signatures have as basic types: boolean, integer, string, unit,
   // and sequences (list or seq) of the previous types
-  let hasWybeSupport (param: FSharpParameter) =
-    param.Type |> checkType |> Option.map (fun t -> param.DisplayName, t)
+  let hasWybeSupport (name, t: FSharpType) =
+    t |> checkType |> Option.map (fun t -> name, t)
 
   let args =
-    paramLists
-    |> List.collect (List.collect (_.CurriedParameterGroups >> Seq.map Seq.toList >> Seq.toList))
-    |> List.concat
+    paramLists |> List.collect (List.map (fun p -> p.DisplayName, p.FullType))
 
   args
   |> List.map hasWybeSupport
@@ -148,9 +146,14 @@ let getPropositions (parentFnApp: WExpr) (expr: FSharpExpr) =
       let guard = visitExpr parentFnApp guardExpr |> List.head
       let ok = visitExpr parentFnApp thenExpr |> List.head
       let notOk = visitExpr parentFnApp elseExpr |> List.head
+      printfn $"GUARD {guard} {guardExpr}" 
+      printfn $"OK {ok} {thenExpr}"
+      printfn $"NOTOK {notOk} {elseExpr}"
+      let r =
+        guard ==> Core.Equals(parentFnApp, ok)
+        <||> (!guard ==> Core.Equals(parentFnApp, notOk))
 
-      [ guard ==> Core.Equals(parentFnApp, ok)
-        <||> (!guard ==> Core.Equals(parentFnApp, notOk)) ]
+      [ r :> WExpr ]
     | FSharpExprPatterns.Lambda(_lambdaVar, bodyExpr) -> visitExpr parentFnApp bodyExpr
     | FSharpExprPatterns.Let((_bindingVar, bindingExpr, _dbg), bodyExpr) ->
       match checkType _bindingVar.FullType with
@@ -193,7 +196,23 @@ let getPropositions (parentFnApp: WExpr) (expr: FSharpExpr) =
       visitExpr parentFnApp decisionExpr
       @ List.collect (snd >> visitExpr parentFnApp) decisionTargets
     | FSharpExprPatterns.DecisionTreeSuccess(_decisionTargetIdx, decisionTargetExprs) ->
-      visitExprs parentFnApp decisionTargetExprs
+      decisionTargetExprs
+      |> List.choose (function
+        | FSharpExprPatterns.UnionCaseGet(expr, _, _, field) ->
+          let ctr =
+            if field.Name.Equals "Head" then Sequence.Head
+            else if field.Name.Equals "Tail" then Sequence.Tail
+            else failwith $"unexpected field {field}"
+
+          match visitExpr parentFnApp expr with
+          | [ v ] ->
+            match v with
+            | :? Var as v -> Some(ctr (ExtSeq v))
+            | _ -> None
+          | _ -> None
+        | _ -> None)
+
+    // visitExprs parentFnApp decisionTargetExprs
     | FSharpExprPatterns.TypeLambda(_genericParam, bodyExpr) -> visitExpr parentFnApp bodyExpr
     | FSharpExprPatterns.TypeTest(ty, inpExpr) -> visitExpr parentFnApp inpExpr
     | FSharpExprPatterns.UnionCaseSet(unionExpr, _unionType, _unionCase, _unionCaseField, valueExpr) ->
@@ -214,17 +233,23 @@ let getPropositions (parentFnApp: WExpr) (expr: FSharpExpr) =
     | FSharpExprPatterns.BaseValue _baseType -> []
     | FSharpExprPatterns.DefaultValue _defaultType -> []
     | FSharpExprPatterns.ThisValue _thisType -> []
-    | FSharpExprPatterns.Const(_constValueObj, _constType) ->
-      []
+    | FSharpExprPatterns.Const(_constValueObj, _constType) -> []
     | FSharpExprPatterns.Value v ->
+
       match checkType v.FullType with
-      | Some t -> 
-          match t with
-          | WBool when v.DisplayName.Equals "true" -> Some True
-          | WBool when v.DisplayName.Equals  "false" -> Some False
-          | WInt  -> Some (ExtBoolOp (Integer (int v.DisplayName)))
-          | _ -> None
-          |> Option.toList
+      | Some t ->
+        match t with
+        | WBool when v.DisplayName.Equals "true" -> Some(True :> WExpr)
+        | WBool when v.DisplayName.Equals "false" -> Some(False :> WExpr)
+        | WInt when v.DisplayName[0] |> Char.IsLetter -> Some(Var(v.DisplayName, WInt))
+        | WInt -> Some(Integer(int v.DisplayName))
+        | WSeq WInt when v.DisplayName.Equals "[]" ->
+          Some(Proposition.Equals(ExtBoolOp(Var(v.DisplayName, WSeq WInt)), Sequence.Empty WInt))
+        | WSeq x -> 
+          printfn $"literal value {v.LiteralValue}"
+          Some(Var(v.DisplayName, WSeq x))
+        | _ -> None
+        |> Option.toList
       | None -> []
     | _ -> []
 
@@ -238,11 +263,12 @@ let getPropositions (parentFnApp: WExpr) (expr: FSharpExpr) =
   and visitObjMember parentFnApp memb = visitExpr parentFnApp memb.Body
   visitExpr parentFnApp expr
 
-let getDeclaration =
+let rec getDeclaration =
   function
   | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(value, paramLists, body) ->
     match checkType value.ReturnParameter.Type with
     | Some t ->
+
       match getTypedVariables paramLists with
       | Some vars ->
         let signature = List.map (fun (Var(_, t)) -> t) vars @ [ t ]
@@ -252,4 +278,4 @@ let getDeclaration =
       | None -> []
     | None -> []
   | FSharpImplementationFileDeclaration.InitAction _ -> []
-  | FSharpImplementationFileDeclaration.Entity _ -> []
+  | FSharpImplementationFileDeclaration.Entity(_, decls) -> decls |> List.collect getDeclaration
