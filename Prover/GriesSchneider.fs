@@ -252,6 +252,22 @@ let (++) xs ys = Concat(xs, ys)
 
 let len x = ExtInteger(Length x)
 
+let singleton (n: WExpr) =
+  let x,s =
+    match n with
+    | :? Integer as n ->
+      match n with
+      | ExtInteger e -> 
+        match e with
+        | :? Var as v ->
+          let (Var(x,s)) = v
+          Var(x,s),s
+        | _ -> failwith "not implemented"
+      | _ -> failwith "not implemented"
+    | _ -> failwith "not implemented"
+
+  Cons(x, Empty s)
+
 let prepend = a <. ``ϵ`` != ``ϵ`` |> axiom "prepend"
 
 let ``non empty`` = a <. xs != ``ϵ``
