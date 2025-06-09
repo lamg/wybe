@@ -52,10 +52,10 @@ let rec insert (n: int) =
     let vars, errs = m.Declarations |> List.collect toDeclTriples |> getDeclVars
 
     let expected =
-      [ Var("n", WInt)
-        Var("_arg1", WSeq WInt)
-        Var("xs", WSeq WInt)
-        Var("x", WInt) ]
+      [ { name = "n"; sort = WInt }
+        { name = "_arg1"; sort = WSeq WInt }
+        { name = "xs"; sort = WSeq WInt }
+        { name = "x"; sort = WInt } ]
 
     Assert.Equal<Var list>(expected, vars)
     Assert.Equal<string list>([], errs)
@@ -83,8 +83,7 @@ let fw (n: int) =
   match res.ImplementationFile with
   | Some m when m.Declarations.Length > 0 ->
     let vars, errs = m.Declarations |> List.collect toDeclTriples |> getDeclVars
-
-    let expected = [ Var("n", WInt); Var("_arg1", WSeq WInt) ]
+    let expected = [ { name = "n"; sort = WInt }; { name = "_arg1"; sort = WSeq WInt } ]
 
     Assert.Equal<string list>([], errs)
     Assert.Equal<Var list>(expected, vars)

@@ -9,9 +9,7 @@ open Core
 let private toProposition (x: WExpr) =
   match x with
   | :? Var as x ->
-    let (Var(_, t)) = x
-
-    match t with
+    match x.sort with
     | WBool -> ExtBoolOp x
     | _ -> failwith $"expecting boolean variable {x}"
   | :? Proposition as x -> x
@@ -50,7 +48,7 @@ let lemma pred =
 let (=) x y = Equals(x, y)
 let (!=) x y = Differs(x, y)
 
-let mkBoolVar n = ExtBoolOp(Var(n, WBool))
+let mkBoolVar n = ExtBoolOp { name = n; sort = WBool }
 
 let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 
@@ -184,7 +182,7 @@ let ``De Morgan`` (vars: WExpr list, p: Proposition) =
 
 // Integers
 
-let mkIntVar x = ExtInteger(Var(x, WInt))
+let mkIntVar x = ExtInteger { name = x; sort = WInt }
 
 let n, m, p = mkIntVar "n", mkIntVar "m", mkIntVar "p"
 let zero = Integer 0
@@ -235,8 +233,8 @@ let monotonicity () =
 // Sequences
 
 let sortA = WVarSort "a"
-let mkSeqElem a = ExtSeq(Var(a, sortA))
-let mkSeq x = ExtSeq(Var(x, WSeq sortA))
+let mkSeqElem a = ExtSeq { name = a; sort = sortA }
+let mkSeq x = ExtSeq { name = x; sort = WSeq sortA }
 
 let wList (xs: int list) =
   xs |> Seq.rev |> Seq.fold (fun acc x -> Cons(Integer x, acc)) (Empty WInt)
@@ -247,26 +245,24 @@ let ws, xs, ys, zs = mkSeq "ws", mkSeq "xs", mkSeq "ys", mkSeq "zs"
 
 let ``ϵ`` = Empty sortA
 
-let (<.) xs ys = Cons(xs, ys)
+let (<.) x xs = Cons(x, xs)
 let (++) xs ys = Concat(xs, ys)
 
 let len x = ExtInteger(Length x)
 
 let singleton (n: WExpr) =
-  let x,s =
+  let x =
     match n with
     | :? Integer as n ->
       match n with
-      | ExtInteger e -> 
+      | ExtInteger e ->
         match e with
-        | :? Var as v ->
-          let (Var(x,s)) = v
-          Var(x,s),s
+        | :? Var as v -> v
         | _ -> failwith "not implemented"
       | _ -> failwith "not implemented"
     | _ -> failwith "not implemented"
 
-  Cons(x, Empty s)
+  Cons(x, Empty x.sort)
 
 let prepend = a <. ``ϵ`` != ``ϵ`` |> axiom "prepend"
 

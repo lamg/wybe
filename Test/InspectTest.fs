@@ -10,7 +10,7 @@ open GriesSchneider
 let accEqual (expected: string list) (n: Inspection) =
   should equalSeq (List.toArray expected) (List.toArray n.accumulated)
 
-let mkBoolVar n = ExtBoolOp(Var(n, WBool))
+let mkBoolVar n = ExtBoolOp { name = n; sort = WBool }
 
 let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 let True = Proposition.True

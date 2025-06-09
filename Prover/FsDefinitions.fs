@@ -109,7 +109,7 @@ let getTypedVariables (variables: FSharpMemberOrFunctionOrValue list) =
     |> List.fold
       (fun (oks, errs) p ->
         match checkType p.FullType with
-        | Some t -> Var(p.DisplayName, t) :: oks, errs
+        | Some t -> { name = p.DisplayName; sort = t } :: oks, errs
         | None -> oks, p.DisplayName :: errs)
       ([], [])
 
@@ -120,15 +120,21 @@ let rec getExprVars =
   function
   | FSharpExprPatterns.Lambda(_lambdaVar, bodyExpr) -> getExprVars bodyExpr
   | FSharpExprPatterns.Let((var, bindingExpr, _dbg), bodyExpr) ->
+
     match checkType var.FullType with
-    | Some t -> Var(var.DisplayName, t) :: getExprVars bindingExpr @ getExprVars bodyExpr
+    | Some t ->
+      { name = var.DisplayName; sort = t } :: getExprVars bindingExpr
+      @ getExprVars bodyExpr
     | None -> []
   | FSharpExprPatterns.LetRec(recursiveBindings, bodyExpr) ->
     let xs =
       recursiveBindings
       |> List.collect (fun (bindingVar, bindingExpr, _) ->
         match checkType bindingVar.FullType with
-        | Some t -> Var(bindingVar.DisplayName, t) :: getExprVars bindingExpr
+        | Some t ->
+          { name = bindingVar.DisplayName
+            sort = t }
+          :: getExprVars bindingExpr
         | None -> [])
 
     xs @ getExprVars bodyExpr
@@ -142,7 +148,7 @@ let rec getExprVars =
       match t with
       | WBool when v.DisplayName.Equals "true" -> []
       | WBool when v.DisplayName.Equals "false" -> []
-      | _ when v.DisplayName[0] |> Char.IsLetter -> [ Var(v.DisplayName, t) ]
+      | _ when v.DisplayName[0] |> Char.IsLetter -> [ { name = v.DisplayName; sort = t } ]
       | _ -> []
     | None -> []
   | FSharpExprPatterns.IfThenElse(cond, thenExpr, elseExpr) -> [ cond; thenExpr; elseExpr ] |> List.collect getExprVars
@@ -151,9 +157,22 @@ let rec getExprVars =
 
 open FSharp.Compiler.Syntax
 
-let rec visitExpression =
-  function
+let rec visitExpression (vars: Var list) (expr: SynExpr) =
+  match expr with
   | SynExpr.IfThenElse(ifExpr = cond; thenExpr = trueBranch; elseExpr = falseBranchOpt) -> []
+  | SynExpr.App(funcExpr = func; argExpr = arg) -> []
+  | SynExpr.Match(expr = expr; clauses = clauses) ->
+    clauses
+    |> List.choose (fun (SynMatchClause(pat = pat; whenExpr = whenExpr; resultExpr = resultExpr)) ->
+      match pat with
+      | SynPat.ListCons(lhsPat = SynPat.LongIdent(longDotId = x); rhsPat = SynPat.LongIdent(longDotId = xs)) ->
+        let findVar m =
+          vars |> List.tryFind (fun v -> v.name.Equals m)
+
+        match findVar x.LongIdent.Head.idText, findVar xs.LongIdent.Head.idText with
+        | Some x, Some xs -> Some(x <. (xs <. Empty x.sort))
+        | _ -> None
+      | _ -> None)
   | _ -> []
 
 

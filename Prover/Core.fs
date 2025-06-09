@@ -374,8 +374,7 @@ and Proposition =
         let rec mkBoundExpr i (v: WExpr) =
           match v with
           | :? Var as v ->
-            let (Var(v, s)) = v
-            v, ctx.MkBound(uint32 i, s.toZ3Sort ctx)
+            v, ctx.MkBound(uint32 i, v.sort.toZ3Sort ctx)
           | :? Proposition as p ->
             match p with
             | ExtBoolOp e -> mkBoundExpr i e
@@ -391,12 +390,12 @@ and Proposition =
           | _ -> failwith $"only variables are allowed in quantifier variable section, got {v}"
 
         let z3Vars = vars |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
-
+         
         let boundVars =
           vars
           |> List.mapi mkBoundExpr
-          |> List.fold (fun m (k, v) -> Map.add k v m) boundVars
-
+          |> List.fold (fun m (k, v) -> Map.add k.name v m) boundVars
+        
         let z3Body = (body :> WExpr).toZ3Expr (ctx, boundVars)
         let patterns = Proposition.extractPatternFromRecurrence (ctx, boundVars, body)
 
@@ -487,26 +486,21 @@ and WSort =
 
     mkSort this
 
-and Var =
-  | Var of string * WSort
+and Var = 
+  {name : string ; sort : WSort}
 
   override this.ToString() : string =
-    let (Var(v, _)) = this
-    v
+    this.name
 
   interface WExpr with
     member this.toSymbolTree() : SymbolTree =
-      let (Var(v, _)) = this
-
       { node =
-          { symbol = v
+          { symbol = this.name
             precedence = 7
             isVar = true }
         children = [] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
-      let (Var(v, sort)) = this
-
       let rec mkSort sort =
         match sort with
         | WInt -> ctx.IntSort :> Sort
@@ -514,9 +508,9 @@ and Var =
         | WSeq s -> ctx.MkSeqSort(mkSort s)
         | WVarSort v -> ctx.MkUninterpretedSort v
 
-      match Map.tryFind v boundVars with
+      match Map.tryFind this.name boundVars with
       | Some e -> e
-      | None -> ctx.MkConst(v, mkSort sort)
+      | None -> ctx.MkConst(this.name, mkSort this.sort)
 
 and Function =
   | Fn of string * (WSort list)

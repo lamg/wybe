@@ -12,6 +12,9 @@
 *.user
 *.userosscache
 *.sln.docstates
+CONTEXT.md
+.opencode/
+inspect_*.fsx
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
