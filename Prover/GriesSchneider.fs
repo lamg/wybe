@@ -188,8 +188,19 @@ let n, m, p = mkIntVar "n", mkIntVar "m", mkIntVar "p"
 let zero = Integer 0
 let one = Integer 1
 
+let extractIntegers (name: string) (x: WExpr, y: WExpr) =
+  match x, y with
+  | (:? Integer as x), (:? Integer as y) -> x, y
+  | (:? Var as x), (:? Var as y) when x.sort.Equals WInt && y.sort.Equals WInt -> ExtInteger x, ExtInteger y
+  | (:? Var as x), (:? Integer as y) -> ExtInteger x, y
+  | (:? Integer as x), (:? Var as y) -> x, ExtInteger y
+  | _ -> failwith $"unexpected {x} {y} for {name}"
+
 let (>=) (x: Integer) (y: Integer) = ExtBoolOp(AtLeast(x, y))
-let (<=) (x: Integer) (y: Integer) = ExtBoolOp(AtMost(x, y))
+
+let (<=) (x: WExpr) (y: WExpr) =
+  ExtBoolOp(AtMost(extractIntegers "≥" (x, y)))
+
 let (<) (x: Integer) (y: Integer) = ExtBoolOp(LessThan(x, y))
 let (>) (x: Integer) (y: Integer) = ExtBoolOp(Exceeds(x, y))
 
@@ -245,10 +256,26 @@ let ws, xs, ys, zs = mkSeq "ws", mkSeq "xs", mkSeq "ys", mkSeq "zs"
 
 let ``ϵ`` = Empty sortA
 
-let (<.) x xs = Cons(x, xs)
+let (<.) x (xs: WExpr) =
+  match xs with
+  | :? Sequence as xs -> Cons(x, xs)
+  | :? Var as v when v.sort.IsWSeq -> Cons(x, ExtSeq v)
+  | :? FnApp as f ->
+    let (App(Fn(_, signature), args)) = f
+
+    if (List.last signature).IsWSeq && args.Length.Equals(signature.Length - 1) then
+      Cons(x, ExtSeq f)
+    else
+      failwith $"wrong function signature {f}"
+  | _ -> failwith $"expecting a sequence, got {xs}"
+
 let (++) xs ys = Concat(xs, ys)
 
-let len x = ExtInteger(Length x)
+let len (x: WExpr) =
+  match x with
+  | :? Sequence as x -> ExtInteger(Length x)
+  | :? Var as x when x.sort.IsWSeq -> ExtInteger(Length(ExtSeq x))
+  | _ -> failwith $"len expects a sequence, instead it got {x}"
 
 let singleton (n: WExpr) =
   let x =

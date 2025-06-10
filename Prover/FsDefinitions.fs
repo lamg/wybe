@@ -1,9 +1,7 @@
 module FsDefinitions
 
-// this module implements a type provider that extracts propositions from F# functions
-// this propositions allow proving theorems about the orginal function
-// currently only the rules for extracting propositions from a function like `insert`, defined in the example below, are defined
-// the rest of the rules are still to be defined and their implementation is a stub
+// this module allows to extract propositions from F# functions
+// propositions allow proving theorems about the orginal function
 
 // example
 
@@ -30,23 +28,9 @@ module FsDefinitions
 //  1 :: 4 :: 5 :: 6 :: []
 // ▢
 
-// the type provider is used the following way
-
-// open FsDefinitions
-// type Project = FromProject< "/path/to/project.fsproj" >
-
-// let p = Project()
-// let insert = p.module0.insert
-// let branch0 = insert.branch0
-// let branch1 = insert.branch1
-// let branch2 = insert.branch2
-
-// Implementation of a simple type provider for extracting propositions from F# functions
-
-// Plan:
-// get the function signatures given a module
-// filter functions that for which Wybe can prove properties, by their signature
-// implement proposition extraction for supported functions
+// Implementation approach
+// - Type check an F# module and for each top-level declaration get a list of variables and their types
+// - Visit the syntactic tree and with the list of variables found above construct propositions accordingly
 
 open System
 open System.IO
@@ -55,6 +39,7 @@ open Microsoft.FSharp.Core.CompilerServices
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
 open FSharp.Compiler.Symbols
+open FSharp.Compiler.Syntax
 open ProviderImplementation.ProvidedTypes
 open Core
 
@@ -80,6 +65,16 @@ let parseAndTypeCheckSingleFile (file, input) =
     | _ -> return errors |> List.map string |> Error
   }
 
+let typeNameToSort =
+  function
+  | Some param, "list"
+  | Some param, "array"
+  | Some param, "seq" -> WSort.WSeq param
+  | None, "bool" -> WBool
+  | None, "int" -> WInt
+  | x -> failwith $"unexpected type representation {x}"
+
+
 let rec checkType =
   function
   | (t: FSharpType) when t.IsGenericParameter || t.IsFunctionType || t.IsTupleType -> None
@@ -88,16 +83,9 @@ let rec checkType =
     let name = def.DisplayName
     let args = t.GenericArguments
 
-    match name with
-    | "list"
-    | "array"
-    | "seq" when args.Count.Equals 1 ->
-      match checkType args[0] with
-      | Some s -> Some(WSort.WSeq s)
-      | None -> None
-    | "bool" -> Some WBool
-    | "int" -> Some WInt
-    | _ -> None
+    let param = if args.Count.Equals 1 then checkType args[0] else None
+
+    Some(typeNameToSort (param, name))
   | _ -> None
 
 let getTypedVariables (variables: FSharpMemberOrFunctionOrValue list) =
@@ -154,47 +142,147 @@ let rec getExprVars =
   | FSharpExprPatterns.IfThenElse(cond, thenExpr, elseExpr) -> [ cond; thenExpr; elseExpr ] |> List.collect getExprVars
   | _ -> []
 
+type FunContext =
+  { fnDecls: Core.Function list
+    fn: FnApp
+    vars: Var list }
 
-open FSharp.Compiler.Syntax
+let rec visitExpression (fctx: FunContext) (expr: SynExpr) : WExpr list =
+  let getMatchedVar expr =
+    match visitExpression fctx expr with
+    | [ e ] -> e
+    | r -> failwith $"expected to get a single expression from {expr}, got instead {r}"
 
-let rec visitExpression (vars: Var list) (expr: SynExpr) =
-  match expr with
-  | SynExpr.IfThenElse(ifExpr = cond; thenExpr = trueBranch; elseExpr = falseBranchOpt) -> []
-  | SynExpr.App(funcExpr = func; argExpr = arg) -> []
-  | SynExpr.Match(expr = expr; clauses = clauses) ->
+  let procClauses clauses (matchedVar: WExpr) : WExpr list =
     clauses
     |> List.choose (fun (SynMatchClause(pat = pat; whenExpr = whenExpr; resultExpr = resultExpr)) ->
       match pat with
-      | SynPat.ListCons(lhsPat = SynPat.LongIdent(longDotId = x); rhsPat = SynPat.LongIdent(longDotId = xs)) ->
-        let findVar m =
-          vars |> List.tryFind (fun v -> v.name.Equals m)
+      | SynPat.ListCons _ ->
+        let r = len matchedVar != zero
 
-        match findVar x.LongIdent.Head.idText, findVar xs.LongIdent.Head.idText with
-        | Some x, Some xs -> Some(x <. (xs <. Empty x.sort))
-        | _ -> None
-      | _ -> None)
-  | _ -> []
+        let pat =
+          match whenExpr with
+          | Some w ->
+            match visitExpression fctx w with
+            | [ e ] -> r <&&> e
+            | ys -> failwith $"expecing a single expression, got {ys}"
+          | None -> r
+
+        match visitExpression fctx resultExpr with
+        | [ e ] -> Some(pat ==> (fctx.fn = e))
+        | ys -> failwith $"expecting a single expression, got {ys} at {resultExpr}"
+      | SynPat.ArrayOrList(_, [], _) -> Some(len matchedVar = zero)
+      | xs ->
+        printfn $"XS {xs}"
+        None)
+
+  match expr with
+  | SynExpr.IfThenElse(ifExpr = cond; thenExpr = trueBranch; elseExpr = falseBranchOpt) -> []
+  | SynExpr.Tuple(exprs = exprs) -> exprs |> List.collect (visitExpression fctx)
+  | SynExpr.App(funcExpr = func; argExpr = rhs) ->
+    match func with
+    | SynExpr.App(funcExpr = SynExpr.LongIdent(longDotId = op); argExpr = lhs; isInfix = true) ->
+      match List.last op.LongIdent with
+      | h when h.idText.Equals "op_LessThanOrEqual" ->
+        match visitExpression fctx lhs, visitExpression fctx rhs with
+        | [ l ], [ r ] -> [ l <= r ]
+        | h ->
+          printfn $"something else {h}"
+          []
+      | _ ->
+        printfn $"{lhs} {op} {rhs}"
+        []
+    | SynExpr.App(funcExpr = SynExpr.Ident ident; argExpr = lhs) ->
+      let largs = visitExpression fctx lhs
+      let args = visitExpression fctx rhs
+
+      let fnCall =
+        fctx.fnDecls |> List.find (fun (Fn(name, _)) -> name.Equals ident.idText)
+
+      [ Core.App(fnCall, largs @ args) ]
+    | SynExpr.LongIdent(longDotId = fnId) ->
+      match List.last fnId.LongIdent with
+      | x when x.idText.Equals "op_ColonColon" ->
+        match visitExpression fctx rhs with
+        | [ x; y ] -> [ x <. y ]
+        | _ -> []
+
+      | _ ->
+        printfn $"FN {fnId}"
+        []
+    | _ ->
+      printfn $"FUNC {func}"
+      printfn $"FUNC {rhs}"
+      []
+  | SynExpr.Ident n ->
+    fctx.vars
+    |> List.tryFind (fun v -> v.name.Equals n.idText)
+    |> Option.map (fun x ->
+      printfn $"X {x}"
+      x :> WExpr)
+    |> Option.toList
+  | SynExpr.Match(expr = expr; clauses = clauses) -> procClauses clauses (getMatchedVar expr)
+  | SynExpr.MatchLambda(matchClauses = clauses) ->
+    let hiddenVar =
+      fctx.vars |> List.filter (fun v -> v.name.StartsWith '_') |> List.head
+
+    procClauses clauses hiddenVar
+  | _ ->
+    printfn $"LAST {expr}"
+    []
 
 
-let getDeclVars decls =
+let getFunDecls declTriples =
   let single
     (value: FSharpMemberOrFunctionOrValue, paramLists: FSharpMemberOrFunctionOrValue list list, body: FSharpExpr)
     =
     match checkType value.ReturnParameter.Type with
-    | Some _ ->
+    | Some returnSort ->
       let oks, errs = getTypedVariables (List.concat paramLists)
-      oks @ getExprVars body, errs
-    | None -> [], []
+      let signature = (oks |> List.map _.sort) @ [ returnSort ]
+      let decl = Core.Fn(value.DisplayName, signature)
+      decl, oks @ getExprVars body, errs
+    | None -> failwith $"could not check return type when getting declaration {value}"
 
-  decls
-  |> List.fold
-    (fun (oks, errs) d ->
-      let noks, nerrs = single d
-      oks @ noks, errs @ nerrs)
-    ([], [])
+  declTriples |> List.map single
 
 let rec toDeclTriples =
   function
   | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(value, paramLists, body) -> [ value, paramLists, body ]
   | FSharpImplementationFileDeclaration.InitAction _ -> []
   | FSharpImplementationFileDeclaration.Entity(_, decls) -> decls |> List.collect toDeclTriples
+
+let headPatToFun (vars: Var list) (longId: SynLongIdent, pats: SynPat list) =
+  let funName = List.last longId.LongIdent
+
+  let parameters =
+    pats
+    |> List.choose (function
+      | SynPat.Paren(
+          pat = SynPat.Typed(
+            pat = SynPat.Named(ident = SynIdent.SynIdent(ident = ident)); targetType = SynType.LongIdent targetType)) ->
+
+        Some
+          { name = ident.idText
+            sort = typeNameToSort (None, targetType.LongIdent |> List.last |> _.idText) }
+      | SynPat.Named(ident = SynIdent.SynIdent(ident = ident)) ->
+        vars |> List.find (fun v -> ident.idText.Equals v.name) |> Some
+      | _ -> None)
+
+  let decl = Core.Fn(funName.idText, parameters |> List.map _.sort)
+  Core.App(decl, parameters |> List.map (fun x -> x :> WExpr))
+
+let getModuleOrNssExpressions modulesOrNss =
+  modulesOrNss
+  |> List.collect (fun moduleOrNs ->
+    let SynModuleOrNamespace(decls = decls) = moduleOrNs
+
+    decls
+    |> List.collect (function
+      | SynModuleDecl.Let(bindings = bindings) ->
+        bindings
+        |> List.choose (function
+          | SynBinding(headPat = SynPat.LongIdent(longDotId = longId; argPats = SynArgPats.Pats pats); expr = expr) ->
+            Some(longId, pats, expr)
+          | _ -> None)
+      | _ -> []))
