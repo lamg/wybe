@@ -531,6 +531,11 @@ and Function =
 and FnApp =
   | App of Function * (WExpr list)
 
+  override this.ToString() =
+    let (App(Fn(name,_), xs)) = this
+    let args = xs |> List.map string |> String.concat ", "
+    $"{name}({args})"
+
   interface WExpr with
     member this.toSymbolTree() : SymbolTree =
       let (App(Fn(f, _), args)) = this

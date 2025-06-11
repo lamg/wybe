@@ -44,26 +44,10 @@ open ProviderImplementation.ProvidedTypes
 open Core
 
 #nowarn 86
-let (=) = FSharp.Core.Operators.(=)
 
 open GriesSchneider
 
-let private checker = FSharpChecker.Create()
-
-let parseAndTypeCheckSingleFile (file, input) =
-  async {
-    let! projOptions, errors = checker.GetProjectOptionsFromScript(file, input, assumeDotNetFramework = false)
-
-    match errors with
-    | [] ->
-      let! parseFileResults, checkFileResults = checker.ParseAndCheckFileInProject(file, 0, input, projOptions)
-
-      return
-        match checkFileResults with
-        | FSharpCheckFileAnswer.Succeeded res -> Ok(parseFileResults, res)
-        | FSharpCheckFileAnswer.Aborted -> Error [ $"failed type checking of {file}" ]
-    | _ -> return errors |> List.map string |> Error
-  }
+let private checker = FSharpChecker.Create(keepAssemblyContents = true)
 
 let typeNameToSort =
   function
@@ -73,7 +57,6 @@ let typeNameToSort =
   | None, "bool" -> WBool
   | None, "int" -> WInt
   | x -> failwith $"unexpected type representation {x}"
-
 
 let rec checkType =
   function
@@ -241,7 +224,8 @@ let getFunDecls declTriples =
       let oks, errs = getTypedVariables (List.concat paramLists)
       let signature = (oks |> List.map _.sort) @ [ returnSort ]
       let decl = Core.Fn(value.DisplayName, signature)
-      decl, oks @ getExprVars body, errs
+      let fn = Core.App(decl, oks |> List.map (fun x -> x :> WExpr))
+      (fn, oks @ getExprVars body), errs
     | None -> failwith $"could not check return type when getting declaration {value}"
 
   declTriples |> List.map single
@@ -252,25 +236,25 @@ let rec toDeclTriples =
   | FSharpImplementationFileDeclaration.InitAction _ -> []
   | FSharpImplementationFileDeclaration.Entity(_, decls) -> decls |> List.collect toDeclTriples
 
-let headPatToFun (vars: Var list) (longId: SynLongIdent, pats: SynPat list) =
-  let funName = List.last longId.LongIdent
+// let headPatToFun (vars: Var list) (longId: SynLongIdent, pats: SynPat list) =
+//   let funName = List.last longId.LongIdent
 
-  let parameters =
-    pats
-    |> List.choose (function
-      | SynPat.Paren(
-          pat = SynPat.Typed(
-            pat = SynPat.Named(ident = SynIdent.SynIdent(ident = ident)); targetType = SynType.LongIdent targetType)) ->
+//   let parameters =
+//     pats
+//     |> List.choose (function
+//       | SynPat.Paren(
+//           pat = SynPat.Typed(
+//             pat = SynPat.Named(ident = SynIdent.SynIdent(ident = ident)); targetType = SynType.LongIdent targetType)) ->
 
-        Some
-          { name = ident.idText
-            sort = typeNameToSort (None, targetType.LongIdent |> List.last |> _.idText) }
-      | SynPat.Named(ident = SynIdent.SynIdent(ident = ident)) ->
-        vars |> List.find (fun v -> ident.idText.Equals v.name) |> Some
-      | _ -> None)
+//         Some
+//           { name = ident.idText
+//             sort = typeNameToSort (None, targetType.LongIdent |> List.last |> _.idText) }
+//       | SynPat.Named(ident = SynIdent.SynIdent(ident = ident)) ->
+//         vars |> List.find (fun v -> ident.idText.Equals v.name) |> Some
+//       | _ -> None)
 
-  let decl = Core.Fn(funName.idText, parameters |> List.map _.sort)
-  Core.App(decl, parameters |> List.map (fun x -> x :> WExpr))
+//   let decl = Core.Fn(funName.idText, parameters |> List.map _.sort)
+//   Core.App(decl, parameters |> List.map (fun x -> x :> WExpr))
 
 let getModuleOrNssExpressions modulesOrNss =
   modulesOrNss
@@ -282,7 +266,70 @@ let getModuleOrNssExpressions modulesOrNss =
       | SynModuleDecl.Let(bindings = bindings) ->
         bindings
         |> List.choose (function
-          | SynBinding(headPat = SynPat.LongIdent(longDotId = longId; argPats = SynArgPats.Pats pats); expr = expr) ->
-            Some(longId, pats, expr)
+          | SynBinding(headPat = SynPat.LongIdent(longDotId = longId; argPats = SynArgPats.Pats _); expr = expr) ->
+            Some(longId.LongIdent |> List.last |> _.idText, expr)
           | _ -> None)
       | _ -> []))
+
+let parseAndTypeCheckSingleFile (file, input) =
+  let projOptions, errors =
+    checker.GetProjectOptionsFromScript(file, input, assumeDotNetFramework = false)
+    |> Async.RunSynchronously
+
+  match errors with
+  | _ :: _ ->
+    let msg = errors |> List.map string |> String.concat ","
+    failwith $"error parsing project: {msg}"
+  | _ -> ()
+
+  let parseFileResults, checkFileResults =
+    checker.ParseAndCheckFileInProject(file, 0, input, projOptions)
+    |> Async.RunSynchronously
+
+  // Wait until type checking succeeds (or 100 attempts)
+  match checkFileResults with
+  | FSharpCheckFileAnswer.Succeeded(res) -> parseFileResults, res
+  | res -> failwithf "Parsing did not finish... (%A)" res
+
+
+let getWybeExpressions (file: string, source: string) =
+  let parseRes, checkRes =
+    parseAndTypeCheckSingleFile (file, SourceText.ofString source)
+
+  let fsSynExprs =
+    match parseRes.ParseTree with
+    | ParsedInput.ImplFile f -> getModuleOrNssExpressions f.Contents
+    | _ -> failwith $"cannot extract Wybe expressions from parse tree {parseRes.ParseTree}"
+
+  let (>) = FSharp.Core.Operators.(>)
+  let (=) = FSharp.Core.Operators.(=)
+
+  match checkRes.ImplementationFile with
+  | Some m when m.Declarations.Length > 0 ->
+    let decls = m.Declarations |> List.collect toDeclTriples |> getFunDecls
+    let oks, errors = decls |> List.unzip
+
+    match List.concat errors with
+    | [] ->
+      let fnDecls = oks |> List.map (fun (App(fn, _), _) -> fn)
+
+      oks
+      |> List.map (fun (fn, allVars) ->
+        let ctx =
+          { fnDecls = fnDecls
+            fn = fn
+            vars = allVars }
+
+        let (App(Fn(fnName, _), _)) = fn
+
+        let synBody =
+          fsSynExprs
+          |> List.choose (function
+            | (name, body) when name = fnName -> Some body
+            | _ -> None)
+          |> List.head
+
+        visitExpression ctx synBody)
+      |> Ok
+    | _ -> Error $"errors getting variables from functions: {errors}"
+  | _ -> Error $"no declarations in file {file}"
