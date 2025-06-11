@@ -26,7 +26,7 @@
     <Compile Include="Inspect.fs" />
     <Compile Include="GriesSchneider.fs" />
     <Compile Include="FsDefinitions.fs" />
-    
+    <Compile Include="..\Parsers\Compact\CompactParser.fs" />
     <Content Include="..\README.md" Pack="true" PackagePath="\" />
     <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
   </ItemGroup>
@@ -36,6 +36,7 @@
     <PackageReference Include="FSharp.TypeProviders.SDK" />
     <PackageReference Include="FsToolkit.ErrorHandling" />
     <PackageReference Include="Microsoft.Z3" />
+    <PackageReference Include="FParsec" />
 
   </ItemGroup>
 
