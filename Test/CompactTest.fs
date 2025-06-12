@@ -1,6 +1,7 @@
 module CompactTest
 
 open Xunit
+open Parsers.Compact
 
 [<Fact>]
 let ``parse counter`` () =
@@ -10,6 +11,7 @@ pragma language_version 0.15;
 
 import CompactStandardLibrary;
 
+enum State { unset, set }
 // public state
 export ledger round: Counter;
 
@@ -18,14 +20,30 @@ export circuit increment(): [] {
   round.increment(1);
 }"""
 
-  let statements = Parsers.Compact.parse counter
-  printfn $"STATEMENTS {statements}"
-  Assert.True(statements.Length > 0)
+  let topLevel = Parsers.Compact.parse counter
 
+  let expected =
+    [ Pragma([ "language_version" ], Version [ 0; 15 ])
+      Import [ [ "CompactStandardLibrary" ] ]
+      Enum(false, [ "State" ], [ [ "unset" ]; [ "set" ] ])
+      Ledger(
+        true,
+        { paramName = [ "round" ]
+          paramType = NamedType([ "Counter" ], []) }
+      )
+      Circuit(
+        true,
+        [ "increment" ],
+        { args = []; returnType = Void },
+        [ CallStatement(Call([ "round"; "increment" ], [], [ Lit(Int 1) ])) ]
+      ) ]
+
+  Assert.Equal<TopLevel list>(expected, topLevel)
 
 [<Fact>]
 let ``parse large example`` () =
-  let example = """
+  let example =
+    """
 import CompactStandardLibrary;
 enum State { unset, set }
 
@@ -33,6 +51,7 @@ export ledger authority: Bytes<32>;
 export ledger value: Uint<64>;
 export ledger state: State;
 export ledger round: Counter;
+
 constructor(sk: Bytes<32>, v: Uint<64>) {
   authority = publicKey(round, sk);
   value = v;
@@ -71,4 +90,5 @@ export circuit clear(): [] {
   round.increment(1);
 }"""
 
-  ()
+  let topLevel = Parsers.Compact.parse example
+  Assert.True(topLevel.Length > 0)
