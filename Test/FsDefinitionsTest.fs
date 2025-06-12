@@ -3,7 +3,6 @@ module FsDefinitionsTest
 open Xunit
 open FsDefinitions
 open Core
-open GriesSchneider
 
 #nowarn 86
 

@@ -1,7 +1,7 @@
 module CompactTest
 
 open Xunit
-open Parsers.Compact
+open LanguageServices.Compact.Parser
 
 [<Fact>]
 let ``parse counter`` () =
@@ -20,7 +20,7 @@ export circuit increment(): [] {
   round.increment(1);
 }"""
 
-  let topLevel = Parsers.Compact.parse counter
+  let topLevel = parse counter
 
   let expected =
     [ Pragma([ "language_version" ], Version [ 0; 15 ])
@@ -90,5 +90,5 @@ export circuit clear(): [] {
   round.increment(1);
 }"""
 
-  let topLevel = Parsers.Compact.parse example
+  let topLevel = parse example
   Assert.True(topLevel.Length > 0)

@@ -28,10 +28,8 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FsUnit" />
-    <PackageReference Include="Antlr4.Runtime.Standard"/>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Prover\Prover.fsproj" />
-    <ProjectReference Include="..\Parsers\RustParserCs\RustParserCs.csproj" />
   </ItemGroup>
 </Project>

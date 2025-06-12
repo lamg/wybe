@@ -1,8 +1,4 @@
 <Solution>
-  <Folder Name="/Parsers/">
-    <Project Path="Parsers/GolangParserCs/GolangParserCs.csproj" />
-    <Project Path="Parsers/RustParserCs/RustParserCs.csproj" />
-  </Folder>
   <Project Path="Test/Test.fsproj" />
   <Project Path="Tool/Tool.fsproj" />
   <Project Path="Prover/Prover.fsproj" />

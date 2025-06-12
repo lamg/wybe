@@ -38,9 +38,4 @@
     <PackageReference Include="FSharpPlus" />
     <PackageReference Include="Microsoft.Z3" />
   </ItemGroup>
-  
-  <ItemGroup>
-    <ProjectReference Include="..\Parsers\RustParserCs\RustParserCs.csproj" />
-  </ItemGroup>
-
 </Project>

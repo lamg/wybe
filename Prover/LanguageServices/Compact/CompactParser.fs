@@ -1,5 +1,5 @@
 /// Token parsers and helpers
-module Parsers.Compact
+module LanguageServices.Compact.Parser
 
 /// Identifier (variable, function, type names)
 type Identifier = string list
