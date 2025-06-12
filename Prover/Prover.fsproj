@@ -26,7 +26,9 @@
     <Compile Include="Inspect.fs" />
     <Compile Include="GriesSchneider.fs" />
     <Compile Include="LanguageServices\FSharp\FsDefinitions.fs" />
-    <Compile Include="LanguageServices\Compact\CompactParser.fs" />
+    <Compile Include="LanguageServices\Compact\AST.fs" />
+    <Compile Include="LanguageServices\Compact\Parser.fs" />
+    <Compile Include="LanguageServices\Compact\TypeChecker.fs" />
     <Content Include="..\README.md" Pack="true" PackagePath="\" />
     <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
   </ItemGroup>

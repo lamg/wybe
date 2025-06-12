@@ -1,7 +1,9 @@
 module CompactTest
 
 open Xunit
+open LanguageServices.Compact.AST
 open LanguageServices.Compact.Parser
+open LanguageServices.Compact.TypeChecker
 
 [<Fact>]
 let ``parse counter`` () =
@@ -20,7 +22,7 @@ export circuit increment(): [] {
   round.increment(1);
 }"""
 
-  let topLevel = parse counter
+  let topLevel = LanguageServices.Compact.Parser.parse counter
 
   let expected =
     [ Pragma([ "language_version" ], Version [ 0; 15 ])
@@ -90,5 +92,36 @@ export circuit clear(): [] {
   round.increment(1);
 }"""
 
-  let topLevel = parse example
+  let topLevel = LanguageServices.Compact.Parser.parse example
   Assert.True(topLevel.Length > 0)
+
+[<Fact>]
+let ``typecheck simple arithmetic in constructor`` () =
+  let src = """
+constructor() {
+  const x = 1 + 2;
+}
+"""
+  let prog = parse src
+  check prog
+
+[<Fact>]
+let ``typecheck assignment type mismatch`` () =
+  let src = """
+constructor() {
+  const x = 1;
+  x = true;
+}
+"""
+  let prog = parse src
+  Assert.Throws<TypeError>(fun () -> check prog) |> ignore
+
+[<Fact>]
+let ``typecheck return type mismatch`` () =
+  let src = """
+circuit foo(): int {
+  return true;
+}
+"""
+  let prog = parse src
+  Assert.Throws<TypeError>(fun () -> check prog) |> ignore
