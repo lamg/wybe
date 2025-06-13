@@ -163,24 +163,14 @@ let rec private typeCheckStmt (env: TcEnv) (retType: CompactType) (stmt: Stateme
 
     { env with
         variables = env.variables.Add(name, t) }
-  | Assign(target, op, expr) ->
+  | Assign(target, expr) ->
 
     let tTarget = typeOfExpr env target
     let tExpr = typeOfExpr env expr in
 
-    match op with
-    | "=" ->
-      if not (equalTypes tTarget tExpr) then
+    if not (equalTypes tTarget tExpr) then
         fail "Assign type mismatch: %A := %A" tTarget tExpr
-    | "+="
-    | "-=" ->
-      if
-        not (equalTypes tTarget (NamedType([ "int" ], [])))
-        || not (equalTypes tExpr (NamedType([ "int" ], [])))
-      then
-        fail "Operator %s requires int types" op
-    | _ -> fail "Unknown assignment operator '%s'" op
-
+    
     env
   | If(cond, thenB, elseB) ->
     let tc = typeOfExpr env cond in
@@ -278,7 +268,7 @@ let private mkEnv (program: Program) : TcEnv =
     enums = enumDefs }
 
 let check (program: Program) : unit =
-  let env = mkEnv program in
+  let env = mkEnv program
 
   program
   |> List.iter (function

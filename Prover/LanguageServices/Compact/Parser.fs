@@ -1,5 +1,6 @@
 /// Token parsers and helpers
 module LanguageServices.Compact.Parser
+
 open FParsec
 open AST
 
@@ -134,8 +135,27 @@ let statementBlock =
     }
 
   let assignStmt =
-    pipe3 expr (choice [ str "+="; str "-="; str "=" ] .>> ws) expr (fun t op v -> Assign(t, op, v))
-    .>> semicolon
+    let syntacticSugarAssignment op f = str op >>. preturn f
+
+    let opEq op t e = Assign(t, Binary(t, op, e))
+    let plusEq = opEq "+"
+    let minusEq = opEq "-"
+    let eq t e = Assign(t, e)
+
+    parse {
+      let! target = expr
+
+      let! f =
+        choice
+          [ syntacticSugarAssignment "+=" plusEq
+            syntacticSugarAssignment "-=" minusEq
+            syntacticSugarAssignment "=" eq ]
+        .>> ws
+
+      let! e = expr
+      do! semicolon
+      return f target e
+    }
 
   let constDef =
     parse {

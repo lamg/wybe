@@ -33,7 +33,7 @@ and CompactType =
 
 /// Statements in Compact
 type Statement =
-  | Assign of Expr * string * Expr
+  | Assign of Expr * Expr
   | If of Expr * Statement list * Statement list option
   | For of i: Identifier * vectorOrLower: Expr * upper: Expr option * body: Statement list
   | Return of Expr option
