@@ -61,3 +61,6 @@ type TopLevel =
 /// A Compact program is a sequence of top-level definitions
 type Program = TopLevel list
 
+let compactInt = NamedType (["int"], [])
+let compactBool = NamedType (["bool"], [])
+let compactString = NamedType (["string"], [])

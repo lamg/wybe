@@ -29,6 +29,7 @@
     <Compile Include="LanguageServices\Compact\AST.fs" />
     <Compile Include="LanguageServices\Compact\Parser.fs" />
     <Compile Include="LanguageServices\Compact\TypeChecker.fs" />
+    <Compile Include="LanguageServices\Compact\SemanticRules.fs" />
     <Content Include="..\README.md" Pack="true" PackagePath="\" />
     <Content Include="..\documents\images\wybe_logo.png" Pack="true" PackagePath="\" />
   </ItemGroup>
