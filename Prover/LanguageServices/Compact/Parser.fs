@@ -108,19 +108,19 @@ let expr =
   opp.TermParser <- term opp.ExpressionParser
   let infix op prec assoc f = InfixOperator(op, ws, prec, assoc, f)
   let prefix op prec f = PrefixOperator(op, ws, prec, true, f)
-  opp.AddOperator(infix "*" 7 Associativity.Left (fun x y -> Binary(x, "*", y)))
-  opp.AddOperator(infix "/" 7 Associativity.Left (fun x y -> Binary(x, "/", y)))
-  opp.AddOperator(infix "+" 6 Associativity.Left (fun x y -> Binary(x, "+", y)))
-  opp.AddOperator(infix "-" 6 Associativity.Left (fun x y -> Binary(x, "-", y)))
-  opp.AddOperator(infix "==" 4 Associativity.Left (fun x y -> Binary(x, "==", y)))
-  opp.AddOperator(infix "!=" 4 Associativity.Left (fun x y -> Binary(x, "!=", y)))
-  opp.AddOperator(infix "<=" 4 Associativity.Left (fun x y -> Binary(x, "<=", y)))
-  opp.AddOperator(infix ">=" 4 Associativity.Left (fun x y -> Binary(x, ">=", y)))
-  opp.AddOperator(infix "<" 4 Associativity.Left (fun x y -> Binary(x, "<", y)))
-  opp.AddOperator(infix ">" 4 Associativity.Left (fun x y -> Binary(x, ">", y)))
-  opp.AddOperator(prefix "!" 9 (fun x -> Unary("not", x)))
-  opp.AddOperator(infix "&&" 3 Associativity.Left (fun x y -> Binary(x, "and", y)))
-  opp.AddOperator(infix "||" 2 Associativity.Left (fun x y -> Binary(x, "or", y)))
+  opp.AddOperator(infix "*" 7 Associativity.Left (fun x y -> Binary(x, CompactOp.Times, y)))
+  opp.AddOperator(infix "/" 7 Associativity.Left (fun x y -> Binary(x, CompactOp.Div, y)))
+  opp.AddOperator(infix "+" 6 Associativity.Left (fun x y -> Binary(x, CompactOp.Plus, y)))
+  opp.AddOperator(infix "-" 6 Associativity.Left (fun x y -> Binary(x, CompactOp.Minus, y)))
+  opp.AddOperator(infix "==" 4 Associativity.Left (fun x y -> Binary(x, CompactOp.Eq, y)))
+  opp.AddOperator(infix "!=" 4 Associativity.Left (fun x y -> Binary(x, CompactOp.NotEq, y)))
+  opp.AddOperator(infix "<=" 4 Associativity.Left (fun x y -> Binary(x, CompactOp.Lte, y)))
+  opp.AddOperator(infix ">=" 4 Associativity.Left (fun x y -> Binary(x, CompactOp.Gte, y)))
+  opp.AddOperator(infix "<" 4 Associativity.Left (fun x y -> Binary(x, CompactOp.Lt, y)))
+  opp.AddOperator(infix ">" 4 Associativity.Left (fun x y -> Binary(x, CompactOp.Gt, y)))
+  opp.AddOperator(prefix "!" 9 (fun x -> Unary(CompactOp.Not, x)))
+  opp.AddOperator(infix "&&" 3 Associativity.Left (fun x y -> Binary(x, CompactOp.And, y)))
+  opp.AddOperator(infix "||" 2 Associativity.Left (fun x y -> Binary(x, CompactOp.Or, y)))
   opp.ExpressionParser
 
 let statementBlock =
@@ -138,8 +138,8 @@ let statementBlock =
     let syntacticSugarAssignment op f = str op >>. preturn f
 
     let opEq op t e = Assign(t, Binary(t, op, e))
-    let plusEq = opEq "+"
-    let minusEq = opEq "-"
+    let plusEq = opEq CompactOp.Plus
+    let minusEq = opEq CompactOp.Minus
     let eq t e = Assign(t, e)
 
     parse {
@@ -276,7 +276,6 @@ let circuit exported =
     let! signature = signature
     let! body = statementBlock
     return Circuit(exported, id, signature, body)
-
   }
 
 let enum exported =

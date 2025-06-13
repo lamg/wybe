@@ -9,12 +9,28 @@ type Literal =
   | Bool of bool
   | Str of string
 
+[<RequireQualifiedAccess>]
+type CompactOp =
+  | Plus
+  | Minus
+  | Times
+  | Div
+  | Eq
+  | NotEq
+  | Lte
+  | Gte
+  | Lt
+  | Gt
+  | And
+  | Or
+  | Not
+
 /// Expressions in Compact
 type Expr =
   | Var of Identifier
   | Lit of Literal
-  | Unary of string * Expr
-  | Binary of Expr * string * Expr
+  | Unary of CompactOp * Expr
+  | Binary of Expr * CompactOp * Expr
   | MemberAccess of Expr * Identifier
   | IndexAccess of Expr * Expr
   | Array of Expr list
@@ -61,6 +77,6 @@ type TopLevel =
 /// A Compact program is a sequence of top-level definitions
 type Program = TopLevel list
 
-let compactInt = NamedType (["int"], [])
-let compactBool = NamedType (["bool"], [])
-let compactString = NamedType (["string"], [])
+let compactInt = NamedType([ "int" ], [])
+let compactBool = NamedType([ "bool" ], [])
+let compactString = NamedType([ "string" ], [])

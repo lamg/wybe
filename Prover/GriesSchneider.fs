@@ -250,6 +250,9 @@ let mkSeq x = ExtSeq { name = x; sort = WSeq sortA }
 let wList (xs: int list) =
   xs |> Seq.rev |> Seq.fold (fun acc x -> Cons(Integer x, acc)) (Empty WInt)
 
+let wSeq s (xs: WExpr seq) =
+  xs |> Seq.rev |> Seq.fold (fun acc x -> Cons(x, acc)) (Empty s) 
+
 let a, b = mkSeqElem "a", mkSeqElem "b"
 
 let ws, xs, ys, zs = mkSeq "ws", mkSeq "xs", mkSeq "ys", mkSeq "zs"

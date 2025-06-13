@@ -8,8 +8,7 @@ type private TcEnv =
     functions: Map<Identifier, Signature>
     enums: Map<Identifier, Identifier list> }
 
-let private fail fmt =
-  Printf.ksprintf (fun msg -> raise (TypeError msg)) fmt
+let private fail msg = raise (TypeError msg)
 
 let rec private equalTypes t1 t2 =
   match t1, t2 with
@@ -42,17 +41,17 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
     let tx = typeOfExpr env x in
 
     match op with
-    | "not" when equalTypes tx (NamedType([ "bool" ], [])) -> NamedType([ "bool" ], [])
+    | CompactOp.Not when equalTypes tx (NamedType([ "bool" ], [])) -> NamedType([ "bool" ], [])
     | _ -> fail "Invalid operand type %A for unary '%s'" tx op
   | Binary(l, op, r) ->
     let tl = typeOfExpr env l
     let tr = typeOfExpr env r in
 
     match op with
-    | "*"
-    | "/"
-    | "+"
-    | "-" ->
+    | CompactOp.Times
+    | CompactOp.Div
+    | CompactOp.Plus
+    | CompactOp.Minus ->
       if
         equalTypes tl (NamedType([ "int" ], []))
         && equalTypes tr (NamedType([ "int" ], []))
@@ -60,8 +59,8 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
         NamedType([ "int" ], [])
       else
         fail "Operator '%s' requires int operands, got %A and %A" op tl tr
-    | "and"
-    | "or" ->
+    | CompactOp.And
+    | CompactOp.Or ->
       if
         equalTypes tl (NamedType([ "bool" ], []))
         && equalTypes tr (NamedType([ "bool" ], []))
@@ -69,16 +68,15 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
         NamedType([ "bool" ], [])
       else
         fail "Operator '%s' requires bool operands, got %A and %A" op tl tr
-    | "=="
-    | "!=" ->
+    | CompactOp.NotEq ->
       if equalTypes tl tr then
         NamedType([ "bool" ], [])
       else
         fail "Cannot compare differing types %A and %A" tl tr
-    | "<"
-    | ">"
-    | "<="
-    | ">=" ->
+    | CompactOp.Lt
+    | CompactOp.Gt
+    | CompactOp.Lte
+    | CompactOp.Gte ->
       if
         equalTypes tl (NamedType([ "int" ], []))
         && equalTypes tr (NamedType([ "int" ], []))
@@ -169,8 +167,8 @@ let rec private typeCheckStmt (env: TcEnv) (retType: CompactType) (stmt: Stateme
     let tExpr = typeOfExpr env expr in
 
     if not (equalTypes tTarget tExpr) then
-        fail "Assign type mismatch: %A := %A" tTarget tExpr
-    
+      fail "Assign type mismatch: %A := %A" tTarget tExpr
+
     env
   | If(cond, thenB, elseB) ->
     let tc = typeOfExpr env cond in
@@ -299,3 +297,54 @@ let check (program: Program) : unit =
       |> List.fold (fun e stmt -> typeCheckStmt e sigt.returnType stmt) env0
       |> ignore
     | _ -> ())
+
+/// Compute a map from function names to maps of expressions in their bodies to their inferred types.
+let exprTypesByFunction (program: Program) : Map<string, Map<Expr, CompactType>> =
+  let env = mkEnv program
+
+  let rec collectExprs (expr: Expr) : Expr list =
+    expr ::
+    (match expr with
+     | Var _ | Lit _ | Version _ -> []
+     | Unary(_, e) -> collectExprs e
+     | Binary(l, _, r) -> collectExprs l @ collectExprs r
+     | MemberAccess(e, _) -> collectExprs e
+     | IndexAccess(a, i) -> collectExprs a @ collectExprs i
+     | Array elems -> elems |> List.collect collectExprs
+     | Call(_, _, args) -> args |> List.collect collectExprs
+     | Cast(_, e) -> collectExprs e
+     | As(_, _) -> [] )
+
+  let rec collectStmtExprs (stmt: Statement) : Expr list =
+    match stmt with
+    | Const(_, expr) -> collectExprs expr
+    | Assign(tgt, expr) -> collectExprs tgt @ collectExprs expr
+    | If(cond, thenB, elseBOpt) ->
+        collectExprs cond @
+        (thenB |> List.collect collectStmtExprs) @
+        (match elseBOpt with Some bs -> bs |> List.collect collectStmtExprs | None -> [])
+    | For(_, lo, hiOpt, body) ->
+        collectExprs lo @
+        (match hiOpt with Some hi -> collectExprs hi | None -> []) @
+        (body |> List.collect collectStmtExprs)
+    | Return exprOpt -> (match exprOpt with Some e -> collectExprs e | None -> [])
+    | CallStatement e -> collectExprs e
+
+  program
+  |> List.choose (function
+    | Circuit(_, name, sigt, body) ->
+        let key = String.concat "." name
+        let env0 =
+          sigt.args
+          |> List.fold (fun e p -> { e with variables = e.variables.Add(p.paramName, p.paramType) }) env
+        let exprs = body |> List.collect collectStmtExprs |> List.distinct
+        let mapping = exprs |> List.map (fun e -> e, typeOfExpr env0 e) |> Map.ofList
+        Some(key, mapping)
+    | Witness(_, name, sigt) ->
+        let key = String.concat "." name
+        let _env0 =
+          sigt.args
+          |> List.fold (fun e p -> { e with variables = e.variables.Add(p.paramName, p.paramType) }) env
+        Some(key, Map.empty)
+    | _ -> None)
+  |> Map.ofList
