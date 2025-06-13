@@ -170,7 +170,7 @@ let printCalculationResult (r: Core.CheckedCalculation) =
 let checkTheorems (xs: list<unit -> Core.CheckedCalculation>) =
   xs |> List.iter (fun th -> th () |> printCalculationResult)
 
-let findFailingProof (xs: list<unit -> Core.CheckedCalculation>) =
+let checkAll (xs: list<unit -> Core.CheckedCalculation>) =
   xs
   |> List.iter (fun th ->
     match th () with

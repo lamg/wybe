@@ -26,4 +26,4 @@ let ``check all theorems`` () =
     contradiction
     ``∧ ∨ absorption``
     ``∨ ∧ absorption`` ]
-  |> findFailingProof
+  |> checkAll

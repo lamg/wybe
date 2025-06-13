@@ -12,7 +12,7 @@ let ``check integer theorems`` () =
     ``GS 15.34``
     ``GS 15.35``
     monotonicity ]
-  |> Inspect.findFailingProof
+  |> Inspect.checkAll
 
 
 
