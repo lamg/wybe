@@ -66,10 +66,10 @@ open GriesSchneider
 let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
   match e with
   | Var x -> Some { name = x.Head; sort = ctx[e] }
-  | Lit (Int n) -> Some (Integer.Integer (int64 n))
-  | Lit (Str _) -> None
-  | Lit (Bool true) -> Some True
-  | Lit (Bool false) -> Some False
+  | Lit(Int n) -> Some(Integer.Integer(int64 n))
+  | Lit(Str _) -> None
+  | Lit(Bool true) -> Some True
+  | Lit(Bool false) -> Some False
   | Unary(CompactOp.Not, x) -> mkWybeExpr ctx x |> Option.map (fun x -> Not(x :?> Proposition))
   | Binary(_, _, _) -> failwith "Not Implemented"
   | MemberAccess(_, _) -> failwith "Not Implemented"
@@ -94,8 +94,9 @@ let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
       | WBool -> ExtBoolOp f
       | WInt -> ExtInteger f
       | WVarSort _ -> failwith "Not implemented generic return type"
+
     Some r
-  |  _ -> None 
+  | _ -> None
 
 let fold1 f (xs: List<'a>) = List.fold f xs.Head xs
 
@@ -128,3 +129,29 @@ let rec statementDomain (ctx: Map<Expr, WSort>) =
   | Return None -> []
   | CallStatement e -> extractDomain ctx e
   | Const(_, e) -> extractDomain ctx e
+
+let statementSemanticInfo (types: Map<Expr, CompactType>) statement : Proposition list =
+  let rec compactTypeToWSort =
+    function
+    | NamedType([ "int" ], _) -> Some WSort.WInt
+    | NamedType([ "bool" ], _) -> Some WSort.WBool
+    | NamedType(t, [ TypeParamInt _; CompactTypeParam t0 ]) when t.Equals compactArrayTypeId ->
+      t0 |> compactTypeToWSort |> Option.map WSort.WSeq
+    | _ -> None
+
+  let ctx =
+    types
+    |> Map.toSeq
+    |> Seq.choose (fun (k, v) -> compactTypeToWSort v |> Option.map (fun s -> (k, s)))
+    |> Map.ofSeq
+
+  statementDomain ctx statement
+
+let functionsSemanticInfo (fs: Map<string, Statement list * Map<Expr, CompactType>>) : Map<string, Proposition array> =
+  fs
+  |> Map.map (fun _ (statements, types) -> statements |> List.collect (statementSemanticInfo types) |> List.toArray)
+
+let moduleSemanticInfo (ts: TopLevel list) = ts |> TypeChecker.exprTypesByFunction |> functionsSemanticInfo
+
+let extractSemanticInfo (input: string): Map<string, Proposition array> =
+  input |> Parser.parse |> moduleSemanticInfo

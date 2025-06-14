@@ -125,7 +125,7 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
           fail "Array literal has mismatched types %A and %A" t0 t
 
       let len = List.length types in
-      NamedType([ "Vector" ], [ TypeParamInt len; CompactTypeParam t0 ])
+      NamedType(compactArrayTypeId, [ TypeParamInt len; CompactTypeParam t0 ])
   | Call(id, _typeArgs, args) ->
     let fsig =
       match env.functions.TryFind id with
@@ -299,7 +299,7 @@ let check (program: Program) : unit =
     | _ -> ())
 
 /// Compute a map from function names to maps of expressions in their bodies to their inferred types.
-let exprTypesByFunction (program: Program) : Map<string, Map<Expr, CompactType>> =
+let exprTypesByFunction (program: Program) : Map<string, Statement list * Map<Expr, CompactType>> =
   let env = mkEnv program
 
   let rec collectExprs (expr: Expr) : Expr list =
@@ -339,12 +339,12 @@ let exprTypesByFunction (program: Program) : Map<string, Map<Expr, CompactType>>
           |> List.fold (fun e p -> { e with variables = e.variables.Add(p.paramName, p.paramType) }) env
         let exprs = body |> List.collect collectStmtExprs |> List.distinct
         let mapping = exprs |> List.map (fun e -> e, typeOfExpr env0 e) |> Map.ofList
-        Some(key, mapping)
+        Some(key, (body, mapping))
     | Witness(_, name, sigt) ->
         let key = String.concat "." name
         let _env0 =
           sigt.args
           |> List.fold (fun e p -> { e with variables = e.variables.Add(p.paramName, p.paramType) }) env
-        Some(key, Map.empty)
+        Some(key, ([] ,Map.empty))
     | _ -> None)
   |> Map.ofList

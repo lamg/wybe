@@ -195,3 +195,12 @@ let stepPropAt (i: int) (n: Inspection) =
      [ sectionBody "step at" $"{i}"
        error "out of range" $"0 ≤ {i} < {n.calc.calculation.steps.Length}" ])
   |> addLines n
+
+let printSemanticInfo (moduleSemantics: Map<string, Proposition array>) =
+  moduleSemantics
+  |> Map.fold
+    (fun acc k ps ->
+      let props = ps |> Array.mapi (fun i x -> info $"[{i}]" "{x}") |> String.concat "\n"
+      section k :: props :: acc)
+    []
+  |> List.iter (printfn "%s")

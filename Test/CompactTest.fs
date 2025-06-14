@@ -4,10 +4,9 @@ open Xunit
 open LanguageServices.Compact.AST
 open LanguageServices.Compact.Parser
 open LanguageServices.Compact.TypeChecker
+open LanguageServices.Compact
 
-[<Fact>]
-let ``parse counter`` () =
-  let counter =
+let counter =
     """
 pragma language_version 0.15;
 
@@ -22,29 +21,7 @@ export circuit increment(): [] {
   round.increment(1);
 }"""
 
-  let topLevel = LanguageServices.Compact.Parser.parse counter
-
-  let expected =
-    [ Pragma([ "language_version" ], Version [ 0; 15 ])
-      Import [ [ "CompactStandardLibrary" ] ]
-      Enum(false, [ "State" ], [ [ "unset" ]; [ "set" ] ])
-      Ledger(
-        true,
-        { paramName = [ "round" ]
-          paramType = NamedType([ "Counter" ], []) }
-      )
-      Circuit(
-        true,
-        [ "increment" ],
-        { args = []; returnType = Void },
-        [ CallStatement(Call([ "round"; "increment" ], [], [ Lit(Int 1) ])) ]
-      ) ]
-
-  Assert.Equal<TopLevel list>(expected, topLevel)
-
-[<Fact>]
-let ``parse large example`` () =
-  let example =
+let stateSetter =
     """
 import CompactStandardLibrary;
 enum State { unset, set }
@@ -92,7 +69,32 @@ export circuit clear(): [] {
   round.increment(1);
 }"""
 
-  let topLevel = LanguageServices.Compact.Parser.parse example
+
+[<Fact>]
+let ``parse counter`` () =
+  let topLevel = LanguageServices.Compact.Parser.parse counter
+
+  let expected =
+    [ Pragma([ "language_version" ], Version [ 0; 15 ])
+      Import [ [ "CompactStandardLibrary" ] ]
+      Enum(false, [ "State" ], [ [ "unset" ]; [ "set" ] ])
+      Ledger(
+        true,
+        { paramName = [ "round" ]
+          paramType = NamedType([ "Counter" ], []) }
+      )
+      Circuit(
+        true,
+        [ "increment" ],
+        { args = []; returnType = Void },
+        [ CallStatement(Call([ "round"; "increment" ], [], [ Lit(Int 1) ])) ]
+      ) ]
+
+  Assert.Equal<TopLevel list>(expected, topLevel)
+
+[<Fact>]
+let ``parse large example`` () =
+  let topLevel = LanguageServices.Compact.Parser.parse stateSetter
   Assert.True(topLevel.Length > 0)
 
 [<Fact>]
@@ -125,3 +127,7 @@ circuit foo(): int {
 """
   let prog = parse src
   Assert.Throws<TypeError>(fun () -> check prog) |> ignore
+
+[<Fact>]
+let ``extract semantic info`` () =
+  counter |> SemanticRules.extractSemanticInfo |> Inspect.printSemanticInfo

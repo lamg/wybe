@@ -80,3 +80,4 @@ type Program = TopLevel list
 let compactInt = NamedType([ "int" ], [])
 let compactBool = NamedType([ "bool" ], [])
 let compactString = NamedType([ "string" ], [])
+let compactArrayTypeId = ["array"]
