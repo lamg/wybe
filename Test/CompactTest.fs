@@ -6,6 +6,7 @@ open LanguageServices.Compact.Parser
 open LanguageServices.Compact.TypeChecker
 open LanguageServices.Compact
 
+
 let counter =
   """
 pragma language_version 0.15;
@@ -69,6 +70,14 @@ export circuit clear(): [] {
   round.increment(1);
 }"""
 
+let extractWithEmptyEnv code =
+  let env =
+    { enums = Map.empty
+      functions = Map.empty
+      variables = Map.empty }
+
+  code
+    |> SemanticRules.extractSemanticInfo env
 
 [<Fact>]
 let ``parse counter`` () =
@@ -175,3 +184,48 @@ let ``extract semantic info`` () =
   stateSetter
   |> SemanticRules.extractSemanticInfo env
   |> Inspect.printSemanticInfo
+
+open Core
+open GriesSchneider
+
+[<Fact>]
+let ``validCalc demo 0`` () =
+  let validCalc = """
+circuit validCalc(): Uint<64> {
+  const a = 18;
+  const b = 1;
+  return a/b;
+}
+  """
+  let obligations = extractWithEmptyEnv validCalc
+  obligations |> Inspect.printSemanticInfo
+  
+  let ``b ≠ 0`` = obligations["validCalc"][0]
+  
+  proof {
+    lemma ``b ≠ 0`` 
+  }
+  |> Inspect.inspect
+  |> Inspect.summary
+  |> Inspect.print
+
+[<Fact>]
+let ``invalidCalc demo 1`` () =
+  let invalidCalc = """
+circuit invalidCalc(): Uint<64> {
+  const a = 18;
+  const b = 0;
+  return a/b;
+}
+  """
+  let obligations = extractWithEmptyEnv invalidCalc
+  obligations |> Inspect.printSemanticInfo
+  
+  let ``b ≠ 0`` = obligations["invalidCalc"][0]
+  
+  proof {
+    lemma ``b ≠ 0`` 
+  }
+  |> Inspect.inspect
+  |> Inspect.summary
+  |> Inspect.print

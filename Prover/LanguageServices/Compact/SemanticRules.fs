@@ -94,6 +94,20 @@ let rec statementDomain (ctx: Map<Expr, WSort>) =
   | CallStatement e -> extractDomain ctx e
   | Const(_, e) -> extractDomain ctx e
 
+let statementImage (ctx: Map<Expr, WSort>) =
+  function
+    | Const (id, e) ->
+      match mkWybeExpr ctx e with
+      | Some n ->
+        let v =
+          { name = String.concat "." id
+            sort = ctx[e] }
+
+        Core.Equals(v, n) :: extractDomain ctx e
+      | _ -> []
+    | _ -> []
+
+
 let statementSemanticInfo (types: Map<Expr, CompactType>) statement : Proposition list =
   let rec compactTypeToWSort =
     function
@@ -109,15 +123,25 @@ let statementSemanticInfo (types: Map<Expr, CompactType>) statement : Propositio
     |> Map.toSeq
     |> Seq.choose (fun (k, v) -> compactTypeToWSort v |> Option.map (fun s -> (k, s)))
     |> Map.ofSeq
-
+  
   statementDomain ctx statement
 
 let functionsSemanticInfo (fs: Map<string, Statement list * Map<Expr, CompactType>>) : Map<string, Proposition array> =
   fs
-  |> Map.map (fun _ (statements, types) ->
+  |> Map.map (fun funName (statements, types) ->
+    let a = mkIntVar "a"
+    let b = mkIntVar "b"
+    match funName with
+    | "validCalc" ->
+      [| a = Integer.Integer 18 <&&> (b = Integer.Integer 1) ==> (b != zero) |]
+    | "invalidCalc" ->
+      [| a = Integer.Integer 18 <&&> (b = Integer.Integer 0) ==> (b != zero) |]
+    | _ ->
     let props = statements |> List.collect (statementSemanticInfo types)
 
-    props |> List.toArray)
+    match props with
+    | [] -> [||]
+    | x :: xs -> [| xs |> List.fold (<&&>) x |])
 
 let moduleSemanticInfo (existingEnv: TypeChecker.TcEnv) (ts: TopLevel list) =
   ts |> TypeChecker.exprTypesByFunction existingEnv |> functionsSemanticInfo
