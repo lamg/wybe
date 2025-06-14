@@ -3,7 +3,7 @@ module LanguageServices.Compact.TypeChecker
 open AST
 exception TypeError of string
 
-type private TcEnv =
+type TcEnv =
   { variables: Map<Identifier, CompactType>
     functions: Map<Identifier, Signature>
     enums: Map<Identifier, Identifier list> }
@@ -130,17 +130,17 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
     let fsig =
       match env.functions.TryFind id with
       | Some s -> s
-      | None -> fail "Unknown function %A" id
+      | None -> fail $"Unknown function {id}"
 
     if List.length args <> List.length fsig.args then
-      fail "Function %A expects %d args but got %d" id (List.length fsig.args) (List.length args)
+      fail $"Function {id} expects {List.length fsig.args} args but got {List.length args}"
 
     List.iter2
       (fun param arg ->
         let ta = typeOfExpr env arg in
 
         if not (equalTypes ta param.paramType) then
-          fail "Function %A argument '%A' expects %A but got %A" id param.paramName param.paramType ta)
+          fail $"Function {id} argument '{param.paramName}' expects {param.paramType} but got {ta}")
       fsig.args
       args
 
@@ -167,14 +167,14 @@ let rec private typeCheckStmt (env: TcEnv) (retType: CompactType) (stmt: Stateme
     let tExpr = typeOfExpr env expr in
 
     if not (equalTypes tTarget tExpr) then
-      fail "Assign type mismatch: %A := %A" tTarget tExpr
+      fail $"Assign type mismatch: {tTarget} := {tExpr}"
 
     env
   | If(cond, thenB, elseB) ->
     let tc = typeOfExpr env cond in
 
     if not (equalTypes tc (NamedType([ "bool" ], []))) then
-      fail "If condition must be bool, got %A" tc
+      fail $"If condition must be bool, got {tc}"
 
     thenB |> List.iter (fun s -> ignore (typeCheckStmt env retType s))
 
@@ -195,7 +195,7 @@ let rec private typeCheckStmt (env: TcEnv) (retType: CompactType) (stmt: Stateme
           not (equalTypes tLo (NamedType([ "int" ], [])))
           || not (equalTypes tHi (NamedType([ "int" ], [])))
         then
-          fail "For range bounds must be int, got %A and %A" tLo tHi
+          fail $"For range bounds must be int, got {tLo} and {tHi}"
 
         NamedType([ "int" ], [])
       | None ->
@@ -209,8 +209,8 @@ let rec private typeCheckStmt (env: TcEnv) (retType: CompactType) (stmt: Stateme
               ps
            with
            | Some e -> e
-           | None -> fail "Cannot iterate over non-indexable type %A" tLo)
-        | _ -> fail "Cannot iterate over non-indexable type %A" tLo
+           | None -> fail $"Cannot iterate over non-indexable type {tLo}")
+        | _ -> fail $"Cannot iterate over non-indexable type {tLo}"
 
     let env' =
       { env with
@@ -224,17 +224,17 @@ let rec private typeCheckStmt (env: TcEnv) (retType: CompactType) (stmt: Stateme
        let te = typeOfExpr env e in
 
        if not (equalTypes te retType) then
-         fail "Return type mismatch: expected %A but got %A" retType te
+         fail $"Return type mismatch: expected {retType} but got {te}"
      | None ->
        if not (equalTypes retType Void) then
-         fail "Return without value in non-void function (%A)" retType)
+         fail $"Return without value in non-void function {retType}")
 
     env
   | CallStatement e ->
     let te = typeOfExpr env e in
 
     if not (equalTypes te Void) then
-      fail "Call statement must be void, got %A" te
+      fail $"Call statement must be void, got {te}"
 
     env
 
@@ -299,52 +299,81 @@ let check (program: Program) : unit =
     | _ -> ())
 
 /// Compute a map from function names to maps of expressions in their bodies to their inferred types.
-let exprTypesByFunction (program: Program) : Map<string, Statement list * Map<Expr, CompactType>> =
+let exprTypesByFunction
+  (inheritedEnv: TcEnv)
+  (program: Program)
+  : Map<string, Statement list * Map<Expr, CompactType>> =
   let env = mkEnv program
 
+  let env =
+    { enums = Map.toList inheritedEnv.enums @ Map.toList env.enums |> Map.ofList
+      functions = Map.toList inheritedEnv.functions @ Map.toList env.functions |> Map.ofList
+      variables = Map.toList inheritedEnv.variables @ Map.toList env.variables |> Map.ofList }
+
   let rec collectExprs (expr: Expr) : Expr list =
-    expr ::
-    (match expr with
-     | Var _ | Lit _ | Version _ -> []
-     | Unary(_, e) -> collectExprs e
-     | Binary(l, _, r) -> collectExprs l @ collectExprs r
-     | MemberAccess(e, _) -> collectExprs e
-     | IndexAccess(a, i) -> collectExprs a @ collectExprs i
-     | Array elems -> elems |> List.collect collectExprs
-     | Call(_, _, args) -> args |> List.collect collectExprs
-     | Cast(_, e) -> collectExprs e
-     | As(_, _) -> [] )
+    expr
+    :: (match expr with
+        | Var _
+        | Lit _
+        | Version _ -> []
+        | Unary(_, e) -> collectExprs e
+        | Binary(l, _, r) -> collectExprs l @ collectExprs r
+        | MemberAccess(e, _) -> collectExprs e
+        | IndexAccess(a, i) -> collectExprs a @ collectExprs i
+        | Array elems -> elems |> List.collect collectExprs
+        | Call(_, _, args) -> args |> List.collect collectExprs
+        | Cast(_, e) -> collectExprs e
+        | As(_, _) -> [])
 
   let rec collectStmtExprs (stmt: Statement) : Expr list =
     match stmt with
     | Const(_, expr) -> collectExprs expr
     | Assign(tgt, expr) -> collectExprs tgt @ collectExprs expr
     | If(cond, thenB, elseBOpt) ->
-        collectExprs cond @
-        (thenB |> List.collect collectStmtExprs) @
-        (match elseBOpt with Some bs -> bs |> List.collect collectStmtExprs | None -> [])
+      collectExprs cond
+      @ (thenB |> List.collect collectStmtExprs)
+      @ (match elseBOpt with
+         | Some bs -> bs |> List.collect collectStmtExprs
+         | None -> [])
     | For(_, lo, hiOpt, body) ->
-        collectExprs lo @
-        (match hiOpt with Some hi -> collectExprs hi | None -> []) @
-        (body |> List.collect collectStmtExprs)
-    | Return exprOpt -> (match exprOpt with Some e -> collectExprs e | None -> [])
+      collectExprs lo
+      @ (match hiOpt with
+         | Some hi -> collectExprs hi
+         | None -> [])
+      @ (body |> List.collect collectStmtExprs)
+    | Return exprOpt ->
+      (match exprOpt with
+       | Some e -> collectExprs e
+       | None -> [])
     | CallStatement e -> collectExprs e
 
   program
   |> List.choose (function
     | Circuit(_, name, sigt, body) ->
-        let key = String.concat "." name
-        let env0 =
-          sigt.args
-          |> List.fold (fun e p -> { e with variables = e.variables.Add(p.paramName, p.paramType) }) env
-        let exprs = body |> List.collect collectStmtExprs |> List.distinct
-        let mapping = exprs |> List.map (fun e -> e, typeOfExpr env0 e) |> Map.ofList
-        Some(key, (body, mapping))
+      let key = String.concat "." name
+
+      let env0 =
+        sigt.args
+        |> List.fold
+          (fun e p ->
+            { e with
+                variables = e.variables.Add(p.paramName, p.paramType) })
+          env
+
+      let exprs = body |> List.collect collectStmtExprs |> List.distinct
+      let mapping = exprs |> List.map (fun e -> e, typeOfExpr env0 e) |> Map.ofList
+      Some(key, (body, mapping))
     | Witness(_, name, sigt) ->
-        let key = String.concat "." name
-        let _env0 =
-          sigt.args
-          |> List.fold (fun e p -> { e with variables = e.variables.Add(p.paramName, p.paramType) }) env
-        Some(key, ([] ,Map.empty))
+      let key = String.concat "." name
+
+      let _env0 =
+        sigt.args
+        |> List.fold
+          (fun e p ->
+            { e with
+                variables = e.variables.Add(p.paramName, p.paramType) })
+          env
+
+      Some(key, ([], Map.empty))
     | _ -> None)
   |> Map.ofList

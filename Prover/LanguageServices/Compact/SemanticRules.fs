@@ -151,7 +151,8 @@ let functionsSemanticInfo (fs: Map<string, Statement list * Map<Expr, CompactTyp
   fs
   |> Map.map (fun _ (statements, types) -> statements |> List.collect (statementSemanticInfo types) |> List.toArray)
 
-let moduleSemanticInfo (ts: TopLevel list) = ts |> TypeChecker.exprTypesByFunction |> functionsSemanticInfo
+let moduleSemanticInfo (existingEnv: TypeChecker.TcEnv) (ts: TopLevel list) =
+  ts |> TypeChecker.exprTypesByFunction existingEnv |> functionsSemanticInfo
 
-let extractSemanticInfo (input: string): Map<string, Proposition array> =
-  input |> Parser.parse |> moduleSemanticInfo
+let extractSemanticInfo (existingEnv: TypeChecker.TcEnv) (input: string) : Map<string, Proposition array> =
+  input |> Parser.parse |> moduleSemanticInfo existingEnv

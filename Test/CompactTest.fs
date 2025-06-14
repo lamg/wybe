@@ -7,7 +7,7 @@ open LanguageServices.Compact.TypeChecker
 open LanguageServices.Compact
 
 let counter =
-    """
+  """
 pragma language_version 0.15;
 
 import CompactStandardLibrary;
@@ -22,7 +22,7 @@ export circuit increment(): [] {
 }"""
 
 let stateSetter =
-    """
+  """
 import CompactStandardLibrary;
 enum State { unset, set }
 
@@ -99,35 +99,52 @@ let ``parse large example`` () =
 
 [<Fact>]
 let ``typecheck simple arithmetic in constructor`` () =
-  let src = """
+  let src =
+    """
 constructor() {
   const x = 1 + 2;
 }
 """
+
   let prog = parse src
   check prog
 
 [<Fact>]
 let ``typecheck assignment type mismatch`` () =
-  let src = """
+  let src =
+    """
 constructor() {
   const x = 1;
   x = true;
 }
 """
+
   let prog = parse src
   Assert.Throws<TypeError>(fun () -> check prog) |> ignore
 
 [<Fact>]
 let ``typecheck return type mismatch`` () =
-  let src = """
+  let src =
+    """
 circuit foo(): int {
   return true;
 }
 """
+
   let prog = parse src
   Assert.Throws<TypeError>(fun () -> check prog) |> ignore
 
 [<Fact>]
 let ``extract semantic info`` () =
-  counter |> SemanticRules.extractSemanticInfo |> Inspect.printSemanticInfo
+  let env =
+    { enums = Map.empty
+      functions =
+        Map.ofList
+          [ [ "round"; "increment" ],
+            { args =
+                [ { paramName = [ "n" ]
+                    paramType = compactInt } ]
+              returnType = Void } ]
+      variables = Map.empty }
+
+  counter |> SemanticRules.extractSemanticInfo env |> Inspect.printSemanticInfo
