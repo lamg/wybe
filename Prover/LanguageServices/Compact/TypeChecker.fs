@@ -67,12 +67,12 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
       then
         NamedType([ "bool" ], [])
       else
-        fail "Operator '%s' requires bool operands, got %A and %A" op tl tr
+        fail $"Operator '{op}' requires bool operands, got {tl} and {tr}"
     | CompactOp.NotEq ->
       if equalTypes tl tr then
         NamedType([ "bool" ], [])
       else
-        fail "Cannot compare differing types %A and %A" tl tr
+        fail $"Cannot compare differing types {tl} and {tr}"
     | CompactOp.Lt
     | CompactOp.Gt
     | CompactOp.Lte
@@ -83,8 +83,8 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
       then
         NamedType([ "bool" ], [])
       else
-        fail "Operator '%s' requires int operands, got %A and %A" op tl tr
-    | _ -> fail "Unknown binary operator '%s'" op
+        fail $"Operator '{op}' requires int operands, got {tl} and {tr}"
+    | _ -> fail $"Unknown binary operator '{op}'"
   | MemberAccess(e, fld) ->
     let te = typeOfExpr env e in
 
@@ -92,15 +92,15 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
     | NamedType(name, _) ->
       match env.enums.TryFind name with
       | Some members when List.exists ((=) fld) members -> NamedType(name, [])
-      | Some _ -> fail "Unknown member %A of enum %A" fld name
-      | None -> fail "Type %A is not an enum" name
-    | _ -> fail "Cannot access member %A on non-enum type %A" fld te
+      | Some _ -> fail $"Unknown member {fld} of enum {name}"
+      | None -> fail $"Type {name} is not an enum"
+    | _ -> fail $"Cannot access member {fld} on non-enum type {te}"
   | IndexAccess(a, i) ->
     let ta = typeOfExpr env a
     let ti = typeOfExpr env i in
 
     if not (equalTypes ti (NamedType([ "int" ], []))) then
-      fail "Index must be int, got %A" ti
+      fail $"Index must be int, got {ti}"
 
     match ta with
     | NamedType(_, ps) ->
@@ -112,8 +112,8 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
           ps
       with
       | Some elem -> elem
-      | None -> fail "Type %A is not indexable" ta
-    | _ -> fail "Type %A is not indexable" ta
+      | None -> fail $"Type {ta} is not indexable"
+    | _ -> fail $"Type {ta} is not indexable"
   | Array elems ->
     let types = List.map (typeOfExpr env) elems in
 
@@ -121,8 +121,8 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
     | [] -> fail "Cannot infer type of empty array literal"
     | t0 :: ts ->
       for t in ts do
-        if not (equalTypes t0 t) then
-          fail "Array literal has mismatched types %A and %A" t0 t
+          if not (equalTypes t0 t) then
+            fail $"Array literal has mismatched types {t0} and {t}"
 
       let len = List.length types in
       NamedType(compactVector, [ TypeParamInt len; CompactTypeParam t0 ])
