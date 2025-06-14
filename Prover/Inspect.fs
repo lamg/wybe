@@ -200,7 +200,7 @@ let printSemanticInfo (moduleSemantics: Map<string, Proposition array>) =
   moduleSemantics
   |> Map.fold
     (fun acc k ps ->
-      let props = ps |> Array.mapi (fun i x -> info $"[{i}]" "{x}") |> String.concat "\n"
+      let props = ps |> Array.mapi (fun i x -> info $"[{i}]" $"{x}") |> String.concat "\n"
       section k :: props :: acc)
     []
   |> List.iter (printfn "%s")

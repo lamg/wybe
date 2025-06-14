@@ -15,6 +15,9 @@ open GriesSchneider
 let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
   match e with
   | Var x ->
+    if not (ctx.ContainsKey e) then
+      printfn $"not contains {e}"
+
     Some
       { name = String.concat "." x
         sort = ctx[e] }
@@ -23,9 +26,13 @@ let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
   | Lit(Bool true) -> Some True
   | Lit(Bool false) -> Some False
   | Unary(CompactOp.Not, x) -> mkWybeExpr ctx x |> Option.map (fun x -> Not(x :?> Proposition))
-  | Binary(_, _, _) -> failwith "Not Implemented"
-  | MemberAccess(_, _) -> failwith "Not Implemented"
-  | IndexAccess(_, _) -> failwith "Not Implemented"
+  | Binary(x, op, y) ->
+    match op, mkWybeExpr ctx x, mkWybeExpr ctx y with
+    | CompactOp.Eq, Some wx, Some wy -> Some(Core.Equals(wx, wy))
+    | CompactOp.Div, Some wx, Some wy -> Some(Core.Divide(wx :?> Integer, wy :?> Integer) :> WExpr)
+    | _ -> None
+  | MemberAccess(_, _) -> None
+  | IndexAccess(_, _) -> None
   | Array xs ->
     let s =
       match ctx[e] with
@@ -53,13 +60,17 @@ let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
   | Version(_) -> None
   | As(_, _) -> None
 
-let fold1 f (xs: List<'a>) = List.fold f xs.Head xs
+//let fold1 f (xs: List<'a>) = List.fold f xs.Head xs
 
 let rec extractDomain (ctx: Map<Expr, WSort>) : Expr -> Proposition list =
   function
   | Call([ "assert" ], _, args) ->
-    let argsDomain = args |> List.collect (extractDomain ctx) |> fold1 (<&&>)
-    [ argsDomain; (mkWybeExpr ctx args.Head).Value :?> Proposition ]
+    let argsDomain = args |> List.collect (extractDomain ctx) |> List.fold (<&&>) True
+    let r = (mkWybeExpr ctx args.Head).Value :?> Proposition
+
+    match argsDomain with
+    | True -> [ r ]
+    | _ -> [ argsDomain; r ]
 
   | Binary(_, CompactOp.Div, y) -> [ (mkWybeExpr ctx y).Value != zero ]
   | IndexAccess(xs, i) ->
@@ -92,7 +103,8 @@ let statementSemanticInfo (types: Map<Expr, CompactType>) statement : Propositio
     | NamedType([ "bool" ], _) -> Some WSort.WBool
     | NamedType(t, [ TypeParamInt _; CompactTypeParam t0 ]) when t.Equals compactVector ->
       t0 |> compactTypeToWSort |> Option.map WSort.WSeq
-    | _ -> None
+    | NamedType(id, _) -> Some(WSort.WVarSort(id |> String.concat "."))
+    | Void -> Some(WSort.WVarSort "Void")
 
   let ctx =
     types
@@ -105,13 +117,7 @@ let statementSemanticInfo (types: Map<Expr, CompactType>) statement : Propositio
 let functionsSemanticInfo (fs: Map<string, Statement list * Map<Expr, CompactType>>) : Map<string, Proposition array> =
   fs
   |> Map.map (fun _ (statements, types) ->
-    let props =
-      statements
-      |> List.collect (fun stmt ->
-        try
-          statementSemanticInfo types stmt
-        with _ ->
-          [])
+    let props = statements |> List.collect (statementSemanticInfo types)
 
     props |> List.toArray)
 
