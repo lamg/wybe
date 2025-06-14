@@ -136,15 +136,37 @@ circuit foo(): int {
 
 [<Fact>]
 let ``extract semantic info`` () =
+  let mkParam name cType =
+    { paramName = [ name ]
+      paramType = cType }
+
+  let bytes32 = NamedType([ "Bytes" ], [ TypeParamInt 32 ])
+
+  let roundDotIncrement =
+    [ "round"; "increment" ],
+    { args = [ mkParam "n" compactInt ]
+      returnType = Void }
+
+  let persistentHash =
+    [ "persistentHash" ],
+    { args =
+        [ { paramName = [ "xs" ]
+            paramType = NamedType(compactVector, [ TypeParamInt 3; CompactTypeParam bytes32 ]) } ]
+      returnType = bytes32 }
+
+  let pad =
+    [ "pad" ],
+    { args = [ mkParam "n" compactInt; mkParam "s" compactString ]
+      returnType = bytes32 }
+  let compactAssert  = ["assert"], {args = [mkParam "cond" compactBool; mkParam "msg" compactString]; returnType = Void}
+
+  let envFunctions = Map.ofList [ roundDotIncrement; persistentHash; pad; compactAssert ]
+
   let env =
     { enums = Map.empty
-      functions =
-        Map.ofList
-          [ [ "round"; "increment" ],
-            { args =
-                [ { paramName = [ "n" ]
-                    paramType = compactInt } ]
-              returnType = Void } ]
+      functions = envFunctions
       variables = Map.empty }
 
-  counter |> SemanticRules.extractSemanticInfo env |> Inspect.printSemanticInfo
+  stateSetter
+  |> SemanticRules.extractSemanticInfo env
+  |> Inspect.printSemanticInfo

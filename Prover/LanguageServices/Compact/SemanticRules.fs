@@ -135,7 +135,7 @@ let statementSemanticInfo (types: Map<Expr, CompactType>) statement : Propositio
     function
     | NamedType([ "int" ], _) -> Some WSort.WInt
     | NamedType([ "bool" ], _) -> Some WSort.WBool
-    | NamedType(t, [ TypeParamInt _; CompactTypeParam t0 ]) when t.Equals compactArrayTypeId ->
+    | NamedType(t, [ TypeParamInt _; CompactTypeParam t0 ]) when t.Equals compactVector ->
       t0 |> compactTypeToWSort |> Option.map WSort.WSeq
     | _ -> None
 

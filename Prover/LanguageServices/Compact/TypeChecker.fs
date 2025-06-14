@@ -34,7 +34,7 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
   | Var id ->
     match env.variables.TryFind id with
     | Some t -> t
-    | None -> fail "Unbound variable %A" id
+    | None -> fail $"Unbound variable {id}"
   | Lit lit -> typeOfLiteral lit
   | Version _ -> NamedType([ "version" ], [])
   | Unary(op, x) ->
@@ -42,7 +42,7 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
 
     match op with
     | CompactOp.Not when equalTypes tx (NamedType([ "bool" ], [])) -> NamedType([ "bool" ], [])
-    | _ -> fail "Invalid operand type %A for unary '%s'" tx op
+    | _ -> fail $"Invalid operand type {tx} for unary '{op}'"
   | Binary(l, op, r) ->
     let tl = typeOfExpr env l
     let tr = typeOfExpr env r in
@@ -58,7 +58,7 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
       then
         NamedType([ "int" ], [])
       else
-        fail "Operator '%s' requires int operands, got %A and %A" op tl tr
+        fail $"Operator '{op}' requires int operands, got {tl} and {tr}"
     | CompactOp.And
     | CompactOp.Or ->
       if
@@ -125,7 +125,7 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
           fail "Array literal has mismatched types %A and %A" t0 t
 
       let len = List.length types in
-      NamedType(compactArrayTypeId, [ TypeParamInt len; CompactTypeParam t0 ])
+      NamedType(compactVector, [ TypeParamInt len; CompactTypeParam t0 ])
   | Call(id, _typeArgs, args) ->
     let fsig =
       match env.functions.TryFind id with
@@ -150,7 +150,7 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
     let _ =
       match env.variables.TryFind varId with
       | Some _ -> ()
-      | None -> fail "Unbound variable in cast: %A" varId
+      | None -> fail $"Unbound variable in cast: {varId}"
 
     ctype
 
