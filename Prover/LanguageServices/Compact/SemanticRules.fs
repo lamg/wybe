@@ -60,8 +60,6 @@ let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
   | Version(_) -> None
   | As(_, _) -> None
 
-//let fold1 f (xs: List<'a>) = List.fold f xs.Head xs
-
 let rec extractDomain (ctx: Map<Expr, WSort>) : Expr -> Proposition list =
   function
   | Call([ "assert" ], _, args) ->
