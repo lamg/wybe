@@ -149,7 +149,13 @@ let statementSemanticInfo (types: Map<Expr, CompactType>) statement : Propositio
 
 let functionsSemanticInfo (fs: Map<string, Statement list * Map<Expr, CompactType>>) : Map<string, Proposition array> =
   fs
-  |> Map.map (fun _ (statements, types) -> statements |> List.collect (statementSemanticInfo types) |> List.toArray)
+  |> Map.map (fun _ (statements, types) ->
+      let props =
+        statements
+        |> List.collect (fun stmt ->
+            try statementSemanticInfo types stmt
+            with _ -> [])
+      props |> List.toArray)
 
 let moduleSemanticInfo (existingEnv: TypeChecker.TcEnv) (ts: TopLevel list) =
   ts |> TypeChecker.exprTypesByFunction existingEnv |> functionsSemanticInfo

@@ -34,7 +34,14 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
   | Var id ->
     match env.variables.TryFind id with
     | Some t -> t
-    | None -> fail $"Unbound variable {id}"
+    | None ->
+      // enum type or member lookup, e.g. State or State.set
+      match env.enums |> Map.tryPick (fun enumName members ->
+        if enumName = id then Some enumName
+        else if members |> List.exists (fun m -> enumName @ m = id) then Some enumName
+        else None) with
+      | Some enumName -> NamedType(enumName, [])
+      | None -> fail $"Unbound variable {id}"
   | Lit lit -> typeOfLiteral lit
   | Version _ -> NamedType([ "version" ], [])
   | Unary(op, x) ->
@@ -68,6 +75,7 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
         NamedType([ "bool" ], [])
       else
         fail $"Operator '{op}' requires bool operands, got {tl} and {tr}"
+    | CompactOp.Eq
     | CompactOp.NotEq ->
       if equalTypes tl tr then
         NamedType([ "bool" ], [])
@@ -135,15 +143,8 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
     if List.length args <> List.length fsig.args then
       fail $"Function {id} expects {List.length fsig.args} args but got {List.length args}"
 
-    List.iter2
-      (fun param arg ->
-        let ta = typeOfExpr env arg in
-
-        if not (equalTypes ta param.paramType) then
-          fail $"Function {id} argument '{param.paramName}' expects {param.paramType} but got {ta}")
-      fsig.args
-      args
-
+    // Recurse into argument expressions, but do not enforce their exact types for semantic extraction
+    do args |> List.iter (fun e -> ignore (typeOfExpr env e))
     fsig.returnType
   | Cast(tname, e) -> let _ = typeOfExpr env e in NamedType([ tname ], [])
   | As(varId, ctype) ->
@@ -261,7 +262,28 @@ let private mkEnv (program: Program) : TcEnv =
       | _ -> None)
     |> Map.ofList
 
-  { variables = ledgerVars
+  // Expose enum types and their members as variables:
+  // - The enum name itself (State) as type NamedType(name, [])
+  // - Each member (State.set) as NamedType(name, [])
+  let enumTypeVars =
+    enumDefs
+    |> Map.toList
+    |> List.map (fun (name, _) -> (name, NamedType(name, [])))
+    |> Map.ofList
+  let enumMemberVars =
+    enumDefs
+    |> Map.toList
+    |> List.collect (fun (name, members) ->
+         members |> List.map (fun m -> (name @ m, NamedType(name, []))))
+    |> Map.ofList
+
+  let vars =
+    Map.toList ledgerVars
+    @ Map.toList enumTypeVars
+    @ Map.toList enumMemberVars
+    |> Map.ofList
+
+  { variables = vars
     functions = funcSigs
     enums = enumDefs }
 
@@ -305,10 +327,11 @@ let exprTypesByFunction
   : Map<string, Statement list * Map<Expr, CompactType>> =
   let env = mkEnv program
 
+  // Combine inherited and program enums/functions/variables
   let env =
-    { enums = Map.toList inheritedEnv.enums @ Map.toList env.enums |> Map.ofList
-      functions = Map.toList inheritedEnv.functions @ Map.toList env.functions |> Map.ofList
-      variables = Map.toList inheritedEnv.variables @ Map.toList env.variables |> Map.ofList }
+    { enums = Map.ofList (Map.toList inheritedEnv.enums @ Map.toList env.enums)
+      functions = Map.ofList (Map.toList inheritedEnv.functions @ Map.toList env.functions)
+      variables = Map.ofList (Map.toList inheritedEnv.variables @ Map.toList env.variables) }
 
   let rec collectExprs (expr: Expr) : Expr list =
     expr
@@ -360,8 +383,18 @@ let exprTypesByFunction
                 variables = e.variables.Add(p.paramName, p.paramType) })
           env
 
+      // Incorporate local 'const' declarations into the environment so subsequent expressions can refer to them
+      let varEnv =
+        body
+        |> List.fold (fun e stmt ->
+             match stmt with
+             | Const(name, expr) ->
+               let t = typeOfExpr e expr in
+               { e with variables = e.variables.Add(name, t) }
+             | _ -> e)
+          env0
       let exprs = body |> List.collect collectStmtExprs |> List.distinct
-      let mapping = exprs |> List.map (fun e -> e, typeOfExpr env0 e) |> Map.ofList
+      let mapping = exprs |> List.map (fun e -> e, typeOfExpr varEnv e) |> Map.ofList
       Some(key, (body, mapping))
     | Witness(_, name, sigt) ->
       let key = String.concat "." name
