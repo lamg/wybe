@@ -158,9 +158,14 @@ let ``extract semantic info`` () =
     [ "pad" ],
     { args = [ mkParam "n" compactInt; mkParam "s" compactString ]
       returnType = bytes32 }
-  let compactAssert  = ["assert"], {args = [mkParam "cond" compactBool; mkParam "msg" compactString]; returnType = Void}
 
-  let envFunctions = Map.ofList [ roundDotIncrement; persistentHash; pad; compactAssert ]
+  let compactAssert =
+    [ "assert" ],
+    { args = [ mkParam "cond" compactBool; mkParam "msg" compactString ]
+      returnType = Void }
+
+  let envFunctions =
+    Map.ofList [ roundDotIncrement; persistentHash; pad; compactAssert ]
 
   let env =
     { enums = Map.empty

@@ -251,7 +251,7 @@ let wList (xs: int list) =
   xs |> Seq.rev |> Seq.fold (fun acc x -> Cons(Integer x, acc)) (Empty WInt)
 
 let wSeq s (xs: WExpr seq) =
-  xs |> Seq.rev |> Seq.fold (fun acc x -> Cons(x, acc)) (Empty s) 
+  xs |> Seq.rev |> Seq.fold (fun acc x -> Cons(x, acc)) (Empty s)
 
 let a, b = mkSeqElem "a", mkSeqElem "b"
 

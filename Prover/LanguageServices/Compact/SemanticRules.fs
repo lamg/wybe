@@ -2,57 +2,6 @@ module LanguageServices.Compact.SemanticRules
 
 open AST
 
-// import CompactStandardLibrary;
-// enum State { unset, set }
-//
-// export ledger authority: Bytes<32>;
-// export ledger value: Uint<64>;
-// export ledger state: State;
-// export ledger round: Counter;
-//
-// constructor(sk: Bytes<32>, v: Uint<64>) {
-//   authority = publicKey(round, sk);
-//   value = v;
-//   state = State.set;
-// }
-//
-// circuit publicKey(round: Field, sk: Bytes<32>): Bytes<32> {
-//   return persistentHash<Vector<3, Bytes<32>>>(
-//     [pad(32, "midnight:examples:lock:pk"),
-//      round as Bytes<32>,
-//      sk]);
-// }
-//
-
-// extracted predicate
-// sk: Bytes<32> ∧ v: Uint<64> ∧ constructor(sk, v) = ()
-// ⇒ authority = publicKey(round, sk) ∧ value = v ∧ state = State.set
-
-// export circuit get(): Uint<64> {
-//   assert(state == State.set, "Attempted to get uninitialized value");
-//   return value;
-// }
-//
-// witness secretKey(): Bytes<32>;
-//
-// export circuit set(v: Uint<64>): [] {
-//   assert(state == State.unset, "Attempted to set initialized value");
-//   const sk = secretKey();
-//   const pk = publicKey(round, sk);
-//   authority = pk;
-//   value = v;
-//   state = State.set;
-// }
-//
-// export circuit clear(): [] {
-//   assert(state == State.set, "Attempted to clear uninitialized value");
-//   const sk = secretKey();
-//   const pk = publicKey(round, sk);
-//   assert(authority == pk, "Attempted to clear without authorization");
-//   state = State.unset;
-//   round.increment(1);
-// }
-
 // every expression has a domain
 // every statement's precondition includes the domain of its composing expressions
 // composing two statements creates a proof obligation, that the variables coming from the previous
@@ -65,7 +14,10 @@ open GriesSchneider
 
 let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
   match e with
-  | Var x -> Some { name = x.Head; sort = ctx[e] }
+  | Var x ->
+    Some
+      { name = String.concat "." x
+        sort = ctx[e] }
   | Lit(Int n) -> Some(Integer.Integer(int64 n))
   | Lit(Str _) -> None
   | Lit(Bool true) -> Some True
@@ -96,7 +48,10 @@ let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
       | WVarSort _ -> failwith "Not implemented generic return type"
 
     Some r
-  | _ -> None
+  | Unary(_, _) -> None
+  | Cast(_, _) -> None
+  | Version(_) -> None
+  | As(_, _) -> None
 
 let fold1 f (xs: List<'a>) = List.fold f xs.Head xs
 
@@ -150,12 +105,15 @@ let statementSemanticInfo (types: Map<Expr, CompactType>) statement : Propositio
 let functionsSemanticInfo (fs: Map<string, Statement list * Map<Expr, CompactType>>) : Map<string, Proposition array> =
   fs
   |> Map.map (fun _ (statements, types) ->
-      let props =
-        statements
-        |> List.collect (fun stmt ->
-            try statementSemanticInfo types stmt
-            with _ -> [])
-      props |> List.toArray)
+    let props =
+      statements
+      |> List.collect (fun stmt ->
+        try
+          statementSemanticInfo types stmt
+        with _ ->
+          [])
+
+    props |> List.toArray)
 
 let moduleSemanticInfo (existingEnv: TypeChecker.TcEnv) (ts: TopLevel list) =
   ts |> TypeChecker.exprTypesByFunction existingEnv |> functionsSemanticInfo

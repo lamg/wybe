@@ -373,8 +373,7 @@ and Proposition =
       | Quantifier(q, vars, body) ->
         let rec mkBoundExpr i (v: WExpr) =
           match v with
-          | :? Var as v ->
-            v, ctx.MkBound(uint32 i, v.sort.toZ3Sort ctx)
+          | :? Var as v -> v, ctx.MkBound(uint32 i, v.sort.toZ3Sort ctx)
           | :? Proposition as p ->
             match p with
             | ExtBoolOp e -> mkBoundExpr i e
@@ -390,12 +389,12 @@ and Proposition =
           | _ -> failwith $"only variables are allowed in quantifier variable section, got {v}"
 
         let z3Vars = vars |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
-         
+
         let boundVars =
           vars
           |> List.mapi mkBoundExpr
           |> List.fold (fun m (k, v) -> Map.add k.name v m) boundVars
-        
+
         let z3Body = (body :> WExpr).toZ3Expr (ctx, boundVars)
         let patterns = Proposition.extractPatternFromRecurrence (ctx, boundVars, body)
 
@@ -486,11 +485,11 @@ and WSort =
 
     mkSort this
 
-and Var = 
-  {name : string ; sort : WSort}
+and Var =
+  { name: string
+    sort: WSort }
 
-  override this.ToString() : string =
-    this.name
+  override this.ToString() : string = this.name
 
   interface WExpr with
     member this.toSymbolTree() : SymbolTree =
@@ -532,7 +531,7 @@ and FnApp =
   | App of Function * (WExpr list)
 
   override this.ToString() =
-    let (App(Fn(name,_), xs)) = this
+    let (App(Fn(name, _), xs)) = this
     let args = xs |> List.map string |> String.concat ", "
     $"{name}({args})"
 

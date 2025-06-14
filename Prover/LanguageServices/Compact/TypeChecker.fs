@@ -36,10 +36,16 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
     | Some t -> t
     | None ->
       // enum type or member lookup, e.g. State or State.set
-      match env.enums |> Map.tryPick (fun enumName members ->
-        if enumName = id then Some enumName
-        else if members |> List.exists (fun m -> enumName @ m = id) then Some enumName
-        else None) with
+      match
+        env.enums
+        |> Map.tryPick (fun enumName members ->
+          if enumName = id then
+            Some enumName
+          else if members |> List.exists (fun m -> enumName @ m = id) then
+            Some enumName
+          else
+            None)
+      with
       | Some enumName -> NamedType(enumName, [])
       | None -> fail $"Unbound variable {id}"
   | Lit lit -> typeOfLiteral lit
@@ -129,8 +135,8 @@ let rec private typeOfExpr (env: TcEnv) (expr: Expr) : CompactType =
     | [] -> fail "Cannot infer type of empty array literal"
     | t0 :: ts ->
       for t in ts do
-          if not (equalTypes t0 t) then
-            fail $"Array literal has mismatched types {t0} and {t}"
+        if not (equalTypes t0 t) then
+          fail $"Array literal has mismatched types {t0} and {t}"
 
       let len = List.length types in
       NamedType(compactVector, [ TypeParamInt len; CompactTypeParam t0 ])
@@ -270,17 +276,15 @@ let private mkEnv (program: Program) : TcEnv =
     |> Map.toList
     |> List.map (fun (name, _) -> (name, NamedType(name, [])))
     |> Map.ofList
+
   let enumMemberVars =
     enumDefs
     |> Map.toList
-    |> List.collect (fun (name, members) ->
-         members |> List.map (fun m -> (name @ m, NamedType(name, []))))
+    |> List.collect (fun (name, members) -> members |> List.map (fun m -> (name @ m, NamedType(name, []))))
     |> Map.ofList
 
   let vars =
-    Map.toList ledgerVars
-    @ Map.toList enumTypeVars
-    @ Map.toList enumMemberVars
+    Map.toList ledgerVars @ Map.toList enumTypeVars @ Map.toList enumMemberVars
     |> Map.ofList
 
   { variables = vars
@@ -386,13 +390,17 @@ let exprTypesByFunction
       // Incorporate local 'const' declarations into the environment so subsequent expressions can refer to them
       let varEnv =
         body
-        |> List.fold (fun e stmt ->
-             match stmt with
-             | Const(name, expr) ->
-               let t = typeOfExpr e expr in
-               { e with variables = e.variables.Add(name, t) }
-             | _ -> e)
+        |> List.fold
+          (fun e stmt ->
+            match stmt with
+            | Const(name, expr) ->
+              let t = typeOfExpr e expr in
+
+              { e with
+                  variables = e.variables.Add(name, t) }
+            | _ -> e)
           env0
+
       let exprs = body |> List.collect collectStmtExprs |> List.distinct
       let mapping = exprs |> List.map (fun e -> e, typeOfExpr varEnv e) |> Map.ofList
       Some(key, (body, mapping))
