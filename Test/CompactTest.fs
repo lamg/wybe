@@ -76,8 +76,7 @@ let extractWithEmptyEnv code =
       functions = Map.empty
       variables = Map.empty }
 
-  code
-    |> SemanticRules.extractSemanticInfo env
+  code |> SemanticRules.extractSemanticInfo env
 
 [<Fact>]
 let ``parse counter`` () =
@@ -190,42 +189,36 @@ open GriesSchneider
 
 [<Fact>]
 let ``validCalc demo 0`` () =
-  let validCalc = """
+  let validCalc =
+    """
 circuit validCalc(): Uint<64> {
   const a = 18;
   const b = 1;
   return a/b;
 }
   """
+
   let obligations = extractWithEmptyEnv validCalc
   obligations |> Inspect.printSemanticInfo
-  
+
   let ``b ≠ 0`` = obligations["validCalc"][0]
-  
-  proof {
-    lemma ``b ≠ 0`` 
-  }
-  |> Inspect.inspect
-  |> Inspect.summary
-  |> Inspect.print
+
+  proof { lemma ``b ≠ 0`` } |> Inspect.inspect |> Inspect.summary |> Inspect.print
 
 [<Fact>]
 let ``invalidCalc demo 1`` () =
-  let invalidCalc = """
+  let invalidCalc =
+    """
 circuit invalidCalc(): Uint<64> {
   const a = 18;
   const b = 0;
   return a/b;
 }
   """
+
   let obligations = extractWithEmptyEnv invalidCalc
   obligations |> Inspect.printSemanticInfo
-  
+
   let ``b ≠ 0`` = obligations["invalidCalc"][0]
-  
-  proof {
-    lemma ``b ≠ 0`` 
-  }
-  |> Inspect.inspect
-  |> Inspect.summary
-  |> Inspect.print
+
+  proof { lemma ``b ≠ 0`` } |> Inspect.inspect |> Inspect.summary |> Inspect.print
