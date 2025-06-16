@@ -1,6 +1,8 @@
-# Wybe
-
 ![Wybe](./documents/images/wybe_logo.png)
+
+![NuGet Version](https://img.shields.io/nuget/v/Wybe?style=flat-square)
+![NuGet Downloads](https://img.shields.io/nuget/dt/Wybe?style=flat-square)
+![Tests](https://img.shields.io/github/actions/workflow/status/lamg/wybe/test.yml?style=flat-square&label=tests)
 
 A theorem prover embedded in F#'s computation expressions, using [Z3][3] under the hood
 
