@@ -23,6 +23,8 @@ A formal verification tool with the following features:
   - [ ] F#
   - [ ] Golang
   - [ ] [Compact](https://docs.midnight.network/develop/reference/compact)
+    - [Compact modules](./Prover/LanguageServices/Compact/)
+    - [Compact demo](./Test/CompactTest.fs)
 
 ## Installation instructions
 
