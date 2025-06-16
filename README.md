@@ -1,20 +1,22 @@
 ![Wybe](./documents/images/wybe_logo.png)
 
-![NuGet Version](https://img.shields.io/nuget/v/Wybe?style=flat-square)
-![NuGet Downloads](https://img.shields.io/nuget/dt/Wybe?style=flat-square)
-![Tests](https://img.shields.io/github/actions/workflow/status/lamg/wybe/test.yml?style=flat-square&label=tests)
+[![NuGet Version](https://img.shields.io/nuget/v/Wybe?style=flat-square)](https://www.nuget.org/packages/Wybe)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Wybe?style=flat-square)](https://www.nuget.org/packages/Wybe)
+[![Tests](https://img.shields.io/github/actions/workflow/status/lamg/wybe/test.yml?style=flat-square&label=tests)](https://github.com/lamg/wybe/actions)
 
-A theorem prover embedded in F#'s computation expressions, using [Z3][3] under the hood
+A formal verification tool with the following features:
+
+- DSL for writting proofs supported by F#'s computation expressions
+- [Z3][3] as inference engine
+- Extraction of proof obligations from several languages
+- Cross-language proofs: semantics can be extracted from different languages and combined to prove theorems about the whole project
 
 ## Features and progress
 
 - [ ] Check proofs written in a syntax inspired by [Dijkstra's predicate calculus][0]
   - [ ] [A Logical Approach to Discrete Math][1]
-    - [x] [Basic predicate calculus proofs](./Prover/GriesSchneider/PredicateCalculus.fs)
-    - [x] Integers
-    - [x] Sequences
+    - [x] Prove properties with booleans, integers, sequences and functions [GriesSchneider.fs](./Prover/GriesSchneider.fs)
   - [ ] [Relational calculus](./documents/calc_collection.pdf)
-  - [x] Functions
 
 - [ ] Extract proof obligations from
   - [ ] Rust
