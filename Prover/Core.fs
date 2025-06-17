@@ -226,6 +226,12 @@ and Proposition =
   override this.ToString() : string =
     (this :> WExpr).ToSymbolTree().ToString()
 
+  // recursive definitions like ⟨∀n → fib (n+2) = fib(n+1) + fib n⟩ need to be converted to Z3 expressions
+  // specifying how to unfold recursive definitions, by providing a *pattern*.
+  // In this case the pattern is [|fib (n+1); fib n|]. This is implemented by the extractPatternFromRecurrence
+  // function by visiting the WExpr tree and collecting function applications, FnApp instances, and converting them
+  // to their equivalent in Z3, to finally create a Z3 pattern with them.
+
   /// <summary>extract Z3 pattern from recursive definitions like fib (n+2) = fib(n+1) + fib n</summary>
   /// <param name="ctx"></param>
   /// <param name="boundVars">variables bound by a quantifier</param>

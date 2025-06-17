@@ -81,7 +81,7 @@ let ``insert(5, ϵ) = [5]`` () =
 let ``insert(5, xs) = 5::xs`` () =
   let decl = FnDecl("insert", [ WInt; WSeq WInt; WSeq WInt ])
   let insert (n, xs) = ExtSequence(FnApp(decl, [ n; xs ]))
-  let xs = ExtSequence (Var("xs",  WSeq WInt))
+  let xs = ExtSequence(Var("xs", WSeq WInt))
   let ins0 = ``∀`` [ n ] (insert (n, xs) = Cons(n, xs))
   let five = Integer 5
 
@@ -100,7 +100,7 @@ let ``insert after first element`` () =
   let decl = FnDecl("insert", [ WInt; WSeq WInt; WSeq WInt ])
   let insert (n, xs) = ExtSequence(FnApp(decl, [ n; xs ]))
 
-  let xs = ExtSequence (Var("xs", WSeq WInt))
+  let xs = ExtSequence(Var("xs", WSeq WInt))
 
   let ins2 =
     ``∀`` [ n; xs ] (len xs != zero <&&> (insert (n, xs) = (Head xs <. insert (n, Tail xs))))
@@ -131,7 +131,7 @@ let ``insert function`` () =
   let decl = FnDecl("insert", [ WInt; WSeq WInt; WSeq WInt ])
   let insert (n, xs) = ExtSequence(FnApp(decl, [ n; xs ]))
 
-  let xs = ExtSequence (Var("xs", WSeq WInt))
+  let xs = ExtSequence(Var("xs", WSeq WInt))
   let y = ExtInteger(Head xs)
   let five = Integer 5
 
