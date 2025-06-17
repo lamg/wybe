@@ -10,7 +10,7 @@ open Microsoft.Z3
 // - Calculation
 
 // section Symbol Tree
-// 
+//
 // The SymbolTree type allows to build string representations of any WExpr instance
 // precedence of operators used in string representations
 // 0: ≡ ≢
@@ -22,15 +22,24 @@ open Microsoft.Z3
 // 6: - (unary minus) # :: ++ ◁ ▷
 // 7: variables, function applications, and other atoms like true, false, ϵ, expressions inside parenthesis and angle brackets, like universal and existential quantifiers
 
+[<RequireQualifiedAccess>]
 type Symbol =
-  { symbol: string
-    precedence: int
-    isVar: bool }
+  | Op of symbol: string * precedence: int
+  | Var of string
+  | Const of string
+  | Atom of string
 
-let nonVarSymbol symbol precedence =
-  { symbol = symbol
-    precedence = precedence
-    isVar = false }
+  member this.Precedence =
+    match this with
+    | Op(_, p) -> p
+    | _ -> 7
+
+  member this.Symbol =
+    match this with
+    | Op(s, _) -> s
+    | Var s
+    | Atom s
+    | Const s -> s
 
 type SymbolTree =
   { node: Symbol
@@ -38,25 +47,25 @@ type SymbolTree =
 
   override this.ToString() =
     let parenthesise (parent: Symbol) (child: SymbolTree) =
-      if parent.precedence > child.node.precedence then
+      if parent.Precedence > child.node.Precedence then
         $"({child})"
       else
-        let chainableOps = Set [ "≡"; "≢"; parent.symbol ]
+        let chainableOps = Set [ "≡"; "≢"; parent.Symbol ]
 
         let areChainable =
-          Set.isSubset (Set [ parent.symbol; child.node.symbol ]) chainableOps
+          Set.isSubset (Set [ parent.Symbol; child.node.Symbol ]) chainableOps
 
-        if not areChainable && parent.precedence = child.node.precedence then
+        if not areChainable && parent.Precedence = child.node.Precedence then
           $"({child})"
         else
           child.ToString()
 
     match this with
-    | { node = x; children = [ left; right ] } when x.symbol = "," ->
-      $"{parenthesise x left}{x.symbol} {parenthesise x right}"
-    | { node = x; children = [ left; right ] } -> $"{parenthesise x left} {x.symbol} {parenthesise x right}"
-    | { node = x; children = [ right ] } -> $"{x.symbol}{parenthesise x right}"
-    | { node = x } -> x.symbol
+    | { node = x; children = [ left; right ] } when x.Symbol = "," ->
+      $"{parenthesise x left}{x.Symbol} {parenthesise x right}"
+    | { node = x; children = [ left; right ] } -> $"{parenthesise x left} {x.Symbol} {parenthesise x right}"
+    | { node = x; children = [ right ] } -> $"{x.Symbol}{parenthesise x right}"
+    | { node = x } -> x.Symbol
 
   member this.existsNode(p: Symbol -> bool) =
     p this.node || this.children |> List.exists (fun c -> c.existsNode p)
@@ -118,37 +127,37 @@ and Integer =
       match this with
       | ExtInteger e -> e.toSymbolTree ()
       | Integer i ->
-        { node = nonVarSymbol $"{i}" 7
+        { node = Symbol.Const $"{i}"
           children = [] }
       | UnaryMinus n ->
-        { node = nonVarSymbol "-" 6
+        { node = Symbol.Op("-", 6)
           children = [ (n :> WExpr).toSymbolTree () ] }
       | Plus(x, y) ->
-        { node = nonVarSymbol "+" 5
+        { node = Symbol.Op("+", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | Minus(x, y) ->
-        { node = nonVarSymbol "-" 5
+        { node = Symbol.Op("-", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | Times(x, y) ->
-        { node = nonVarSymbol "×" 5
+        { node = Symbol.Op("×", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | Divide(x, y) ->
-        { node = nonVarSymbol "÷" 5
+        { node = Symbol.Op("÷", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | Exceeds(x, y) ->
-        { node = nonVarSymbol ">" 5
+        { node = Symbol.Op(">", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | LessThan(x, y) ->
-        { node = nonVarSymbol "<" 5
+        { node = Symbol.Op("<", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | AtLeast(x, y) ->
-        { node = nonVarSymbol "≥" 5
+        { node = Symbol.Op("≥", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | AtMost(x, y) ->
-        { node = nonVarSymbol "≤" 5
+        { node = Symbol.Op("≤", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
       | IsDivisor(x, y) ->
-        { node = nonVarSymbol "∣" 5
+        { node = Symbol.Op("∣", 5)
           children = [ (x :> WExpr).toSymbolTree (); (y :> WExpr).toSymbolTree () ] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
@@ -286,7 +295,7 @@ and Proposition =
         let exps =
           p.Args
           |> List.choose (function
-            | arg when arg.toSymbolTree().existsNode _.isVar -> Some(arg.toZ3Expr (ctx, boundVars))
+            | arg when arg.toSymbolTree().existsNode _.IsVar -> Some(arg.toZ3Expr (ctx, boundVars))
             | _ -> None)
 
         match exps with
@@ -305,41 +314,41 @@ and Proposition =
     member this.toSymbolTree() =
       match this with
       | True ->
-        { node = nonVarSymbol "true" 7
+        { node = Symbol.Const "true"
           children = [] }
       | False ->
-        { node = nonVarSymbol "false" 7
+        { node = Symbol.Const "false"
           children = [] }
       | ExtProposition x -> x.toSymbolTree ()
       | Equals(x, y) ->
-        { node = nonVarSymbol $"{x} = {y}" 4
-          children = [] }
+        { node = Symbol.Op("=", 4)
+          children = [ x.toSymbolTree (); y.toSymbolTree () ] }
       | Differs(x, y) ->
-        { node = nonVarSymbol $"{x} ≠ {y}" 4
-          children = [] }
+        { node = Symbol.Op("≠", 4)
+          children = [ x.toSymbolTree (); y.toSymbolTree () ] }
       | Not right ->
-        { node = nonVarSymbol "¬" 3
+        { node = Symbol.Op("¬", 3)
           children = [ (right :> WExpr).toSymbolTree () ] }
       | And(left, right) ->
-        { node = nonVarSymbol "∧" 2
+        { node = Symbol.Op("∧", 2)
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Or(left, right) ->
-        { node = nonVarSymbol "∨" 2
+        { node = Symbol.Op("∨", 2)
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Implies(left, right) ->
-        { node = nonVarSymbol "⇒" 1
+        { node = Symbol.Op("⇒", 1)
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Follows(left, right) ->
-        { node = nonVarSymbol "⇐" 1
+        { node = Symbol.Op("⇐", 1)
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Equiv(left, right) ->
         let l = (left :> WExpr).toSymbolTree ()
         let r = (right :> WExpr).toSymbolTree ()
 
-        { node = nonVarSymbol "≡" 0
+        { node = Symbol.Op("≡", 0)
           children = [ l; r ] }
       | Inequiv(left, right) ->
-        { node = nonVarSymbol "≢" 0
+        { node = Symbol.Op("≢", 0)
           children = [ (left :> WExpr).toSymbolTree (); (right :> WExpr).toSymbolTree () ] }
       | Quantifier(q, vars, body) ->
         let symbol =
@@ -350,7 +359,7 @@ and Proposition =
         let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
         let p = (body :> WExpr).toSymbolTree().ToString()
 
-        { node = nonVarSymbol $"⟨{symbol}{vs} → {p}⟩" 7 // \langle \rangle ⟨⟩
+        { node = Symbol.Atom $"⟨{symbol}{vs} → {p}⟩" // \langle \rangle ⟨⟩
           children = [] }
 
 
@@ -421,29 +430,29 @@ and Sequence =
     member this.toSymbolTree() : SymbolTree =
       match this with
       | Length x ->
-        { node = nonVarSymbol "#" 6
+        { node = Symbol.Op("#", 6)
           children = [ (x :> WExpr).toSymbolTree () ] }
       | Empty _ ->
-        { node = nonVarSymbol "ϵ" 7
+        { node = Symbol.Const "ϵ"
           children = [] }
       | ExtSequence x -> x.toSymbolTree ()
       | Cons(x, xs) ->
-        { node = nonVarSymbol "::" 6
+        { node = Symbol.Op("::", 6)
           children = [ x.toSymbolTree (); (xs :> WExpr).toSymbolTree () ] }
       | Concat(xs, ys) ->
-        { node = nonVarSymbol "++" 6
+        { node = Symbol.Op ("++", 6)
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
       | IsPrefix(xs, ys) ->
-        { node = nonVarSymbol "◁" 6
+        { node = Symbol.Op ("◁", 6)
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
       | IsSuffix(xs, ys) ->
-        { node = nonVarSymbol "▷" 6
+        { node = Symbol.Op ("▷", 6)
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
       | Head xs ->
-        { node = nonVarSymbol "head" 7
+        { node = Symbol.Atom "head"
           children = [ (xs :> WExpr).toSymbolTree () ] }
       | Tail xs ->
-        { node = nonVarSymbol "tail" 7
+        { node = Symbol.Atom "tail"
           children = [ (xs :> WExpr).toSymbolTree () ] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
@@ -494,10 +503,7 @@ and Var =
 
   interface WExpr with
     member this.toSymbolTree() : SymbolTree =
-      { node =
-          { symbol = this.name
-            precedence = 7
-            isVar = true }
+      { node = Symbol.Var this.name 
         children = [] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
@@ -549,14 +555,14 @@ and FnApp =
           xs
           |> List.fold
             (fun acc x ->
-              { node = nonVarSymbol "," 0
+              { node = Symbol.Op (",", 0)
                 children = [ x.toSymbolTree (); acc ] })
             (x.toSymbolTree ())
 
-        { node = nonVarSymbol this.FnDecl.Name 7
+        { node = Symbol.Atom this.FnDecl.Name
           children = [ argTree ] }
       | [] ->
-        { node = nonVarSymbol this.FnDecl.Name 7
+        { node = Symbol.Atom this.FnDecl.Name
           children = [] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
@@ -581,12 +587,12 @@ and FnApp =
 //
 // A calculation consists of a demonstradum (a formula to prove) and a sequence of transformations that provide
 // evidence for checking the validity of the demonstrandumd.
-// 
+//
 // Calculations are implemented as a computation expression where instances of the type ProofLine are yielded
 // and parsed to compose a valid instance of the Calculation type. This is implemented by the CalculationCE type, which
 // also includes a Run member that checks the proof, producing a CheckedCalculation value.
 //
-// The LawsCE is also a computation expression which allows to extract valid Wybe expressions from axioms and 
+// The LawsCE is also a computation expression which allows to extract valid Wybe expressions from axioms and
 // theorems (from successfully checked calculations also in Wybe) useful as intermediate step in a proof.
 
 type Calculation =
