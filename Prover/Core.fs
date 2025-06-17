@@ -188,7 +188,19 @@ and Integer =
         ctx.MkLe(p, q)
       | IsDivisor(n, m) ->
         // exists x such n*x = m
-        let x = ctx.MkIntConst "x" // TODO could this cause a name colision
+        let extractVar =
+          function
+          | ExtInteger a ->
+            match a with
+            | :? Var as z -> Some z.Name
+            | _ -> None
+          | _ -> None
+
+        let varSet = [ n; m ] |> List.choose extractVar |> Set
+        let x = varSet - Set [ "x"; "y"; "z" ] |> Set.toList |> List.head
+        // x ∉ { n, m }
+
+        let x = ctx.MkIntConst x
         let p, q = toExp n, toExp m
         ctx.MkExists([| x |], ctx.MkEq(ctx.MkMul(p, x), q))
 
