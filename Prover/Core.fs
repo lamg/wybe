@@ -2,12 +2,15 @@ module Core
 
 open Microsoft.Z3
 
-// This module allows the expression of properties about boolean, integers, sequences and functions
-// this is implemented by the types that implement the WExpr interface (Proposition, Integer,
-// Sequence, FnApp and Var).
-// The type Proposition acts like the glue for putting together properties involving the remaining types
-// The Proposition.ExtBoolOp union case allows to put any type implementing WExpr inside a boolean expression
+// This module allows to write expressions made of boolean, integers, sequences and functions; also to write and check proofs made of those expressions.
 
+// sections
+// - Symbol Tree
+// - WExpr
+// - Calculation
+
+// section Symbol Tree
+// 
 // The SymbolTree type allows to build string representations of any WExpr instance
 // precedence of operators used in string representations
 // 0: ≡ ≢
@@ -18,23 +21,6 @@ open Microsoft.Z3
 // 5: + - × ÷
 // 6: - (unary minus) # :: ++ ◁ ▷
 // 7: variables, function applications, and other atoms like true, false, ϵ, expressions inside parenthesis and angle brackets, like universal and existential quantifiers
-
-// This module also allows the expression of proofs involving formulas that are instances of WExpr
-// This is implemented by CalculationCE and LawsCE
-
-// Proofs are checked by checking all the steps one by one, and if that works then
-// in a context where all the steps are considered true, the demonstrandum is checked
-
-// Checking a step is done by getting its Z3 equivalent and checking it. A proof step like:
-// X
-// = { law }
-// Y
-// is checked by adding `law.toZ3Expr()` as Z3 constraint and checking `(X = Y).toZ3Expr`
-
-// Checking the whole proof is done by adding the steps formulas as Z3 constraints, like  `X = Y`
-// and then cheking in the same Z3 context `¬(demonstrandum.toZ3Expr())`
-
-// section Symbol Tree
 
 type Symbol =
   { symbol: string
@@ -76,11 +62,24 @@ type SymbolTree =
     p this.node || this.children |> List.exists (fun c -> c.existsNode p)
 
 // section WExpr (Wybe Expressions)
+//
+// In Wybe is possible to write formulas consisting of booleans, integeres, sequences and functions.
+// Below there's a high level description of types used to represent those formulas
+// - Proposition: expression of boolean values and logical operators, including universal and existential quantifiers
+// - Integer: expression of integer values, arithmetic operators, and integer predicates (functions from integers to booleans)
+// - Sequences: expression of sequence values, including the empty sequence, sequences as successive application of the cons operator; other functions like head, tail, length, isPrefix, isSuffix
+// - Functions: declaration of functions as tuples of a name and a signature. Expression of function applications as a tuple of a function declaration and a list of arguments of type WExpr.
+
+// Since Wybe expressions can consist of a mix of boolean operations and any other subexpression that evaluates to a boolean, which could be made of integers, sequences and functions; there is an union case desigend to take any type that implements WExpr. For the Proposition type this is `ExtBoolOp`.
+//
+// Since not every WExpr evaluates to a boolean some expressions might fail to build at runtime.
 
 type BoundVars = Map<string, Expr>
 
 type WExpr =
+  // translates a Wybe expression to a Z3 expression, which is then used to check proofs
   abstract member toZ3Expr: Context * BoundVars -> Expr
+  // translatees a Wybe expression to a symbol tree, which is then used for creating a string representation
   abstract member toSymbolTree: unit -> SymbolTree
 
 and Integer =
@@ -187,7 +186,7 @@ and Quantifier =
   | Exists
 
 and Proposition =
-  | ExtBoolOp of WExpr // used for wrapping other operators that return booleans besides Equals and Differs (variables, >, <, etc.)
+  | ExtProposition of WExpr // used for wrapping other operators that return booleans besides Equals and Differs (variables, >, <, etc.)
   | True
   | False
   | Equals of WExpr * WExpr
@@ -214,7 +213,7 @@ and Proposition =
       match e with
       | :? Proposition as p ->
         match p with
-        | ExtBoolOp m -> loop m
+        | ExtProposition m -> loop m
         | True
         | False -> [], []
         | Equals(x, _) ->
@@ -258,7 +257,7 @@ and Proposition =
       | :? Sequence as p ->
         match p with
         | Empty _ -> [], []
-        | ExtSeq m -> loop m
+        | ExtSequence m -> loop m
         | Head m
         | Tail m
         | Length m -> loop m
@@ -311,7 +310,7 @@ and Proposition =
       | False ->
         { node = nonVarSymbol "false" 7
           children = [] }
-      | ExtBoolOp x -> x.toSymbolTree ()
+      | ExtProposition x -> x.toSymbolTree ()
       | Equals(x, y) ->
         { node = nonVarSymbol $"{x} = {y}" 4
           children = [] }
@@ -362,7 +361,7 @@ and Proposition =
       match this with
       | True -> ctx.MkBool true
       | False -> ctx.MkBool false
-      | ExtBoolOp b -> b.toZ3Expr (ctx, boundVars)
+      | ExtProposition b -> b.toZ3Expr (ctx, boundVars)
       | Equals(n, m) -> ctx.MkEq(n.toZ3Expr (ctx, boundVars), m.toZ3Expr (ctx, boundVars))
       | Differs(n, m) -> ctx.MkNot(Equals(n, m) |> toExp)
       | Not right -> ctx.MkNot(toExp right)
@@ -378,11 +377,11 @@ and Proposition =
           | :? Var as v -> v, ctx.MkBound(uint32 i, v.sort.toZ3Sort ctx)
           | :? Proposition as p ->
             match p with
-            | ExtBoolOp e -> mkBoundExpr i e
+            | ExtProposition e -> mkBoundExpr i e
             | _ -> failwith $"only variables are allowed in quantifier variable section, got {p}"
           | :? Sequence as s ->
             match s with
-            | ExtSeq e -> mkBoundExpr i e
+            | ExtSequence e -> mkBoundExpr i e
             | _ -> failwith $"only variables are allowed in quantifier variable section, got {s}"
           | :? Integer as n ->
             match n with
@@ -406,7 +405,7 @@ and Proposition =
 
 and Sequence =
   | Empty of WSort
-  | ExtSeq of WExpr
+  | ExtSequence of WExpr
   | Cons of WExpr * Sequence
   | Concat of Sequence * Sequence
   | Prefix of Sequence * Sequence
@@ -427,7 +426,7 @@ and Sequence =
       | Empty _ ->
         { node = nonVarSymbol "ϵ" 7
           children = [] }
-      | ExtSeq x -> x.toSymbolTree ()
+      | ExtSequence x -> x.toSymbolTree ()
       | Cons(x, xs) ->
         { node = nonVarSymbol "::" 6
           children = [ x.toSymbolTree (); (xs :> WExpr).toSymbolTree () ] }
@@ -456,7 +455,7 @@ and Sequence =
         let elemSort = s.toZ3Sort ctx
         let seqSort = ctx.MkSeqSort elemSort
         ctx.MkEmptySeq seqSort
-      | ExtSeq e -> e.toZ3Expr (ctx, boundVars)
+      | ExtSequence e -> e.toZ3Expr (ctx, boundVars)
       | Cons(x, xs) ->
         let x = ctx.MkUnit(x.toZ3Expr (ctx, boundVars))
         ctx.MkConcat(x, toSeqExpr xs)

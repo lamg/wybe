@@ -10,7 +10,7 @@ let private toProposition (x: WExpr) =
   match x with
   | :? Var as x ->
     match x.sort with
-    | WBool -> ExtBoolOp x
+    | WBool -> ExtProposition x
     | _ -> failwith $"expecting boolean variable {x}"
   | :? Proposition as x -> x
   | _ -> failwith $"expecting proposition {x}"
@@ -48,7 +48,7 @@ let lemma pred =
 let (=) x y = Equals(x, y)
 let (!=) x y = Differs(x, y)
 
-let mkBoolVar n = ExtBoolOp { name = n; sort = WBool }
+let mkBoolVar n = ExtProposition { name = n; sort = WBool }
 
 let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 
@@ -196,13 +196,13 @@ let extractIntegers (name: string) (x: WExpr, y: WExpr) =
   | (:? Integer as x), (:? Var as y) -> x, ExtInteger y
   | _ -> failwith $"unexpected {x} {y} for {name}"
 
-let (>=) (x: Integer) (y: Integer) = ExtBoolOp(AtLeast(x, y))
+let (>=) (x: Integer) (y: Integer) = ExtProposition(AtLeast(x, y))
 
 let (<=) (x: WExpr) (y: WExpr) =
-  ExtBoolOp(AtMost(extractIntegers "≥" (x, y)))
+  ExtProposition(AtMost(extractIntegers "≥" (x, y)))
 
-let (<) (x: Integer) (y: Integer) = ExtBoolOp(LessThan(x, y))
-let (>) (x: Integer) (y: Integer) = ExtBoolOp(Exceeds(x, y))
+let (<) (x: Integer) (y: Integer) = ExtProposition(LessThan(x, y))
+let (>) (x: Integer) (y: Integer) = ExtProposition(Exceeds(x, y))
 
 let ``+ associativity`` = n + m + p = n + m + p |> axiom "+ associativity"
 
@@ -244,8 +244,8 @@ let monotonicity () =
 // Sequences
 
 let sortA = WVarSort "a"
-let mkSeqElem a = ExtSeq { name = a; sort = sortA }
-let mkSeq x = ExtSeq { name = x; sort = WSeq sortA }
+let mkSeqElem a = ExtSequence { name = a; sort = sortA }
+let mkSeq x = ExtSequence { name = x; sort = WSeq sortA }
 
 let wList (xs: int list) =
   xs |> Seq.rev |> Seq.fold (fun acc x -> Cons(Integer x, acc)) (Empty WInt)
@@ -262,10 +262,10 @@ let ``ϵ`` = Empty sortA
 let (<.) x (xs: WExpr) =
   match xs with
   | :? Sequence as xs -> Cons(x, xs)
-  | :? Var as v when v.sort.IsWSeq -> Cons(x, ExtSeq v)
+  | :? Var as v when v.sort.IsWSeq -> Cons(x, ExtSequence v)
   | :? FnApp as f ->
     if (List.last f.FnDecl.Signature).IsWSeq && f.Args.Length.Equals(f.FnDecl.Signature.Length - 1) then
-      Cons(x, ExtSeq f)
+      Cons(x, ExtSequence f)
     else
       failwith $"wrong function signature {f}"
   | _ -> failwith $"expecting a sequence, got {xs}"
@@ -275,7 +275,7 @@ let (++) xs ys = Concat(xs, ys)
 let len (x: WExpr) =
   match x with
   | :? Sequence as x -> ExtInteger(Length x)
-  | :? Var as x when x.sort.IsWSeq -> ExtInteger(Length(ExtSeq x))
+  | :? Var as x when x.sort.IsWSeq -> ExtInteger(Length(ExtSequence x))
   | _ -> failwith $"len expects a sequence, instead it got {x}"
 
 let singleton (n: WExpr) =

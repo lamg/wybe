@@ -49,8 +49,8 @@ let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
 
     let r =
       match List.last signature with
-      | WSeq _ -> ExtSeq f :> WExpr
-      | WBool -> ExtBoolOp f
+      | WSeq _ -> ExtSequence f :> WExpr
+      | WBool -> ExtProposition f
       | WInt -> ExtInteger f
       | WVarSort _ -> failwith "Not implemented generic return type"
 
