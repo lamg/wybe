@@ -124,6 +124,8 @@ and Integer =
 
   interface WExpr with
     member this.ToSymbolTree() =
+      let toTree (e: WExpr) = e.ToSymbolTree()
+
       match this with
       | ExtInteger e -> e.ToSymbolTree()
       | Integer i ->
@@ -131,34 +133,34 @@ and Integer =
           children = [] }
       | UnaryMinus n ->
         { node = Symbol.Op("-", 6)
-          children = [ (n :> WExpr).ToSymbolTree() ] }
+          children = [ toTree n ] }
       | Plus(x, y) ->
         { node = Symbol.Op("+", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | Minus(x, y) ->
         { node = Symbol.Op("-", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | Times(x, y) ->
         { node = Symbol.Op("×", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | Divide(x, y) ->
         { node = Symbol.Op("÷", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | Exceeds(x, y) ->
         { node = Symbol.Op(">", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | LessThan(x, y) ->
         { node = Symbol.Op("<", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | AtLeast(x, y) ->
         { node = Symbol.Op("≥", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | AtMost(x, y) ->
         { node = Symbol.Op("≤", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | IsDivisor(x, y) ->
         { node = Symbol.Op("∣", 5)
-          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toExp n =
@@ -312,6 +314,8 @@ and Proposition =
 
   interface WExpr with
     member this.ToSymbolTree() =
+      let toTree (e: WExpr) = e.ToSymbolTree()
+
       match this with
       | True ->
         { node = Symbol.Const "true"
@@ -322,25 +326,25 @@ and Proposition =
       | ExtProposition x -> x.ToSymbolTree()
       | Equals(x, y) ->
         { node = Symbol.Op("=", 4)
-          children = [ x.ToSymbolTree(); y.ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | Differs(x, y) ->
         { node = Symbol.Op("≠", 4)
-          children = [ x.ToSymbolTree(); y.ToSymbolTree() ] }
+          children = [ toTree x; toTree y ] }
       | Not right ->
         { node = Symbol.Op("¬", 3)
-          children = [ (right :> WExpr).ToSymbolTree() ] }
+          children = [ toTree right ] }
       | And(left, right) ->
         { node = Symbol.Op("∧", 2)
-          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
+          children = [ toTree left; toTree right ] }
       | Or(left, right) ->
         { node = Symbol.Op("∨", 2)
-          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
+          children = [ toTree left; toTree right ] }
       | Implies(left, right) ->
         { node = Symbol.Op("⇒", 1)
-          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
+          children = [ toTree left; toTree right ] }
       | Follows(left, right) ->
         { node = Symbol.Op("⇐", 1)
-          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
+          children = [ toTree left; toTree right ] }
       | Equiv(left, right) ->
         let l = (left :> WExpr).ToSymbolTree()
         let r = (right :> WExpr).ToSymbolTree()
@@ -349,7 +353,7 @@ and Proposition =
           children = [ l; r ] }
       | Inequiv(left, right) ->
         { node = Symbol.Op("≢", 0)
-          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
+          children = [ toTree left; toTree right ] }
       | Quantifier(q, vars, body) ->
         let symbol =
           match q with
@@ -427,32 +431,34 @@ and Sequence =
 
   interface WExpr with
     member this.ToSymbolTree() : SymbolTree =
+      let toTree (e: WExpr) = e.ToSymbolTree()
+
       match this with
       | Length x ->
         { node = Symbol.Op("#", 6)
-          children = [ (x :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x ] }
       | Empty _ ->
         { node = Symbol.Const "ϵ"
           children = [] }
       | ExtSequence x -> x.ToSymbolTree()
       | Cons(x, xs) ->
         { node = Symbol.Op("::", 6)
-          children = [ x.ToSymbolTree(); (xs :> WExpr).ToSymbolTree() ] }
+          children = [ toTree x; toTree xs ] }
       | Concat(xs, ys) ->
         { node = Symbol.Op("++", 6)
-          children = [ (xs :> WExpr).ToSymbolTree(); (ys :> WExpr).ToSymbolTree() ] }
+          children = [ toTree xs; toTree ys ] }
       | IsPrefix(xs, ys) ->
         { node = Symbol.Op("◁", 6)
-          children = [ (xs :> WExpr).ToSymbolTree(); (ys :> WExpr).ToSymbolTree() ] }
+          children = [ toTree xs; toTree ys ] }
       | IsSuffix(xs, ys) ->
         { node = Symbol.Op("▷", 6)
-          children = [ (xs :> WExpr).ToSymbolTree(); (ys :> WExpr).ToSymbolTree() ] }
+          children = [ toTree xs; toTree ys ] }
       | Head xs ->
         { node = Symbol.Atom "head"
-          children = [ (xs :> WExpr).ToSymbolTree() ] }
+          children = [ toTree xs ] }
       | Tail xs ->
         { node = Symbol.Atom "tail"
-          children = [ (xs :> WExpr).ToSymbolTree() ] }
+          children = [ toTree xs ] }
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toSeqExpr (x: WExpr) = x.ToZ3Expr(ctx, boundVars) :?> SeqExpr
