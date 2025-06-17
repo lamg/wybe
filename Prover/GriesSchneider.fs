@@ -264,9 +264,7 @@ let (<.) x (xs: WExpr) =
   | :? Sequence as xs -> Cons(x, xs)
   | :? Var as v when v.sort.IsWSeq -> Cons(x, ExtSeq v)
   | :? FnApp as f ->
-    let (App(Fn(_, signature), args)) = f
-
-    if (List.last signature).IsWSeq && args.Length.Equals(signature.Length - 1) then
+    if (List.last f.FnDecl.Signature).IsWSeq && f.Args.Length.Equals(f.FnDecl.Signature.Length - 1) then
       Cons(x, ExtSeq f)
     else
       failwith $"wrong function signature {f}"
@@ -314,15 +312,15 @@ let ``length of concat`` () =
 
 /// fibonacci function
 let fib (x: WExpr) =
-  let declFib = Fn("fib", [ WInt; WInt ])
-  ExtInteger(App(declFib, [ x ]))
+  let declFib = FnDecl("fib", [ WInt; WInt ])
+  ExtInteger(FnApp(declFib, [ x ]))
 
 let fibProp = ``∀`` [ n ] (n >= zero <&&> (fib (n + 2) = fib n + fib (n + 1)))
 
 /// factorial function
 let fact (x: WExpr) =
-  let declFact = Fn("fact", [ WInt; WInt ])
-  ExtInteger(App(declFact, [ x ]))
+  let declFact = FnDecl("fact", [ WInt; WInt ])
+  ExtInteger(FnApp(declFact, [ x ]))
 
 let factProp =
   ``∀`` [ n ] (n >= zero <&&> (fact (n + 1) = fact n * (n + 1)) <&&> (fact zero = one))

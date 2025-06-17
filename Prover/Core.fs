@@ -16,8 +16,8 @@ open Microsoft.Z3
 // 3: ¬
 // 4: = ≠ > < ≤ ≥
 // 5: + - × ÷
-// 6: # :: ++ ◁ ▷
-// 7: variables, function applications, and other atoms like true, false, ∀, ∃, ϵ
+// 6: - (unary minus) # :: ++ ◁ ▷
+// 7: variables, function applications, and other atoms like true, false, ϵ, expressions inside parenthesis and angle brackets, like universal and existential quantifiers
 
 // This module also allows the expression of proofs involving formulas that are instances of WExpr
 // This is implemented by CalculationCE and LawsCE
@@ -33,6 +33,8 @@ open Microsoft.Z3
 
 // Checking the whole proof is done by adding the steps formulas as Z3 constraints, like  `X = Y`
 // and then cheking in the same Z3 context `¬(demonstrandum.toZ3Expr())`
+
+// section Symbol Tree
 
 type Symbol =
   { symbol: string
@@ -73,6 +75,7 @@ type SymbolTree =
   member this.existsNode(p: Symbol -> bool) =
     p this.node || this.children |> List.exists (fun c -> c.existsNode p)
 
+// section WExpr (Wybe Expressions)
 
 type BoundVars = Map<string, Expr>
 
@@ -196,7 +199,7 @@ and Proposition =
   | Inequiv of left: Proposition * right: Proposition
   | Implies of left: Proposition * right: Proposition
   | Follows of left: Proposition * right: Proposition
-  | Quantifier of Quantifier * WExpr list * Proposition
+  | Quantifier of Quantifier * vars: WExpr list * body: Proposition
 
   override this.ToString() : string =
     (this :> WExpr).toSymbolTree().ToString()
@@ -270,20 +273,19 @@ and Proposition =
           let _, rr = loop r
           [], rl @ rr
       | :? FnApp as p ->
-        let (App(Fn(f, signature), args)) = p
 
         let splitLast xs =
           match List.rev xs with
           | y :: ys -> List.rev ys, y
           | _ -> failwith "signature cannot be empty"
 
-        let signArgs, ret = splitLast signature
+        let (signArgs: WSort list, ret: WSort) = splitLast p.FnDecl.Signature
         let z3ArgSorts = signArgs |> List.map (fun a -> a.toZ3Sort ctx) |> List.toArray
         let z3Ret = ret.toZ3Sort ctx
-        let decl = ctx.MkFuncDecl(f, z3ArgSorts, z3Ret)
+        let decl = ctx.MkFuncDecl(p.FnDecl.Name, z3ArgSorts, z3Ret)
         // only if an argument contains a bound variable it should appear in the pattern
         let exps =
-          args
+          p.Args
           |> List.choose (function
             | arg when arg.toSymbolTree().existsNode _.isVar -> Some(arg.toZ3Expr (ctx, boundVars))
             | _ -> None)
@@ -511,37 +513,37 @@ and Var =
       | Some e -> e
       | None -> ctx.MkConst(this.name, mkSort this.sort)
 
-and Function =
-  | Fn of string * (WSort list)
+and FnDecl =
+  | FnDecl of name: string * signature: (WSort list)
 
-  member this.toZ3FnDecl(ctx: Context) =
-    let (Fn(name, signature)) = this
+  member this.Name: string =
+    let (FnDecl(name, _)) = this
+    name
 
+  member this.Signature =
+    let (FnDecl(_, signature)) = this
     signature
-    |> List.map (fun s -> s.toZ3Sort ctx)
-    |> function
-      | [] -> failwith $"signature cannot be empty, at function {name}"
-      | xs ->
-        let rev = List.rev xs
-        let args = List.tail rev |> List.rev |> List.toArray
-        let result = List.head rev
-        ctx.MkFuncDecl(name, args, result)
 
 and FnApp =
-  | App of Function * (WExpr list)
+  | FnApp of FnDecl * (WExpr list)
+
+  member this.FnDecl: FnDecl =
+    let (FnApp(decl, _)) = this
+    decl
+
+  member this.Args: WExpr list =
+    let (FnApp(_, args)) = this
+    args
 
   override this.ToString() =
-    let (App(Fn(name, _), xs)) = this
-    let args = xs |> List.map string |> String.concat ", "
-    $"{name}({args})"
+    let args = this.Args |> List.map string |> String.concat ", "
+    $"{this.FnDecl.Name}({args})"
 
   interface WExpr with
     member this.toSymbolTree() : SymbolTree =
-      let (App(Fn(f, _), args)) = this
-
-      match args with
+      match this.Args with
       | _ :: _ ->
-        let rargs = List.rev args
+        let rargs = List.rev this.Args
         let x, xs = List.head rargs, List.tail rargs
 
         let argTree =
@@ -552,21 +554,31 @@ and FnApp =
                 children = [ x.toSymbolTree (); acc ] })
             (x.toSymbolTree ())
 
-        { node = nonVarSymbol f 7
+        { node = nonVarSymbol this.FnDecl.Name 7
           children = [ argTree ] }
       | [] ->
-        { node = nonVarSymbol f 7
+        { node = nonVarSymbol this.FnDecl.Name 7
           children = [] }
 
     member this.toZ3Expr(ctx: Context, boundVars: BoundVars) =
-      let (App(f, args)) = this
-      let z3Args = args |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
-      let funcDecl = f.toZ3FnDecl ctx
+      let toZ3FnDecl (signature: WSort list) =
+        signature
+        |> List.map (fun s -> s.toZ3Sort ctx)
+        |> function
+          | [] -> failwith $"signature cannot be empty, at function {this.FnDecl.Name}"
+          | xs ->
+            let rev = List.rev xs
+            let args = List.tail rev |> List.rev |> List.toArray
+            let result = List.head rev
+            ctx.MkFuncDecl(this.FnDecl.Name, args, result)
+
+      let z3Args =
+        this.Args |> List.map (fun v -> v.toZ3Expr (ctx, boundVars)) |> List.toArray
+
+      let funcDecl = toZ3FnDecl this.FnDecl.Signature
       funcDecl.Apply z3Args
 
-and RecurrencePattern =
-  { lhs: FnApp
-    recursiveCalls: FnApp list }
+// section Calculation
 
 type Calculation =
   { demonstrandum: Law; steps: Step list }

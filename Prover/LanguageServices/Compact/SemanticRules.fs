@@ -45,7 +45,7 @@ let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
     let dotId = longId |> String.concat "."
     let exprArgs = args |> List.choose (mkWybeExpr ctx)
     let signature = args |> List.map (fun a -> ctx[a])
-    let f = FnApp.App(Function.Fn(dotId, signature), exprArgs)
+    let f = FnApp(FnDecl(dotId, signature), exprArgs)
 
     let r =
       match List.last signature with

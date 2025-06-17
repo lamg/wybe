@@ -51,8 +51,8 @@ let ``test factorial invariant`` () =
 [<Fact>]
 let ``print functions`` () =
   let ackermann (x, y) =
-    let decl = Fn("ackermann", [ WInt; WInt; WInt ])
-    ExtInteger(App(decl, [ x; y ]))
+    let decl = FnDecl("ackermann", [ WInt; WInt; WInt ])
+    ExtInteger(FnApp(decl, [ x; y ]))
 
   [ fib zero, "fib(0)"
     fib (n + 1), "fib(n + 1)"
@@ -62,8 +62,8 @@ let ``print functions`` () =
 
 [<Fact>]
 let ``insert(5, ϵ) = [5]`` () =
-  let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
-  let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
+  let decl = FnDecl("insert", [ WInt; WSeq WInt; WSeq WInt ])
+  let insert (n, xs) = ExtSeq(FnApp(decl, [ n; xs ]))
 
   let ins0 = ``∀`` [ n ] (insert (n, Empty WInt) = Cons(n, Empty WInt))
   let five = Integer 5
@@ -79,8 +79,8 @@ let ``insert(5, ϵ) = [5]`` () =
 
 [<Fact>]
 let ``insert(5, xs) = 5::xs`` () =
-  let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
-  let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
+  let decl = FnDecl("insert", [ WInt; WSeq WInt; WSeq WInt ])
+  let insert (n, xs) = ExtSeq(FnApp(decl, [ n; xs ]))
   let xs = ExtSeq { name = "xs"; sort = WSeq WInt }
   let ins0 = ``∀`` [ n ] (insert (n, xs) = Cons(n, xs))
   let five = Integer 5
@@ -97,8 +97,8 @@ let ``insert(5, xs) = 5::xs`` () =
 
 [<Fact>]
 let ``insert after first element`` () =
-  let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
-  let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
+  let decl = FnDecl("insert", [ WInt; WSeq WInt; WSeq WInt ])
+  let insert (n, xs) = ExtSeq(FnApp(decl, [ n; xs ]))
 
   let xs = ExtSeq { name = "xs"; sort = WSeq WInt }
 
@@ -128,8 +128,8 @@ let ``insert function`` () =
   //  | x :: xs when n <= x -> n :: x :: xs
   //  | x :: xs -> x :: insert n xs
 
-  let decl = Fn("insert", [ WInt; WSeq WInt; WSeq WInt ])
-  let insert (n, xs) = ExtSeq(App(decl, [ n; xs ]))
+  let decl = FnDecl("insert", [ WInt; WSeq WInt; WSeq WInt ])
+  let insert (n, xs) = ExtSeq(FnApp(decl, [ n; xs ]))
 
   let xs = ExtSeq { name = "xs"; sort = WSeq WInt }
   let y = ExtInteger(Head xs)

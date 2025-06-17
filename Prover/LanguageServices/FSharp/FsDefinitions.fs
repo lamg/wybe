@@ -126,7 +126,7 @@ let rec getExprVars =
   | _ -> []
 
 type FunContext =
-  { fnDecls: Core.Function list
+  { fnDecls: Core.FnDecl list
     fn: FnApp
     vars: Var list }
 
@@ -180,9 +180,9 @@ let rec visitExpression (fctx: FunContext) (expr: SynExpr) : WExpr list =
       let args = visitExpression fctx rhs
 
       let fnCall =
-        fctx.fnDecls |> List.find (fun (Fn(name, _)) -> name.Equals ident.idText)
+        fctx.fnDecls |> List.find (fun f -> f.Name.Equals ident.idText)
 
-      [ Core.App(fnCall, largs @ args) ]
+      [ Core.FnApp(fnCall, largs @ args) ]
     | SynExpr.LongIdent(longDotId = fnId) ->
       match List.last fnId.LongIdent with
       | x when x.idText.Equals "op_ColonColon" ->
@@ -223,8 +223,8 @@ let getFunDecls declTriples =
     | Some returnSort ->
       let oks, errs = getTypedVariables (List.concat paramLists)
       let signature = (oks |> List.map _.sort) @ [ returnSort ]
-      let decl = Core.Fn(value.DisplayName, signature)
-      let fn = Core.App(decl, oks |> List.map (fun x -> x :> WExpr))
+      let decl = Core.FnDecl(value.DisplayName, signature)
+      let fn = Core.FnApp(decl, oks |> List.map (fun x -> x :> WExpr))
       (fn, oks @ getExprVars body), errs
     | None -> failwith $"could not check return type when getting declaration {value}"
 
@@ -311,7 +311,7 @@ let getWybeExpressions (file: string, source: string) =
 
     match List.concat errors with
     | [] ->
-      let fnDecls = oks |> List.map (fun (App(fn, _), _) -> fn)
+      let fnDecls = oks |> List.map (fst >> _.FnDecl) 
 
       oks
       |> List.map (fun (fn, allVars) ->
@@ -320,12 +320,10 @@ let getWybeExpressions (file: string, source: string) =
             fn = fn
             vars = allVars }
 
-        let (App(Fn(fnName, _), _)) = fn
-
         let synBody =
           fsSynExprs
           |> List.choose (function
-            | (name, body) when name = fnName -> Some body
+            | (name, body) when name = fn.FnDecl.Name -> Some body
             | _ -> None)
           |> List.head
 
