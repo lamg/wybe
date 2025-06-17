@@ -266,8 +266,8 @@ and Proposition =
           let _, rr = loop r
           [], rl @ rr
         | Concat(l, r)
-        | Prefix(l, r)
-        | Suffix(l, r) ->
+        | IsPrefix(l, r)
+        | IsSuffix(l, r) ->
           let _, rl = loop l
           let _, rr = loop r
           [], rl @ rr
@@ -408,8 +408,8 @@ and Sequence =
   | ExtSequence of WExpr
   | Cons of WExpr * Sequence
   | Concat of Sequence * Sequence
-  | Prefix of Sequence * Sequence
-  | Suffix of Sequence * Sequence
+  | IsPrefix of Sequence * Sequence
+  | IsSuffix of Sequence * Sequence
   | Length of Sequence
   | Head of Sequence
   | Tail of Sequence
@@ -433,10 +433,10 @@ and Sequence =
       | Concat(xs, ys) ->
         { node = nonVarSymbol "++" 6
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
-      | Prefix(xs, ys) ->
+      | IsPrefix(xs, ys) ->
         { node = nonVarSymbol "◁" 6
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
-      | Suffix(xs, ys) ->
+      | IsSuffix(xs, ys) ->
         { node = nonVarSymbol "▷" 6
           children = [ (xs :> WExpr).toSymbolTree (); (ys :> WExpr).toSymbolTree () ] }
       | Head xs ->
@@ -460,8 +460,8 @@ and Sequence =
         let x = ctx.MkUnit(x.toZ3Expr (ctx, boundVars))
         ctx.MkConcat(x, toSeqExpr xs)
       | Concat(xs, ys) -> ctx.MkConcat(toSeqExpr xs, toSeqExpr ys)
-      | Suffix(xs, ys) -> ctx.MkSuffixOf(toSeqExpr xs, toSeqExpr ys)
-      | Prefix(xs, ys) -> ctx.MkPrefixOf(toSeqExpr xs, toSeqExpr ys)
+      | IsSuffix(xs, ys) -> ctx.MkSuffixOf(toSeqExpr xs, toSeqExpr ys)
+      | IsPrefix(xs, ys) -> ctx.MkPrefixOf(toSeqExpr xs, toSeqExpr ys)
       | Length xs -> ctx.MkLength(toSeqExpr xs)
       | Head xs -> (toSeqExpr xs).Item(ctx.MkInt 0)
       | Tail xs ->

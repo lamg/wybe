@@ -35,8 +35,8 @@ let ``sequences string representation`` () =
 
   [ Cons(a, Cons(a, ``ϵ``)), "a :: a :: ϵ" // Latex \epsilon
     Length xs, "#xs"
-    Prefix(a, xs), "a ◁ xs" // Latex \triangleleft
-    Suffix(a, xs), "a ▷ xs" // Latex \triangleright
+    IsPrefix(a, xs), "a ◁ xs" // Latex \triangleleft
+    IsSuffix(a, xs), "a ▷ xs" // Latex \triangleright
     Concat(xs, ys), "xs ++ ys"
     Tail xs, "tail(xs)"
     Head xs, "head(xs)" ]
