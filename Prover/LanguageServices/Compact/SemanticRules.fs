@@ -14,13 +14,11 @@ open GriesSchneider
 
 let rec mkWybeExpr (ctx: Map<Expr, WSort>) (e: Expr) : WExpr option =
   match e with
-  | Var x ->
+  | Expr.Var x ->
     if not (ctx.ContainsKey e) then
       printfn $"not contains {e}"
 
-    Some
-      { name = String.concat "." x
-        sort = ctx[e] }
+    Some(Var(name = String.concat "." x, sort = ctx[e]))
   | Lit(Int n) -> Some(Integer.Integer(int64 n))
   | Lit(Str _) -> None
   | Lit(Bool true) -> Some True
@@ -99,9 +97,7 @@ let statementImage (ctx: Map<Expr, WSort>) =
   | Const(id, e) ->
     match mkWybeExpr ctx e with
     | Some n ->
-      let v =
-        { name = String.concat "." id
-          sort = ctx[e] }
+      let v = Var(String.concat "." id, ctx[e])
 
       Core.Equals(v, n) :: extractDomain ctx e
     | _ -> []

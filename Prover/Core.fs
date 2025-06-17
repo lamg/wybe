@@ -125,47 +125,47 @@ and Integer =
   interface WExpr with
     member this.ToSymbolTree() =
       match this with
-      | ExtInteger e -> e.ToSymbolTree ()
+      | ExtInteger e -> e.ToSymbolTree()
       | Integer i ->
         { node = Symbol.Const $"{i}"
           children = [] }
       | UnaryMinus n ->
         { node = Symbol.Op("-", 6)
-          children = [ (n :> WExpr).ToSymbolTree () ] }
+          children = [ (n :> WExpr).ToSymbolTree() ] }
       | Plus(x, y) ->
         { node = Symbol.Op("+", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
       | Minus(x, y) ->
         { node = Symbol.Op("-", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
       | Times(x, y) ->
         { node = Symbol.Op("×", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
       | Divide(x, y) ->
         { node = Symbol.Op("÷", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
       | Exceeds(x, y) ->
         { node = Symbol.Op(">", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
       | LessThan(x, y) ->
         { node = Symbol.Op("<", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
       | AtLeast(x, y) ->
         { node = Symbol.Op("≥", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
       | AtMost(x, y) ->
         { node = Symbol.Op("≤", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
       | IsDivisor(x, y) ->
         { node = Symbol.Op("∣", 5)
-          children = [ (x :> WExpr).ToSymbolTree (); (y :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree(); (y :> WExpr).ToSymbolTree() ] }
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toExp n =
-        (n :> WExpr).ToZ3Expr (ctx, boundVars) :?> ArithExpr
+        (n :> WExpr).ToZ3Expr(ctx, boundVars) :?> ArithExpr
 
       match this with
-      | ExtInteger e -> e.ToZ3Expr (ctx, boundVars)
+      | ExtInteger e -> e.ToZ3Expr(ctx, boundVars)
       | Integer n -> ctx.MkInt n
       | UnaryMinus n -> ctx.MkMul(ctx.MkInt -1, toExp n)
       | Plus(x, y) -> ctx.MkAdd(toExp x, toExp y)
@@ -295,7 +295,7 @@ and Proposition =
         let exps =
           p.Args
           |> List.choose (function
-            | arg when arg.ToSymbolTree().existsNode _.IsVar -> Some(arg.ToZ3Expr (ctx, boundVars))
+            | arg when arg.ToSymbolTree().existsNode _.IsVar -> Some(arg.ToZ3Expr(ctx, boundVars))
             | _ -> None)
 
         match exps with
@@ -319,37 +319,37 @@ and Proposition =
       | False ->
         { node = Symbol.Const "false"
           children = [] }
-      | ExtProposition x -> x.ToSymbolTree ()
+      | ExtProposition x -> x.ToSymbolTree()
       | Equals(x, y) ->
         { node = Symbol.Op("=", 4)
-          children = [ x.ToSymbolTree (); y.ToSymbolTree () ] }
+          children = [ x.ToSymbolTree(); y.ToSymbolTree() ] }
       | Differs(x, y) ->
         { node = Symbol.Op("≠", 4)
-          children = [ x.ToSymbolTree (); y.ToSymbolTree () ] }
+          children = [ x.ToSymbolTree(); y.ToSymbolTree() ] }
       | Not right ->
         { node = Symbol.Op("¬", 3)
-          children = [ (right :> WExpr).ToSymbolTree () ] }
+          children = [ (right :> WExpr).ToSymbolTree() ] }
       | And(left, right) ->
         { node = Symbol.Op("∧", 2)
-          children = [ (left :> WExpr).ToSymbolTree (); (right :> WExpr).ToSymbolTree () ] }
+          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
       | Or(left, right) ->
         { node = Symbol.Op("∨", 2)
-          children = [ (left :> WExpr).ToSymbolTree (); (right :> WExpr).ToSymbolTree () ] }
+          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
       | Implies(left, right) ->
         { node = Symbol.Op("⇒", 1)
-          children = [ (left :> WExpr).ToSymbolTree (); (right :> WExpr).ToSymbolTree () ] }
+          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
       | Follows(left, right) ->
         { node = Symbol.Op("⇐", 1)
-          children = [ (left :> WExpr).ToSymbolTree (); (right :> WExpr).ToSymbolTree () ] }
+          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
       | Equiv(left, right) ->
-        let l = (left :> WExpr).ToSymbolTree ()
-        let r = (right :> WExpr).ToSymbolTree ()
+        let l = (left :> WExpr).ToSymbolTree()
+        let r = (right :> WExpr).ToSymbolTree()
 
         { node = Symbol.Op("≡", 0)
           children = [ l; r ] }
       | Inequiv(left, right) ->
         { node = Symbol.Op("≢", 0)
-          children = [ (left :> WExpr).ToSymbolTree (); (right :> WExpr).ToSymbolTree () ] }
+          children = [ (left :> WExpr).ToSymbolTree(); (right :> WExpr).ToSymbolTree() ] }
       | Quantifier(q, vars, body) ->
         let symbol =
           match q with
@@ -364,14 +364,13 @@ and Proposition =
 
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
-      let toExp (p: WExpr) =
-        p.ToZ3Expr (ctx, boundVars) :?> BoolExpr
+      let toExp (p: WExpr) = p.ToZ3Expr(ctx, boundVars) :?> BoolExpr
 
       match this with
       | True -> ctx.MkBool true
       | False -> ctx.MkBool false
-      | ExtProposition b -> b.ToZ3Expr (ctx, boundVars)
-      | Equals(n, m) -> ctx.MkEq(n.ToZ3Expr (ctx, boundVars), m.ToZ3Expr (ctx, boundVars))
+      | ExtProposition b -> b.ToZ3Expr(ctx, boundVars)
+      | Equals(n, m) -> ctx.MkEq(n.ToZ3Expr(ctx, boundVars), m.ToZ3Expr(ctx, boundVars))
       | Differs(n, m) -> ctx.MkNot(Equals(n, m) |> toExp)
       | Not right -> ctx.MkNot(toExp right)
       | And(left, right) -> ctx.MkAnd(toExp left, toExp right)
@@ -383,7 +382,7 @@ and Proposition =
       | Quantifier(q, vars, body) ->
         let rec mkBoundExpr i (v: WExpr) =
           match v with
-          | :? Var as v -> v, ctx.MkBound(uint32 i, v.sort.toZ3Sort ctx)
+          | :? Var as v -> v, ctx.MkBound(uint32 i, v.Sort.toZ3Sort ctx)
           | :? Proposition as p ->
             match p with
             | ExtProposition e -> mkBoundExpr i e
@@ -398,14 +397,14 @@ and Proposition =
             | _ -> failwith $"only variables are allowed in quantifier variable section, got {n}"
           | _ -> failwith $"only variables are allowed in quantifier variable section, got {v}"
 
-        let z3Vars = vars |> List.map (fun v -> v.ToZ3Expr (ctx, boundVars)) |> List.toArray
+        let z3Vars = vars |> List.map (fun v -> v.ToZ3Expr(ctx, boundVars)) |> List.toArray
 
         let boundVars =
           vars
           |> List.mapi mkBoundExpr
-          |> List.fold (fun m (k, v) -> Map.add k.name v m) boundVars
+          |> List.fold (fun m (k, v) -> Map.add k.Name v m) boundVars
 
-        let z3Body = (body :> WExpr).ToZ3Expr (ctx, boundVars)
+        let z3Body = (body :> WExpr).ToZ3Expr(ctx, boundVars)
         let patterns = Proposition.extractPatternFromRecurrence (ctx, boundVars, body)
 
         match q with
@@ -431,32 +430,32 @@ and Sequence =
       match this with
       | Length x ->
         { node = Symbol.Op("#", 6)
-          children = [ (x :> WExpr).ToSymbolTree () ] }
+          children = [ (x :> WExpr).ToSymbolTree() ] }
       | Empty _ ->
         { node = Symbol.Const "ϵ"
           children = [] }
-      | ExtSequence x -> x.ToSymbolTree ()
+      | ExtSequence x -> x.ToSymbolTree()
       | Cons(x, xs) ->
         { node = Symbol.Op("::", 6)
-          children = [ x.ToSymbolTree (); (xs :> WExpr).ToSymbolTree () ] }
+          children = [ x.ToSymbolTree(); (xs :> WExpr).ToSymbolTree() ] }
       | Concat(xs, ys) ->
-        { node = Symbol.Op ("++", 6)
-          children = [ (xs :> WExpr).ToSymbolTree (); (ys :> WExpr).ToSymbolTree () ] }
+        { node = Symbol.Op("++", 6)
+          children = [ (xs :> WExpr).ToSymbolTree(); (ys :> WExpr).ToSymbolTree() ] }
       | IsPrefix(xs, ys) ->
-        { node = Symbol.Op ("◁", 6)
-          children = [ (xs :> WExpr).ToSymbolTree (); (ys :> WExpr).ToSymbolTree () ] }
+        { node = Symbol.Op("◁", 6)
+          children = [ (xs :> WExpr).ToSymbolTree(); (ys :> WExpr).ToSymbolTree() ] }
       | IsSuffix(xs, ys) ->
-        { node = Symbol.Op ("▷", 6)
-          children = [ (xs :> WExpr).ToSymbolTree (); (ys :> WExpr).ToSymbolTree () ] }
+        { node = Symbol.Op("▷", 6)
+          children = [ (xs :> WExpr).ToSymbolTree(); (ys :> WExpr).ToSymbolTree() ] }
       | Head xs ->
         { node = Symbol.Atom "head"
-          children = [ (xs :> WExpr).ToSymbolTree () ] }
+          children = [ (xs :> WExpr).ToSymbolTree() ] }
       | Tail xs ->
         { node = Symbol.Atom "tail"
-          children = [ (xs :> WExpr).ToSymbolTree () ] }
+          children = [ (xs :> WExpr).ToSymbolTree() ] }
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
-      let toSeqExpr (x: WExpr) = x.ToZ3Expr (ctx, boundVars) :?> SeqExpr
+      let toSeqExpr (x: WExpr) = x.ToZ3Expr(ctx, boundVars) :?> SeqExpr
 
       match this with
       | Empty s ->
@@ -464,9 +463,9 @@ and Sequence =
         let elemSort = s.toZ3Sort ctx
         let seqSort = ctx.MkSeqSort elemSort
         ctx.MkEmptySeq seqSort
-      | ExtSequence e -> e.ToZ3Expr (ctx, boundVars)
+      | ExtSequence e -> e.ToZ3Expr(ctx, boundVars)
       | Cons(x, xs) ->
-        let x = ctx.MkUnit(x.ToZ3Expr (ctx, boundVars))
+        let x = ctx.MkUnit(x.ToZ3Expr(ctx, boundVars))
         ctx.MkConcat(x, toSeqExpr xs)
       | Concat(xs, ys) -> ctx.MkConcat(toSeqExpr xs, toSeqExpr ys)
       | IsSuffix(xs, ys) -> ctx.MkSuffixOf(toSeqExpr xs, toSeqExpr ys)
@@ -496,14 +495,21 @@ and WSort =
     mkSort this
 
 and Var =
-  { name: string
-    sort: WSort }
+  | Var of name: string * sort: WSort
 
-  override this.ToString() : string = this.name
+  member this.Name =
+    let (Var(name, _)) = this
+    name
+
+  member this.Sort: WSort =
+    let (Var(_, sort)) = this
+    sort
+
+  override this.ToString() : string = this.Name
 
   interface WExpr with
     member this.ToSymbolTree() : SymbolTree =
-      { node = Symbol.Var this.name 
+      { node = Symbol.Var this.Name
         children = [] }
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) =
@@ -514,9 +520,9 @@ and Var =
         | WSeq s -> ctx.MkSeqSort(mkSort s)
         | WVarSort v -> ctx.MkUninterpretedSort v
 
-      match Map.tryFind this.name boundVars with
+      match Map.tryFind this.Name boundVars with
       | Some e -> e
-      | None -> ctx.MkConst(this.name, mkSort this.sort)
+      | None -> ctx.MkConst(this.Name, mkSort this.Sort)
 
 and FnDecl =
   | FnDecl of name: string * signature: (WSort list)
@@ -555,9 +561,9 @@ and FnApp =
           xs
           |> List.fold
             (fun acc x ->
-              { node = Symbol.Op (",", 0)
-                children = [ x.ToSymbolTree (); acc ] })
-            (x.ToSymbolTree ())
+              { node = Symbol.Op(",", 0)
+                children = [ x.ToSymbolTree(); acc ] })
+            (x.ToSymbolTree())
 
         { node = Symbol.Atom this.FnDecl.Name
           children = [ argTree ] }
@@ -578,7 +584,7 @@ and FnApp =
             ctx.MkFuncDecl(this.FnDecl.Name, args, result)
 
       let z3Args =
-        this.Args |> List.map (fun v -> v.ToZ3Expr (ctx, boundVars)) |> List.toArray
+        this.Args |> List.map (fun v -> v.ToZ3Expr(ctx, boundVars)) |> List.toArray
 
       let funcDecl = toZ3FnDecl this.FnDecl.Signature
       funcDecl.Apply z3Args
@@ -655,9 +661,9 @@ let internal checkAssuming (ctx: Context) (assumptions: Proposition list) (p: Pr
   let solver = ctx.MkSolver()
 
   assumptions
-  |> List.iter (fun l -> solver.Assert((l :> WExpr).ToZ3Expr (ctx, Map.empty) :?> BoolExpr))
+  |> List.iter (fun l -> solver.Assert((l :> WExpr).ToZ3Expr(ctx, Map.empty) :?> BoolExpr))
 
-  let exp = ((p :> WExpr).ToZ3Expr (ctx, Map.empty)) :?> BoolExpr
+  let exp = ((p :> WExpr).ToZ3Expr(ctx, Map.empty)) :?> BoolExpr
   solver.Assert(ctx.MkNot exp)
 
   match solver.Check() with

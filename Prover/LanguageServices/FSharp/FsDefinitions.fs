@@ -80,7 +80,7 @@ let getTypedVariables (variables: FSharpMemberOrFunctionOrValue list) =
     |> List.fold
       (fun (oks, errs) p ->
         match checkType p.FullType with
-        | Some t -> { name = p.DisplayName; sort = t } :: oks, errs
+        | Some t -> Var(p.DisplayName, t) :: oks, errs
         | None -> oks, p.DisplayName :: errs)
       ([], [])
 
@@ -93,19 +93,14 @@ let rec getExprVars =
   | FSharpExprPatterns.Let((var, bindingExpr, _dbg), bodyExpr) ->
 
     match checkType var.FullType with
-    | Some t ->
-      { name = var.DisplayName; sort = t } :: getExprVars bindingExpr
-      @ getExprVars bodyExpr
+    | Some t -> Var(var.DisplayName, t) :: getExprVars bindingExpr @ getExprVars bodyExpr
     | None -> []
   | FSharpExprPatterns.LetRec(recursiveBindings, bodyExpr) ->
     let xs =
       recursiveBindings
       |> List.collect (fun (bindingVar, bindingExpr, _) ->
         match checkType bindingVar.FullType with
-        | Some t ->
-          { name = bindingVar.DisplayName
-            sort = t }
-          :: getExprVars bindingExpr
+        | Some t -> Var(bindingVar.DisplayName, t) :: getExprVars bindingExpr
         | None -> [])
 
     xs @ getExprVars bodyExpr
@@ -119,7 +114,7 @@ let rec getExprVars =
       match t with
       | WBool when v.DisplayName.Equals "true" -> []
       | WBool when v.DisplayName.Equals "false" -> []
-      | _ when v.DisplayName[0] |> Char.IsLetter -> [ { name = v.DisplayName; sort = t } ]
+      | _ when v.DisplayName[0] |> Char.IsLetter -> [ Var(v.DisplayName, t) ]
       | _ -> []
     | None -> []
   | FSharpExprPatterns.IfThenElse(cond, thenExpr, elseExpr) -> [ cond; thenExpr; elseExpr ] |> List.collect getExprVars
@@ -179,8 +174,7 @@ let rec visitExpression (fctx: FunContext) (expr: SynExpr) : WExpr list =
       let largs = visitExpression fctx lhs
       let args = visitExpression fctx rhs
 
-      let fnCall =
-        fctx.fnDecls |> List.find (fun f -> f.Name.Equals ident.idText)
+      let fnCall = fctx.fnDecls |> List.find (fun f -> f.Name.Equals ident.idText)
 
       [ Core.FnApp(fnCall, largs @ args) ]
     | SynExpr.LongIdent(longDotId = fnId) ->
@@ -199,7 +193,7 @@ let rec visitExpression (fctx: FunContext) (expr: SynExpr) : WExpr list =
       []
   | SynExpr.Ident n ->
     fctx.vars
-    |> List.tryFind (fun v -> v.name.Equals n.idText)
+    |> List.tryFind (fun v -> v.Name.Equals n.idText)
     |> Option.map (fun x ->
       printfn $"X {x}"
       x :> WExpr)
@@ -207,7 +201,7 @@ let rec visitExpression (fctx: FunContext) (expr: SynExpr) : WExpr list =
   | SynExpr.Match(expr = expr; clauses = clauses) -> procClauses clauses (getMatchedVar expr)
   | SynExpr.MatchLambda(matchClauses = clauses) ->
     let hiddenVar =
-      fctx.vars |> List.filter (fun v -> v.name.StartsWith '_') |> List.head
+      fctx.vars |> List.filter (fun v -> v.Name.StartsWith '_') |> List.head
 
     procClauses clauses hiddenVar
   | _ ->
@@ -222,7 +216,7 @@ let getFunDecls declTriples =
     match checkType value.ReturnParameter.Type with
     | Some returnSort ->
       let oks, errs = getTypedVariables (List.concat paramLists)
-      let signature = (oks |> List.map _.sort) @ [ returnSort ]
+      let signature = (oks |> List.map _.Sort) @ [ returnSort ]
       let decl = Core.FnDecl(value.DisplayName, signature)
       let fn = Core.FnApp(decl, oks |> List.map (fun x -> x :> WExpr))
       (fn, oks @ getExprVars body), errs
@@ -311,7 +305,7 @@ let getWybeExpressions (file: string, source: string) =
 
     match List.concat errors with
     | [] ->
-      let fnDecls = oks |> List.map (fst >> _.FnDecl) 
+      let fnDecls = oks |> List.map (fst >> _.FnDecl)
 
       oks
       |> List.map (fun (fn, allVars) ->
