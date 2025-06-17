@@ -578,6 +578,16 @@ and FnApp =
       funcDecl.Apply z3Args
 
 // section Calculation
+//
+// A calculation consists of a demonstradum (a formula to prove) and a sequence of transformations that provide
+// evidence for checking the validity of the demonstrandumd.
+// 
+// Calculations are implemented as a computation expression where instances of the type ProofLine are yielded
+// and parsed to compose a valid instance of the Calculation type. This is implemented by the CalculationCE type, which
+// also includes a Run member that checks the proof, producing a CheckedCalculation value.
+//
+// The LawsCE is also a computation expression which allows to extract valid Wybe expressions from axioms and 
+// theorems (from successfully checked calculations also in Wybe) useful as intermediate step in a proof.
 
 type Calculation =
   { demonstrandum: Law; steps: Step list }
