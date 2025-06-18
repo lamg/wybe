@@ -2,7 +2,7 @@
 
 [![NuGet Version][NuGet Version Shield]][Wybe NuGet]
 [![NuGet Downloads][NuGet Downloads Shield]][Wybe NuGet]
-[![Tests][Wybe-Tests-Shield]][GitHub Actions]
+[![Tests][Wybe Tests Shield]][GitHub Actions]
 
 A formal verification tool with the following features:
 
