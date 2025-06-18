@@ -41,34 +41,42 @@ type Symbol =
     | Atom s
     | Const s -> s
 
+[<RequireQualifiedAccess>]
 type SymbolTree =
-  { node: Symbol
-    children: SymbolTree list }
+  | Node of value: Symbol * children: SymbolTree list
+
+  member this.Value =
+    let (Node(value, _)) = this
+    value
+
+  member this.Children =
+    let (Node(_, children)) = this
+    children
 
   override this.ToString() =
     let parenthesise (parent: Symbol) (child: SymbolTree) =
-      if parent.Precedence > child.node.Precedence then
+      if parent.Precedence > child.Value.Precedence then
         $"({child})"
       else
         let chainableOps = Set [ "≡"; "≢"; parent.Symbol ]
 
         let areChainable =
-          Set.isSubset (Set [ parent.Symbol; child.node.Symbol ]) chainableOps
+          Set.isSubset (Set [ parent.Symbol; child.Value.Symbol ]) chainableOps
 
-        if not areChainable && parent.Precedence = child.node.Precedence then
+        if not areChainable && parent.Precedence = child.Value.Precedence then
           $"({child})"
         else
           child.ToString()
 
     match this with
-    | { node = x; children = [ left; right ] } when x.Symbol = "," ->
-      $"{parenthesise x left}{x.Symbol} {parenthesise x right}"
-    | { node = x; children = [ left; right ] } -> $"{parenthesise x left} {x.Symbol} {parenthesise x right}"
-    | { node = x; children = [ right ] } -> $"{x.Symbol}{parenthesise x right}"
-    | { node = x } -> x.Symbol
+    | Node(x, [ left; right ]) when x.Symbol = "," -> $"{parenthesise x left}{x.Symbol} {parenthesise x right}"
+    | Node(x, [ left; right ]) -> $"{parenthesise x left} {x.Symbol} {parenthesise x right}"
+    | Node(x, [ right ]) -> $"{x.Symbol}{parenthesise x right}"
+    | Node(x, []) -> x.Symbol
+    | Node(_, xs) -> failwith $"unexpected tree with more {xs.Length} children"
 
   member this.existsNode(p: Symbol -> bool) =
-    p this.node || this.children |> List.exists (fun c -> c.existsNode p)
+    p this.Value || this.Children |> List.exists (fun c -> c.existsNode p)
 
 // section WExpr (Wybe Expressions)
 //
@@ -128,39 +136,17 @@ and Integer =
 
       match this with
       | ExtInteger e -> e.ToSymbolTree()
-      | Integer i ->
-        { node = Symbol.Const $"{i}"
-          children = [] }
-      | UnaryMinus n ->
-        { node = Symbol.Op("-", 6)
-          children = [ toTree n ] }
-      | Plus(x, y) ->
-        { node = Symbol.Op("+", 5)
-          children = [ toTree x; toTree y ] }
-      | Minus(x, y) ->
-        { node = Symbol.Op("-", 5)
-          children = [ toTree x; toTree y ] }
-      | Times(x, y) ->
-        { node = Symbol.Op("×", 5)
-          children = [ toTree x; toTree y ] }
-      | Divide(x, y) ->
-        { node = Symbol.Op("÷", 5)
-          children = [ toTree x; toTree y ] }
-      | Exceeds(x, y) ->
-        { node = Symbol.Op(">", 5)
-          children = [ toTree x; toTree y ] }
-      | LessThan(x, y) ->
-        { node = Symbol.Op("<", 5)
-          children = [ toTree x; toTree y ] }
-      | AtLeast(x, y) ->
-        { node = Symbol.Op("≥", 5)
-          children = [ toTree x; toTree y ] }
-      | AtMost(x, y) ->
-        { node = Symbol.Op("≤", 5)
-          children = [ toTree x; toTree y ] }
-      | IsDivisor(x, y) ->
-        { node = Symbol.Op("∣", 5)
-          children = [ toTree x; toTree y ] }
+      | Integer i -> SymbolTree.Node(Symbol.Const $"{i}", [])
+      | UnaryMinus n -> SymbolTree.Node(Symbol.Op("-", 6), [ toTree n ])
+      | Plus(x, y) -> SymbolTree.Node(Symbol.Op("+", 5), [ toTree x; toTree y ])
+      | Minus(x, y) -> SymbolTree.Node(Symbol.Op("-", 5), [ toTree x; toTree y ])
+      | Times(x, y) -> SymbolTree.Node(Symbol.Op("×", 5), [ toTree x; toTree y ])
+      | Divide(x, y) -> SymbolTree.Node(Symbol.Op("÷", 5), [ toTree x; toTree y ])
+      | Exceeds(x, y) -> SymbolTree.Node(Symbol.Op(">", 5), [ toTree x; toTree y ])
+      | LessThan(x, y) -> SymbolTree.Node(Symbol.Op("<", 5), [ toTree x; toTree y ])
+      | AtLeast(x, y) -> SymbolTree.Node(Symbol.Op("≥", 5), [ toTree x; toTree y ])
+      | AtMost(x, y) -> SymbolTree.Node(Symbol.Op("≤", 5), [ toTree x; toTree y ])
+      | IsDivisor(x, y) -> SymbolTree.Node(Symbol.Op("∣", 5), [ toTree x; toTree y ])
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toExp n =
@@ -335,43 +321,22 @@ and Proposition =
       let toTree (e: WExpr) = e.ToSymbolTree()
 
       match this with
-      | True ->
-        { node = Symbol.Const "true"
-          children = [] }
-      | False ->
-        { node = Symbol.Const "false"
-          children = [] }
+      | True -> SymbolTree.Node(Symbol.Const "true", [])
+      | False -> SymbolTree.Node(Symbol.Const "false", [])
       | ExtProposition x -> x.ToSymbolTree()
-      | Equals(x, y) ->
-        { node = Symbol.Op("=", 4)
-          children = [ toTree x; toTree y ] }
-      | Differs(x, y) ->
-        { node = Symbol.Op("≠", 4)
-          children = [ toTree x; toTree y ] }
-      | Not right ->
-        { node = Symbol.Op("¬", 3)
-          children = [ toTree right ] }
-      | And(left, right) ->
-        { node = Symbol.Op("∧", 2)
-          children = [ toTree left; toTree right ] }
-      | Or(left, right) ->
-        { node = Symbol.Op("∨", 2)
-          children = [ toTree left; toTree right ] }
-      | Implies(left, right) ->
-        { node = Symbol.Op("⇒", 1)
-          children = [ toTree left; toTree right ] }
-      | Follows(left, right) ->
-        { node = Symbol.Op("⇐", 1)
-          children = [ toTree left; toTree right ] }
+      | Equals(x, y) -> SymbolTree.Node(Symbol.Op("=", 4), [ toTree x; toTree y ])
+      | Differs(x, y) -> SymbolTree.Node(Symbol.Op("≠", 4), [ toTree x; toTree y ])
+      | Not right -> SymbolTree.Node(Symbol.Op("¬", 3), [ toTree right ])
+      | And(left, right) -> SymbolTree.Node(Symbol.Op("∧", 2), [ toTree left; toTree right ])
+      | Or(left, right) -> SymbolTree.Node(Symbol.Op("∨", 2), [ toTree left; toTree right ])
+      | Implies(left, right) -> SymbolTree.Node(Symbol.Op("⇒", 1), [ toTree left; toTree right ])
+      | Follows(left, right) -> SymbolTree.Node(Symbol.Op("⇐", 1), [ toTree left; toTree right ])
       | Equiv(left, right) ->
         let l = (left :> WExpr).ToSymbolTree()
         let r = (right :> WExpr).ToSymbolTree()
 
-        { node = Symbol.Op("≡", 0)
-          children = [ l; r ] }
-      | Inequiv(left, right) ->
-        { node = Symbol.Op("≢", 0)
-          children = [ toTree left; toTree right ] }
+        SymbolTree.Node(Symbol.Op("≡", 0), [ l; r ])
+      | Inequiv(left, right) -> SymbolTree.Node(Symbol.Op("≢", 0), [ toTree left; toTree right ])
       | Quantifier(q, vars, body) ->
         let symbol =
           match q with
@@ -381,8 +346,7 @@ and Proposition =
         let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
         let p = (body :> WExpr).ToSymbolTree().ToString()
 
-        { node = Symbol.Atom $"⟨{symbol}{vs} → {p}⟩" // \langle \rangle ⟨⟩
-          children = [] }
+        SymbolTree.Node(Symbol.Atom $"⟨{symbol}{vs} → {p}⟩", [])
 
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
@@ -452,31 +416,15 @@ and Sequence =
       let toTree (e: WExpr) = e.ToSymbolTree()
 
       match this with
-      | Length x ->
-        { node = Symbol.Op("#", 6)
-          children = [ toTree x ] }
-      | Empty _ ->
-        { node = Symbol.Const "ϵ"
-          children = [] }
+      | Length x -> SymbolTree.Node(Symbol.Op("#", 6), [ toTree x ])
+      | Empty _ -> SymbolTree.Node(Symbol.Const "ϵ", [])
       | ExtSequence x -> x.ToSymbolTree()
-      | Cons(x, xs) ->
-        { node = Symbol.Op("::", 6)
-          children = [ toTree x; toTree xs ] }
-      | Concat(xs, ys) ->
-        { node = Symbol.Op("++", 6)
-          children = [ toTree xs; toTree ys ] }
-      | IsPrefix(xs, ys) ->
-        { node = Symbol.Op("◁", 6)
-          children = [ toTree xs; toTree ys ] }
-      | IsSuffix(xs, ys) ->
-        { node = Symbol.Op("▷", 6)
-          children = [ toTree xs; toTree ys ] }
-      | Head xs ->
-        { node = Symbol.Atom "head"
-          children = [ toTree xs ] }
-      | Tail xs ->
-        { node = Symbol.Atom "tail"
-          children = [ toTree xs ] }
+      | Cons(x, xs) -> SymbolTree.Node(Symbol.Op("::", 6), [ toTree x; toTree xs ])
+      | Concat(xs, ys) -> SymbolTree.Node(Symbol.Op("++", 6), [ toTree xs; toTree ys ])
+      | IsPrefix(xs, ys) -> SymbolTree.Node(Symbol.Op("◁", 6), [ toTree xs; toTree ys ])
+      | IsSuffix(xs, ys) -> SymbolTree.Node(Symbol.Op("▷", 6), [ toTree xs; toTree ys ])
+      | Head xs -> SymbolTree.Node(Symbol.Atom "head", [ toTree xs ])
+      | Tail xs -> SymbolTree.Node(Symbol.Atom "tail", [ toTree xs ])
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toSeqExpr (x: WExpr) = x.ToZ3Expr(ctx, boundVars) :?> SeqExpr
@@ -533,8 +481,7 @@ and Var =
 
   interface WExpr with
     member this.ToSymbolTree() : SymbolTree =
-      { node = Symbol.Var this.Name
-        children = [] }
+      SymbolTree.Node(Symbol.Var this.Name, [])
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) =
       let rec mkSort sort =
@@ -583,17 +530,10 @@ and FnApp =
 
         let argTree =
           xs
-          |> List.fold
-            (fun acc x ->
-              { node = Symbol.Op(",", 0)
-                children = [ x.ToSymbolTree(); acc ] })
-            (x.ToSymbolTree())
+          |> List.fold (fun acc x -> SymbolTree.Node(Symbol.Op(",", 0), [ x.ToSymbolTree(); acc ])) (x.ToSymbolTree())
 
-        { node = Symbol.Atom this.FnDecl.Name
-          children = [ argTree ] }
-      | [] ->
-        { node = Symbol.Atom this.FnDecl.Name
-          children = [] }
+        SymbolTree.Node(Symbol.Atom this.FnDecl.Name, [ argTree ])
+      | [] -> SymbolTree.Node(Symbol.Atom this.FnDecl.Name, [])
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) =
       let toZ3FnDecl (signature: WSort list) =
