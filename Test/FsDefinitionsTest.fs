@@ -1,6 +1,7 @@
 module FsDefinitionsTest
 
 open Xunit
+open FsUnitTyped
 open FsDefinitions
 open Core
 
@@ -22,7 +23,8 @@ let rec insert (n: int) =
   let exprs = getWybeExpressions (file, source)
 
   match exprs with
-  | Ok xs -> printfn $"EXPRS {xs}"
+  | Ok xs -> xs.Length |> shouldBeGreaterThan 0
+
   | Error e -> failwith e
 
 [<Fact>]
@@ -40,5 +42,6 @@ let fw (n: int) =
   let exprs = getWybeExpressions (file, source)
 
   match exprs with
-  | Ok xs -> printfn $"EXPRS {xs}"
+  | Ok xs -> xs.Length |> shouldBeGreaterThan 0
+  // printfn $"EXPRS {xs}"
   | Error e -> failwith e

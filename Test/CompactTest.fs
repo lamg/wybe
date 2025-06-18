@@ -1,10 +1,11 @@
 module CompactTest
 
 open Xunit
-open LanguageServices.Compact.AST
-open LanguageServices.Compact.Parser
-open LanguageServices.Compact.TypeChecker
+open FsUnitTyped
 open LanguageServices.Compact
+open AST
+open Parser
+open TypeChecker
 
 
 let counter =
@@ -98,12 +99,12 @@ let ``parse counter`` () =
         [ CallStatement(Call([ "round"; "increment" ], [], [ Lit(Int 1) ])) ]
       ) ]
 
-  Assert.Equal<TopLevel list>(expected, topLevel)
+  topLevel |> shouldEqual expected
 
 [<Fact>]
 let ``parse large example`` () =
   let topLevel = LanguageServices.Compact.Parser.parse stateSetter
-  Assert.True(topLevel.Length > 0)
+  topLevel.Length |> shouldBeGreaterThan 0
 
 [<Fact>]
 let ``typecheck simple arithmetic in constructor`` () =
@@ -128,7 +129,7 @@ constructor() {
 """
 
   let prog = parse src
-  Assert.Throws<TypeError>(fun () -> check prog) |> ignore
+  shouldFail<TypeError> (fun () -> check prog)
 
 [<Fact>]
 let ``typecheck return type mismatch`` () =
@@ -182,7 +183,8 @@ let ``extract semantic info`` () =
 
   stateSetter
   |> SemanticRules.extractSemanticInfo env
-  |> Inspect.printSemanticInfo
+  |> _.Count
+  |> shouldBeGreaterThan 0
 
 open Core
 open GriesSchneider
@@ -199,26 +201,7 @@ circuit validCalc(): Uint<64> {
   """
 
   let obligations = extractWithEmptyEnv validCalc
-  obligations |> Inspect.printSemanticInfo
+  let a, b = mkIntVar "a", mkIntVar "b"
 
-  let ``b ≠ 0`` = obligations["validCalc"][0]
-
-  proof { lemma ``b ≠ 0`` } |> Inspect.inspect |> Inspect.summary |> Inspect.print
-
-[<Fact>]
-let ``invalidCalc demo 1`` () =
-  let invalidCalc =
-    """
-circuit invalidCalc(): Uint<64> {
-  const a = 18;
-  const b = 0;
-  return a/b;
-}
-  """
-
-  let obligations = extractWithEmptyEnv invalidCalc
-  obligations |> Inspect.printSemanticInfo
-
-  let ``b ≠ 0`` = obligations["invalidCalc"][0]
-
-  proof { lemma ``b ≠ 0`` } |> Inspect.inspect |> Inspect.summary |> Inspect.print
+  obligations["validCalc"][0]
+  |> shouldEqual (a = Integer 18 <&&> (b = Integer 1) ==> (b != zero))

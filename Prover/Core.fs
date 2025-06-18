@@ -227,7 +227,7 @@ and Proposition =
     (this :> WExpr).ToSymbolTree().ToString()
 
   // recursive definitions like ⟨∀n → fib (n+2) = fib(n+1) + fib n⟩ need to be converted to Z3 expressions
-  // specifying how to unfold recursive definitions, by providing a *pattern*.
+  // specifying which terms need to be unfolded, by providing a *pattern*.
   // In this case the pattern is [|fib (n+1); fib n|]. This is implemented by the extractPatternFromRecurrence
   // function by visiting the WExpr tree and collecting function applications, FnApp instances, and converting them
   // to their equivalent in Z3, to finally create a Z3 pattern with them.
@@ -237,7 +237,7 @@ and Proposition =
   /// <param name="boundVars">variables bound by a quantifier</param>
   /// <param name="e">expression containing a recurrence relation</param>
   /// <returns></returns>
-  static member extractPatternFromRecurrence(ctx: Context, boundVars: BoundVars, e: WExpr) =
+  static member internal extractPatternFromRecurrence(ctx: Context, boundVars: BoundVars, e: WExpr) =
     let rec loop (e: WExpr) =
       match e with
       | :? Proposition as p ->

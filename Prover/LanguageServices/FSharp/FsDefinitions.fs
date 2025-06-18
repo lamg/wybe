@@ -150,8 +150,8 @@ let rec visitExpression (fctx: FunContext) (expr: SynExpr) : WExpr list =
         | [ e ] -> Some(pat ==> (fctx.fn = e))
         | ys -> failwith $"expecting a single expression, got {ys} at {resultExpr}"
       | SynPat.ArrayOrList(_, [], _) -> Some(len matchedVar = zero)
-      | xs ->
-        printfn $"XS {xs}"
+      | _xs ->
+        //printfn $"XS {xs}"
         None)
 
   match expr with
@@ -195,7 +195,7 @@ let rec visitExpression (fctx: FunContext) (expr: SynExpr) : WExpr list =
     fctx.vars
     |> List.tryFind (fun v -> v.Name.Equals n.idText)
     |> Option.map (fun x ->
-      printfn $"X {x}"
+      //printfn $"X {x}"
       x :> WExpr)
     |> Option.toList
   | SynExpr.Match(expr = expr; clauses = clauses) -> procClauses clauses (getMatchedVar expr)
