@@ -46,10 +46,10 @@ let printLaws (xs: Law list) =
   xs |> List.map _.identifier |> String.concat ", " |> sprintf "{ %s }"
 
 let printHint (x: Step) =
-  $"{printOperator x.stepOp} {printLaws x.laws}"
+  $"{printOperator x.StepOp} {printLaws x.Laws}"
 
 let printStep (x: Step) =
-  [ $"  {x.fromExp}"; printHint x; $"  {x.toExp}" ]
+  [ $"  {x.FromExpr}"; printHint x; $"  {x.ToExpr}" ]
 
 let printCalculation (calc: Calculation) =
   let header = info "demonstrandum" (calc.demonstrandum.body.ToString())
@@ -59,7 +59,7 @@ let printCalculation (calc: Calculation) =
   | x :: xs ->
     let first = printStep x
 
-    let nextSteps = xs |> List.collect (fun x -> [ printHint x; $"  {x.toExp}" ])
+    let nextSteps = xs |> List.collect (fun x -> [ printHint x; $"  {x.ToExpr}" ])
 
     let lastStep = [ "▢" ] // \squoval character
 
@@ -76,7 +76,7 @@ let printCheckedCalculation (calc: CheckedCalculation) =
   | x :: xs ->
     let first = printStep x
 
-    let nextSteps = xs |> List.collect (fun x -> [ printHint x; $"  {x.toExp}" ])
+    let nextSteps = xs |> List.collect (fun x -> [ printHint x; $"  {x.ToExpr}" ])
 
     let lastStep = [ section "▢" ]
 
@@ -92,13 +92,13 @@ let printCalculationError (calc: CheckedCalculation) =
       $"❌ counter-example found: {counterExample}"
       $"assuming: {implication}"
       $"to conclude: {conclusion}" ]
-  | Some(FailedParsing e) -> [ $"failed parsing: {e}" ]
+  | Some(FailedParsing(lineNo, _lines, _expected)) -> [ $"failed parsing: line {lineNo}" ]
   | Some(InsufficientEvidence(assumptions, d)) ->
     [ error "insufficient evidence" ""
       $"assumptions {assumptions}"
       $"conclusion {d}" ]
   | Some(RefutedFormula d) -> [ error $"❌ refuted formula" $"{d}" ]
-  | None -> []
+  | _ -> []
 
 // Inspect external interface
 

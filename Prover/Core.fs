@@ -9,7 +9,7 @@ open Microsoft.Z3
 // - WExpr
 // - Calculation
 
-// section Symbol Tree
+// Symbol Tree
 //
 // The SymbolTree type allows to build string representations of any WExpr instance
 // precedence of operators used in string representations
@@ -21,6 +21,32 @@ open Microsoft.Z3
 // 5: + - × ÷
 // 6: - (unary minus) # :: ++ ◁ ▷
 // 7: variables, function applications, and other atoms like true, false, ϵ, expressions inside parenthesis and angle brackets, like universal and existential quantifiers
+
+[<RequireQualifiedAccess>]
+type Expected =
+  | Step
+  | Hint
+  | Theorem
+
+and CheckResult =
+  | Proved
+  | Refuted of string
+  | Unknown
+
+type WybeError =
+  | InvalidSymbolTree of nodeChildrenAmount: int
+  | EmptySignature of functionName: string
+  | NonVarInQuantifiedVars of var: string
+  | StepExprShouldBePropositions of string * string
+  | CannotExtractLawFromFailedProof of string
+  | FailedParsing of lineNo: int * lines: string list * Expected
+  | FailedSteps of list<int * string * CheckResult>
+  | WrongEvidence of counterExample: string * premise: string list * consequence: string
+  | InsufficientEvidence of assumptions: string list * demonstrandum: string
+  | RefutedFormula of demonstrandum: string
+
+type WybeException(e: WybeError) =
+  inherit System.Exception(e.ToString())
 
 [<RequireQualifiedAccess>]
 type Symbol =
@@ -73,7 +99,7 @@ type SymbolTree =
     | Node(x, [ left; right ]) -> $"{parenthesise x left} {x.Symbol} {parenthesise x right}"
     | Node(x, [ right ]) -> $"{x.Symbol}{parenthesise x right}"
     | Node(x, []) -> x.Symbol
-    | Node(_, xs) -> failwith $"unexpected tree with more {xs.Length} children"
+    | Node(_, xs) -> raise (WybeException(InvalidSymbolTree xs.Length))
 
   member this.existsNode(p: Symbol -> bool) =
     p this.Value || this.Children |> List.exists (fun c -> c.existsNode p)
@@ -291,7 +317,7 @@ and Proposition =
         let splitLast xs =
           match List.rev xs with
           | y :: ys -> List.rev ys, y
-          | _ -> failwith "signature cannot be empty"
+          | _ -> raise (WybeException(EmptySignature p.FnDecl.Name))
 
         let (signArgs: WSort list, ret: WSort) = splitLast p.FnDecl.Signature
         let z3ArgSorts = signArgs |> List.map (fun a -> a.toZ3Sort ctx) |> List.toArray
@@ -372,16 +398,16 @@ and Proposition =
           | :? Proposition as p ->
             match p with
             | ExtProposition e -> mkBoundExpr i e
-            | _ -> failwith $"only variables are allowed in quantifier variable section, got {p}"
+            | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
           | :? Sequence as s ->
             match s with
             | ExtSequence e -> mkBoundExpr i e
-            | _ -> failwith $"only variables are allowed in quantifier variable section, got {s}"
+            | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
           | :? Integer as n ->
             match n with
             | ExtInteger e -> mkBoundExpr i e
-            | _ -> failwith $"only variables are allowed in quantifier variable section, got {n}"
-          | _ -> failwith $"only variables are allowed in quantifier variable section, got {v}"
+            | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
+          | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
 
         let z3Vars = vars |> List.map (fun v -> v.ToZ3Expr(ctx, boundVars)) |> List.toArray
 
@@ -540,7 +566,7 @@ and FnApp =
         signature
         |> List.map (fun s -> s.toZ3Sort ctx)
         |> function
-          | [] -> failwith $"signature cannot be empty, at function {this.FnDecl.Name}"
+          | [] -> raise (WybeException(EmptySignature this.FnDecl.Name))
           | xs ->
             let rev = List.rev xs
             let args = List.tail rev |> List.rev |> List.toArray
@@ -553,7 +579,7 @@ and FnApp =
       let funcDecl = toZ3FnDecl this.FnDecl.Signature
       funcDecl.Apply z3Args
 
-// section Calculation
+// Calculation
 //
 // A calculation consists of a demonstradum (a formula to prove) and a sequence of transformations that provide
 // evidence for checking the validity of the demonstrandumd.
@@ -570,7 +596,7 @@ type Calculation =
 
 and CheckedCalculation =
   { calculation: Calculation
-    error: CalcError option }
+    error: WybeError option }
 
 and Law =
   { identifier: string
@@ -583,43 +609,36 @@ and [<RequireQualifiedAccess>] StepOperator =
   | Equals
 
 and Step =
-  { fromExp: WExpr
-    toExp: WExpr
-    stepOp: StepOperator
-    laws: Law list }
+  | Step of fromExp: WExpr * stepOp: StepOperator * laws: Law list * toStep: WExpr
 
-and Expected =
-  | ExpectingStep
-  | ExpectingHint
-  | ExpectingTheorem
+  member this.FromExpr =
+    let (Step(fromExpr, _, _, _)) = this
+    fromExpr
 
-and ParseError = { expected: Expected }
+  member this.ToExpr =
+    let (Step(_, _, _, toExpr)) = this
+    toExpr
 
-and CheckResult =
-  | Proved
-  | Refuted of string
-  | Unknown
+  member this.StepOp =
+    let (Step(_, stepOp, _, _)) = this
+    stepOp
 
-and CalcError =
-  | FailedParsing of ParseError
-  | FailedSteps of list<int * Proposition * CheckResult>
-  | WrongEvidence of counterExample: string * premise: Proposition list * consequence: Proposition
-  | InsufficientEvidence of assumptions: Proposition list * demonstrandum: Proposition
-  | RefutedFormula of demonstrandum: Proposition
+  member this.Laws =
+    let (Step(_, _, laws, _)) = this
+    laws
 
 let internal stepToProposition (s: Step) =
   let boolStep (t: WExpr, u: WExpr) =
     try
       t :?> Proposition, u :?> Proposition
     with _ ->
-      failwith $"not supported step operator for steps {t} and {u}"
+      raise (WybeException(StepExprShouldBePropositions(string t, string u)))
 
-
-  match s.stepOp with
-  | StepOperator.Equiv -> (s.fromExp, s.toExp) |> boolStep |> Equiv
-  | StepOperator.Follows -> (s.fromExp, s.toExp) |> boolStep |> Follows
-  | StepOperator.Implies -> (s.fromExp, s.toExp) |> boolStep |> Implies
-  | StepOperator.Equals -> Equals(s.fromExp, s.toExp)
+  match s.StepOp with
+  | StepOperator.Equiv -> Equiv(boolStep (s.FromExpr, s.ToExpr))
+  | StepOperator.Follows -> Follows(boolStep (s.FromExpr, s.ToExpr))
+  | StepOperator.Implies -> Implies(boolStep (s.FromExpr, s.ToExpr))
+  | StepOperator.Equals -> Equals(s.FromExpr, s.ToExpr)
 
 let internal checkAssuming (ctx: Context) (assumptions: Proposition list) (p: Proposition) =
   let solver = ctx.MkSolver()
@@ -636,10 +655,10 @@ let internal checkAssuming (ctx: Context) (assumptions: Proposition list) (p: Pr
     Refuted(r.ToString())
   | Status.UNSATISFIABLE -> Proved
   | Status.UNKNOWN -> Unknown
-  | v -> failwith $"unexpected enum value {v}"
+  | v -> failwith $"unexpected Z3 solver result {v}"
 
-let internal checkStep (ctx: Context) (s: Step) =
-  let assumptions = s.laws |> List.map _.body
+let internal checkStep (ctx: Context) (s: Step) : CheckResult =
+  let assumptions = s.Laws |> List.map _.body
   let stepProp = stepToProposition s
   checkAssuming ctx assumptions stepProp
 
@@ -648,69 +667,72 @@ let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (de
 
   match checkAssuming ctx assumptions demonstrandum with
   | Proved -> Ok()
-  | Refuted counterExample -> Error(WrongEvidence(counterExample, assumptions, demonstrandum))
-  | Unknown -> Error(InsufficientEvidence(assumptions, demonstrandum))
-
-open FsToolkit.ErrorHandling
+  | Refuted counterExample -> Error(WrongEvidence(counterExample, List.map string assumptions, string demonstrandum))
+  | Unknown -> Error(InsufficientEvidence(List.map string assumptions, string demonstrandum))
 
 type ProofLine =
   | Hint of StepOperator * Law list
   | WybeExpr of WExpr
   | Theorem of Law
-  | Name of string
 
-let private buildBasic (lines: ProofLine list) =
+let private parseProofLines (lines: ProofLine list) =
   let rec fixedPoint (f: 'b -> 'b option) (state: 'b) =
     match f state with
     | Some x -> fixedPoint f x
     | None -> state
 
+  let buildStep =
+    function
+    | steps, lines ->
+      match lines with
+      | [ WybeExpr f; Hint(op, laws); WybeExpr t ] ->
+
+        Some(Step(f, op, laws, t) :: steps, [])
+
+      | WybeExpr f :: Hint(op, laws) :: WybeExpr t :: lines -> Some(Step(f, op, laws, t) :: steps, WybeExpr t :: lines)
+      | _ -> None
+
+  let theorem, lines =
+    match lines with
+    | Theorem t :: xs -> t, xs
+    | _ -> raise (WybeException(FailedParsing(1, List.map string lines, Expected.Theorem)))
+
   // syntax of lines: theorem (expr hint expr)*
-  result {
-    let! theorem, lines =
-      match lines with
-      | [] -> Error { expected = ExpectingTheorem }
-      | Theorem t :: lines -> Ok(t, lines)
-      | _ :: _ -> Error { expected = ExpectingTheorem } // TODO pass a parameter to ExpectingTheorem to
-    // make easier to find the invalid line
+  let steps, remainingLines = fixedPoint buildStep ([], lines)
+  let parsedLines = lines.Length - remainingLines.Length
 
-    let steps, lines =
-      fixedPoint
-        (function
-        | steps, lines ->
-          match lines with
-          | [ WybeExpr f; Hint(op, laws); WybeExpr t ] ->
+  match remainingLines with
+  | [] -> ()
+  | WybeExpr _ :: _ -> raise (WybeException(FailedParsing(parsedLines, List.map string lines, Expected.Hint)))
+  | _ :: _ -> raise (WybeException(FailedParsing(parsedLines, List.map string lines, Expected.Step)))
 
-            Some(
-              { fromExp = f
-                toExp = t
-                stepOp = op
-                laws = laws }
-              :: steps,
-              []
-            )
-          | WybeExpr f :: Hint(op, laws) :: WybeExpr t :: lines ->
-            Some(
-              { fromExp = f
-                toExp = t
-                stepOp = op
-                laws = laws }
-              :: steps,
-              WybeExpr t :: lines
-            )
-          | _ -> None)
-        ([], lines)
+  { demonstrandum = theorem
+    steps = List.rev steps }
 
-    do!
-      match lines with
-      | [] -> Ok()
-      | WybeExpr _ :: _ -> Error { expected = ExpectingHint }
-      | _ :: _ -> Error { expected = ExpectingStep }
+let private parseAndCheck (lines: ProofLine list) =
+  let calc = parseProofLines lines
+  let cfg = System.Collections.Generic.Dictionary<string, string>()
+  cfg.Add("model", "true")
+  let ctx = new Context(cfg)
 
-    return
-      { demonstrandum = theorem
-        steps = steps |> List.rev }
-  }
+  let failed =
+    calc.steps
+    |> List.mapi (fun i s ->
+      match checkStep ctx s with
+      | Proved -> []
+      | e -> [ i, string (stepToProposition s), e ])
+    |> List.concat
+
+  let error =
+    match failed with
+    | [] ->
+      match checkStepsImpliesDemonstrandum ctx calc.steps calc.demonstrandum.body with
+      | Ok() -> None
+      | Error e -> Some e
+    | _ -> Some(FailedSteps failed)
+
+  { calculation = calc; error = error }
+
 
 type CalculationCE() =
   member _.Bind(l: ProofLine, f: ProofLine -> ProofLine list) = f l
@@ -729,30 +751,9 @@ type CalculationCE() =
   member _.Delay(f: unit -> ProofLine list) = f ()
 
   member _.Run(xs: ProofLine list) =
-    match buildBasic xs with
-    | Ok calc ->
-      let cfg = System.Collections.Generic.Dictionary<string, string>()
-      cfg.Add("model", "true")
-      let ctx = new Context(cfg)
-
-      let failed =
-        calc.steps
-        |> List.mapi (fun i s ->
-          match checkStep ctx s with
-          | Proved -> []
-          | e -> [ i, stepToProposition s, e ])
-        |> List.concat
-
-      let error =
-        match failed with
-        | [] ->
-          match checkStepsImpliesDemonstrandum ctx calc.steps calc.demonstrandum.body with
-          | Ok() -> None
-          | Error e -> Some e
-        | _ -> Some(FailedSteps failed)
-
-      { calculation = calc; error = error }
-    | Error e -> failwith $"{e}"
+    // TODO catch exceptions and add message to the message stack
+    // coming for proof lines generated by failing proofs
+    parseAndCheck xs
 
 
 let proof = CalculationCE()
@@ -767,7 +768,7 @@ type LawsCE(op: StepOperator) =
   member _.Yield(x: CheckedCalculation) =
     match x.error with
     | None -> [ x.calculation.demonstrandum ]
-    | Some e -> failwith $"cannot extract law from failed proof {e}"
+    | Some e -> raise (WybeException(CannotExtractLawFromFailedProof(string e)))
 
   member this.Yield(xs: CheckedCalculation list) = xs |> List.collect this.Yield
 
