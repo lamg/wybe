@@ -593,11 +593,26 @@ and FnApp =
 // theorems (from successfully checked calculations also in Wybe) useful as intermediate step in a proof.
 
 type Calculation =
-  { demonstrandum: Law; steps: Step list }
+  | Calculation of demonstradum: Law * steps: Step list
+
+  member this.Demonstrandum =
+    let (Calculation(demonstrandum, _)) = this
+    demonstrandum
+
+  member this.Steps =
+    let (Calculation(_, steps)) = this
+    steps
 
 and CheckedCalculation =
-  { calculation: Calculation
-    error: WybeError option }
+  | CheckedCalculation of calculation: Calculation * error: WybeError option
+
+  member this.Calculation =
+    let (CheckedCalculation(calculation, _)) = this
+    calculation
+
+  member this.Error =
+    let (CheckedCalculation(_, error)) = this
+    error
 
 and Law =
   | Law of identifier: string * body: Proposition
@@ -715,8 +730,7 @@ let private parseProofLines (lines: ProofLine list) =
   | WybeExpr _ :: _ -> raise (WybeException(FailedParsing(parsedLines, List.map string lines, Expected.Hint)))
   | _ :: _ -> raise (WybeException(FailedParsing(parsedLines, List.map string lines, Expected.Step)))
 
-  { demonstrandum = theorem
-    steps = List.rev steps }
+  Calculation(theorem, List.rev steps)
 
 let private parseAndCheck (lines: ProofLine list) =
   let calc = parseProofLines lines
@@ -725,7 +739,7 @@ let private parseAndCheck (lines: ProofLine list) =
   let ctx = new Context(cfg)
 
   let failed =
-    calc.steps
+    calc.Steps
     |> List.mapi (fun i s ->
       match checkStep ctx s with
       | CheckResult.Proved -> []
@@ -735,13 +749,12 @@ let private parseAndCheck (lines: ProofLine list) =
   let error =
     match failed with
     | [] ->
-      match checkStepsImpliesDemonstrandum ctx calc.steps calc.demonstrandum.Body with
+      match checkStepsImpliesDemonstrandum ctx calc.Steps calc.Demonstrandum.Body with
       | Ok() -> None
       | Error e -> Some e
     | _ -> Some(FailedSteps failed)
 
-  { calculation = calc; error = error }
-
+  CheckedCalculation(calc, error)
 
 type CalculationCE() =
   member _.Bind(l: ProofLine, f: ProofLine -> ProofLine list) = f l
@@ -774,8 +787,8 @@ type LawsCE(op: StepOperator) =
   member _.Yield(xs: Law list) = xs
 
   member _.Yield(x: CheckedCalculation) =
-    match x.error with
-    | None -> [ x.calculation.demonstrandum ]
+    match x.Error with
+    | None -> [ x.Calculation.Demonstrandum ]
     | Some e -> raise (WybeException(CannotExtractLawFromFailedProof(string e)))
 
   member this.Yield(xs: CheckedCalculation list) = xs |> List.collect this.Yield

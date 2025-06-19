@@ -10,7 +10,8 @@ open GriesSchneider
 let ``check implication`` () =
   let ctx = new Microsoft.Z3.Context()
 
-  [ False, CheckResult.Refuted "false"; True ==> False, CheckResult.Refuted "false" ]
+  [ False, CheckResult.Refuted "false"
+    True ==> False, CheckResult.Refuted "false" ]
   |> List.iter (fun (pred, expected) ->
     let res = checkAssuming ctx [] pred
     should equal res expected)
@@ -31,7 +32,7 @@ let ``double negation with Z3`` () =
       True
     }
 
-  Assert.True calcRes.error.IsNone
+  Assert.True calcRes.Error.IsNone
 
 
 [<Fact>]

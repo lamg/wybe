@@ -52,9 +52,9 @@ let printStep (x: Step) =
   [ $"  {x.FromExpr}"; printHint x; $"  {x.ToExpr}" ]
 
 let printCalculation (calc: Calculation) =
-  let header = info "demonstrandum" (calc.demonstrandum.Body.ToString())
+  let header = info "demonstrandum" (calc.Demonstrandum.Body.ToString())
 
-  match calc.steps with
+  match calc.Steps with
   | [] -> failwith "List is empty"
   | x :: xs ->
     let first = printStep x
@@ -66,12 +66,12 @@ let printCalculation (calc: Calculation) =
     header :: (first @ nextSteps @ lastStep)
 
 let printCheckedCalculation (calc: CheckedCalculation) =
-  let c = calc.calculation
+  let c = calc.Calculation
   let header = section "proof"
-  let ok = if calc.error.IsNone then "✅" else "❌"
-  let theorem = info "  theorem" $"{c.demonstrandum.Body} {ok}"
+  let ok = if calc.Error.IsNone then "✅" else "❌"
+  let theorem = info "  theorem" $"{c.Demonstrandum.Body} {ok}"
 
-  match c.steps with
+  match c.Steps with
   | [] -> [ header; theorem; section "▢" ]
   | x :: xs ->
     let first = printStep x
@@ -83,7 +83,7 @@ let printCheckedCalculation (calc: CheckedCalculation) =
     header :: theorem :: (first @ nextSteps @ lastStep)
 
 let printCalculationError (calc: CheckedCalculation) =
-  match calc.error with
+  match calc.Error with
   | Some(FailedSteps xs) -> error "failed steps" "" :: (xs |> List.map (fun (i, p, r) -> $"{i}: {p} | {r}"))
   | Some(WrongEvidence(counterExample, premise, conclusion)) ->
     let implication = premise |> List.map (_.ToString()) |> String.concat ", "
@@ -113,22 +113,22 @@ let private addLines (n: Inspection) xs =
       accumulated = List.append n.accumulated xs }
 
 let calculation (n: Inspection) =
-  n.calc.calculation
+  n.calc.Calculation
   |> printCalculation
   |> List.append [ section "calculation" ]
   |> addLines n
 
 let stepAt (i: int) (n: Inspection) =
-  (match List.tryItem i n.calc.calculation.steps with
+  (match List.tryItem i n.calc.Calculation.Steps with
    | Some s -> printStep s
    | None ->
      [ sectionBody "step at" $"{i}"
-       error "out of range" $"0 ≤ {i} < {n.calc.calculation.steps.Length}" ])
+       error "out of range" $"0 ≤ {i} < {n.calc.Calculation.Steps.Length}" ])
   |> addLines n
 
 let hintAt (step: int) (n: Inspection) =
   let hint =
-    n.calc.calculation.steps
+    n.calc.Calculation.Steps
     |> List.tryItem step
     |> function
       | Some s -> sectionBody $"hint at {step}" (printHint s)
@@ -161,7 +161,7 @@ let printCalculationResult (r: Core.CheckedCalculation) =
   let n = inspect r
 
   match printCalculationError n.calc with
-  | [] -> [ $"✅ {n.calc.calculation.demonstrandum.Identifier}" ]
+  | [] -> [ $"✅ {n.calc.Calculation.Demonstrandum.Identifier}" ]
   | xs -> xs
   |> addLines n
   |> print
@@ -174,26 +174,26 @@ let checkAll (xs: list<unit -> Core.CheckedCalculation>) =
   xs
   |> List.iter (fun th ->
     match th () with
-    | { error = None } -> ()
+    | CheckedCalculation(error = None) -> ()
     | c ->
       let msg = c |> inspect |> summary |> _.accumulated |> String.concat "\n"
       failwith msg)
 
 let failIfNotProved (x: Inspection) =
-  match x.calc.error with
+  match x.calc.Error with
   | Some(Core.WrongEvidence(counterExample, p, c)) ->
     failwith $"Counter-example found {counterExample}: {p} doesn't imply {c}"
   | Some e -> failwith $"{e}"
   | None -> ()
 
 let stepPropAt (i: int) (n: Inspection) =
-  (match List.tryItem i n.calc.calculation.steps with
+  (match List.tryItem i n.calc.Calculation.Steps with
    | Some s ->
      [ sectionBody "step proposition at" $"{i}"
        (Core.stepToProposition s).ToString() ]
    | None ->
      [ sectionBody "step at" $"{i}"
-       error "out of range" $"0 ≤ {i} < {n.calc.calculation.steps.Length}" ])
+       error "out of range" $"0 ≤ {i} < {n.calc.Calculation.Steps.Length}" ])
   |> addLines n
 
 let printSemanticInfo (moduleSemantics: Map<string, Proposition array>) =

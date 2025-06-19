@@ -183,4 +183,4 @@ let ``testing De Morgan's law`` () =
       ``∃`` [ x ] !x
     }
 
-  implicitDeMorgan |> _.error.IsNone |> Assert.True
+  implicitDeMorgan |> _.Error.IsNone |> Assert.True
