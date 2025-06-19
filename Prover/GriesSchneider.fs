@@ -33,15 +33,11 @@ let (<||>) x y = Or(toProposition x, toProposition y)
 let ``∀`` vars f = Quantifier(Forall, vars, f)
 let ``∃`` vars f = Quantifier(Exists, vars, f)
 
-let axiom name (pred: Proposition) = { identifier = name; body = pred }
+let axiom name (pred: Proposition) = Law(name, pred)
 
-let theorem name pred =
-  Theorem { identifier = name; body = pred }
+let theorem name pred = Theorem(Law(name, pred))
 
-let lemma pred =
-  Theorem
-    { identifier = pred.ToString()
-      body = pred }
+let lemma pred = Theorem(Law(string pred, pred))
 
 /// NOTE: redefining the operator `=` in F# is not recommended, but for most Wybe scripts
 /// this would make the proofs look closer to syntax we are used to

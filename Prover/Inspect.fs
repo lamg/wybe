@@ -43,7 +43,7 @@ let internal printOperator =
   | StepOperator.Equals -> "="
 
 let printLaws (xs: Law list) =
-  xs |> List.map _.identifier |> String.concat ", " |> sprintf "{ %s }"
+  xs |> List.map _.Identifier |> String.concat ", " |> sprintf "{ %s }"
 
 let printHint (x: Step) =
   $"{printOperator x.StepOp} {printLaws x.Laws}"
@@ -52,7 +52,7 @@ let printStep (x: Step) =
   [ $"  {x.FromExpr}"; printHint x; $"  {x.ToExpr}" ]
 
 let printCalculation (calc: Calculation) =
-  let header = info "demonstrandum" (calc.demonstrandum.body.ToString())
+  let header = info "demonstrandum" (calc.demonstrandum.Body.ToString())
 
   match calc.steps with
   | [] -> failwith "List is empty"
@@ -69,7 +69,7 @@ let printCheckedCalculation (calc: CheckedCalculation) =
   let c = calc.calculation
   let header = section "proof"
   let ok = if calc.error.IsNone then "✅" else "❌"
-  let theorem = info "  theorem" $"{c.demonstrandum.body} {ok}"
+  let theorem = info "  theorem" $"{c.demonstrandum.Body} {ok}"
 
   match c.steps with
   | [] -> [ header; theorem; section "▢" ]
@@ -161,7 +161,7 @@ let printCalculationResult (r: Core.CheckedCalculation) =
   let n = inspect r
 
   match printCalculationError n.calc with
-  | [] -> [ $"✅ {n.calc.calculation.demonstrandum.identifier}" ]
+  | [] -> [ $"✅ {n.calc.calculation.demonstrandum.Identifier}" ]
   | xs -> xs
   |> addLines n
   |> print

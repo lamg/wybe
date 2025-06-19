@@ -10,7 +10,7 @@ open GriesSchneider
 let ``check implication`` () =
   let ctx = new Microsoft.Z3.Context()
 
-  [ False, Refuted "false"; True ==> False, Refuted "false" ]
+  [ False, CheckResult.Refuted "false"; True ==> False, CheckResult.Refuted "false" ]
   |> List.iter (fun (pred, expected) ->
     let res = checkAssuming ctx [] pred
     should equal res expected)

@@ -28,7 +28,8 @@ type Expected =
   | Hint
   | Theorem
 
-and CheckResult =
+[<RequireQualifiedAccess>]
+type CheckResult =
   | Proved
   | Refuted of string
   | Unknown
@@ -599,8 +600,15 @@ and CheckedCalculation =
     error: WybeError option }
 
 and Law =
-  { identifier: string
-    body: Proposition }
+  | Law of identifier: string * body: Proposition
+
+  member this.Identifier =
+    let (Law(identifier, _)) = this
+    identifier
+
+  member this.Body =
+    let (Law(_, body)) = this
+    body
 
 and [<RequireQualifiedAccess>] StepOperator =
   | Equiv
@@ -652,13 +660,13 @@ let internal checkAssuming (ctx: Context) (assumptions: Proposition list) (p: Pr
   match solver.Check() with
   | Status.SATISFIABLE ->
     let r = solver.Model.Evaluate exp
-    Refuted(r.ToString())
-  | Status.UNSATISFIABLE -> Proved
-  | Status.UNKNOWN -> Unknown
+    CheckResult.Refuted(r.ToString())
+  | Status.UNSATISFIABLE -> CheckResult.Proved
+  | Status.UNKNOWN -> CheckResult.Unknown
   | v -> failwith $"unexpected Z3 solver result {v}"
 
 let internal checkStep (ctx: Context) (s: Step) : CheckResult =
-  let assumptions = s.Laws |> List.map _.body
+  let assumptions = s.Laws |> List.map _.Body
   let stepProp = stepToProposition s
   checkAssuming ctx assumptions stepProp
 
@@ -666,9 +674,10 @@ let private checkStepsImpliesDemonstrandum (ctx: Context) (steps: Step list) (de
   let assumptions = steps |> List.map stepToProposition
 
   match checkAssuming ctx assumptions demonstrandum with
-  | Proved -> Ok()
-  | Refuted counterExample -> Error(WrongEvidence(counterExample, List.map string assumptions, string demonstrandum))
-  | Unknown -> Error(InsufficientEvidence(List.map string assumptions, string demonstrandum))
+  | CheckResult.Proved -> Ok()
+  | CheckResult.Refuted counterExample ->
+    Error(WrongEvidence(counterExample, List.map string assumptions, string demonstrandum))
+  | CheckResult.Unknown -> Error(InsufficientEvidence(List.map string assumptions, string demonstrandum))
 
 type ProofLine =
   | Hint of StepOperator * Law list
@@ -719,14 +728,14 @@ let private parseAndCheck (lines: ProofLine list) =
     calc.steps
     |> List.mapi (fun i s ->
       match checkStep ctx s with
-      | Proved -> []
+      | CheckResult.Proved -> []
       | e -> [ i, string (stepToProposition s), e ])
     |> List.concat
 
   let error =
     match failed with
     | [] ->
-      match checkStepsImpliesDemonstrandum ctx calc.steps calc.demonstrandum.body with
+      match checkStepsImpliesDemonstrandum ctx calc.steps calc.demonstrandum.Body with
       | Ok() -> None
       | Error e -> Some e
     | _ -> Some(FailedSteps failed)
@@ -759,8 +768,7 @@ type CalculationCE() =
 let proof = CalculationCE()
 
 type LawsCE(op: StepOperator) =
-  member _.Yield(x: Proposition) =
-    [ { identifier = x.ToString(); body = x } ]
+  member _.Yield(x: Proposition) = [ Law(string x, x) ]
 
   member _.Yield(x: Law) = [ x ]
   member _.Yield(xs: Law list) = xs
