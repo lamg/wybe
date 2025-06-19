@@ -7,7 +7,7 @@ open FsUnit
 open GriesSchneider
 
 let accEqual (expected: string list) (n: Inspection) =
-  should equalSeq (List.toArray expected) (List.toArray n.accumulated)
+  should equalSeq (List.toArray expected) (List.toArray n.Accumulated)
 
 let x, y, z = mkBoolVar "x", mkBoolVar "y", mkBoolVar "z"
 let True = Proposition.True

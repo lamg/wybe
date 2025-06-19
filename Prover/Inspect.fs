@@ -103,48 +103,56 @@ let printCalculationError (calc: CheckedCalculation) =
 // Inspect external interface
 
 type Inspection =
-  { accumulated: string list
-    calc: Core.CheckedCalculation }
+  | Inspection of accumulated: string list * calc: Core.CheckedCalculation
 
-let inspect (r: Core.CheckedCalculation) = { accumulated = []; calc = r }
+  member this.Accumulated =
+    let (Inspection(accumulated, _)) = this
+    accumulated
 
-let private addLines (n: Inspection) xs =
-  { n with
-      accumulated = List.append n.accumulated xs }
+  member this.Calc =
+    let (Inspection(_, calc)) = this
+    calc
+
+  member this.AddLines xs =
+    Inspection(List.append this.Accumulated xs, this.Calc)
+
+  member this.Clear() = Inspection([], this.Calc)
+
+let inspect (r: Core.CheckedCalculation) = Inspection([], r)
 
 let calculation (n: Inspection) =
-  n.calc.Calculation
+  n.Calc.Calculation
   |> printCalculation
   |> List.append [ section "calculation" ]
-  |> addLines n
+  |> n.AddLines
 
 let stepAt (i: int) (n: Inspection) =
-  (match List.tryItem i n.calc.Calculation.Steps with
+  (match List.tryItem i n.Calc.Calculation.Steps with
    | Some s -> printStep s
    | None ->
      [ sectionBody "step at" $"{i}"
-       error "out of range" $"0 ≤ {i} < {n.calc.Calculation.Steps.Length}" ])
-  |> addLines n
+       error "out of range" $"0 ≤ {i} < {n.Calc.Calculation.Steps.Length}" ])
+  |> n.AddLines
 
 let hintAt (step: int) (n: Inspection) =
   let hint =
-    n.calc.Calculation.Steps
+    n.Calc.Calculation.Steps
     |> List.tryItem step
     |> function
       | Some s -> sectionBody $"hint at {step}" (printHint s)
       | None -> error $"hint at {step}" "None"
 
-  addLines n [ hint ]
+  n.AddLines [ hint ]
 
 let print (n: Inspection) =
-  n.accumulated |> List.iter (printfn "%s")
+  n.Accumulated |> List.iter (printfn "%s")
   n
 
 let printAndClear (n: Inspection) =
-  n.accumulated |> List.iter (printfn "%s")
-  { n with accumulated = [] }
+  n.Accumulated |> List.iter (printfn "%s")
+  n.Clear()
 
-let printToResult (n: Inspection) = n |> print |> _.calc |> Ok
+let printToResult (n: Inspection) = n |> print |> _.Calc |> Ok
 
 let calculationSummary (calc: Core.CheckedCalculation) =
   let failed = printCalculationError calc
@@ -152,18 +160,18 @@ let calculationSummary (calc: Core.CheckedCalculation) =
   calculation @ failed
 
 let summary (n: Inspection) =
-  n.calc |> calculationSummary |> addLines n
+  n.Calc |> calculationSummary |> n.AddLines
 
 let calculationError (n: Inspection) =
-  n.calc |> printCalculationError |> addLines n
+  n.Calc |> printCalculationError |> n.AddLines
 
 let printCalculationResult (r: Core.CheckedCalculation) =
   let n = inspect r
 
-  match printCalculationError n.calc with
-  | [] -> [ $"✅ {n.calc.Calculation.Demonstrandum.Identifier}" ]
+  match printCalculationError n.Calc with
+  | [] -> [ $"✅ {n.Calc.Calculation.Demonstrandum.Identifier}" ]
   | xs -> xs
-  |> addLines n
+  |> n.AddLines
   |> print
   |> ignore
 
@@ -176,25 +184,25 @@ let checkAll (xs: list<unit -> Core.CheckedCalculation>) =
     match th () with
     | CheckedCalculation(error = None) -> ()
     | c ->
-      let msg = c |> inspect |> summary |> _.accumulated |> String.concat "\n"
+      let msg = c |> inspect |> summary |> _.Accumulated |> String.concat "\n"
       failwith msg)
 
 let failIfNotProved (x: Inspection) =
-  match x.calc.Error with
+  match x.Calc.Error with
   | Some(Core.WrongEvidence(counterExample, p, c)) ->
     failwith $"Counter-example found {counterExample}: {p} doesn't imply {c}"
   | Some e -> failwith $"{e}"
   | None -> ()
 
 let stepPropAt (i: int) (n: Inspection) =
-  (match List.tryItem i n.calc.Calculation.Steps with
+  (match List.tryItem i n.Calc.Calculation.Steps with
    | Some s ->
      [ sectionBody "step proposition at" $"{i}"
        (Core.stepToProposition s).ToString() ]
    | None ->
      [ sectionBody "step at" $"{i}"
-       error "out of range" $"0 ≤ {i} < {n.calc.Calculation.Steps.Length}" ])
-  |> addLines n
+       error "out of range" $"0 ≤ {i} < {n.Calc.Calculation.Steps.Length}" ])
+  |> n.AddLines
 
 let printSemanticInfo (moduleSemantics: Map<string, Proposition array>) =
   moduleSemantics
