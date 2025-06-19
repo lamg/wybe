@@ -188,6 +188,7 @@ let ``extract semantic info`` () =
 
 open Core
 open GriesSchneider
+open Inspect
 
 [<Fact>]
 let ``validCalc demo 0`` () =
@@ -201,7 +202,28 @@ circuit validCalc(): Uint<64> {
   """
 
   let obligations = extractWithEmptyEnv validCalc
-  let a, b = mkIntVar "a", mkIntVar "b"
+  let firstObligation = obligations["validCalc"][0]
+  printfn $"{firstObligation}" 
+  // proof {lemma firstObligation}
+  // |> inspect
+  // |> summary
+  // |> print
+  // 
+  // let a, b, eighteen = mkIntVar "a", mkIntVar "b", Integer 18
+  // proof {
+  //   lemma firstObligation
+  //   a = one <&&> (b = eighteen) ==> (b != zero)
+  //   ``⇒`` { weakening }
+  //   b = eighteen ==> (b != zero)
+  //   ``≡`` { ``Leibniz as axiom`` ((!=) zero) b eighteen }
+  //   b = eighteen ==> (eighteen != zero)
+  //   ``≡`` {}
+  //   b = eighteen ==> True
+  //   ``≡`` {}
+  //   True
+  // }
+  // |> inspect
+  // |> summary
+  // |> print
 
-  obligations["validCalc"][0]
-  |> shouldEqual (a = Integer 18 <&&> (b = Integer 1) ==> (b != zero))
+

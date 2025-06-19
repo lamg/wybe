@@ -166,6 +166,8 @@ let ``∨ ∧ absorption`` () =
 
 let ``⇒ definition`` = x ==> y === (x <||> y === x) |> axiom "⇒ definition"
 let consequence = x <== y === (y ==> x) |> axiom "consquence"
+let weakening = (x <&&> y) ==> x |> axiom "weakening"
+let ``Leibniz as axiom`` f x y = x = y ==> (f x = f y) |> axiom "Leibniz as axiom"
 
 // 9 Predicate Calculus
 
