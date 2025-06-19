@@ -709,10 +709,7 @@ let private parseProofLines (lines: ProofLine list) =
     function
     | steps, lines ->
       match lines with
-      | [ WybeExpr f; Hint(op, laws); WybeExpr t ] ->
-
-        Some(Step(f, op, laws, t) :: steps, [])
-
+      | [ WybeExpr f; Hint(op, laws); WybeExpr t ] -> Some(Step(f, op, laws, t) :: steps, [])
       | WybeExpr f :: Hint(op, laws) :: WybeExpr t :: lines -> Some(Step(f, op, laws, t) :: steps, WybeExpr t :: lines)
       | _ -> None
 
