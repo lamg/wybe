@@ -186,10 +186,6 @@ let ``extract semantic info`` () =
   |> _.Count
   |> shouldBeGreaterThan 0
 
-open Core
-open GriesSchneider
-open Inspect
-
 [<Fact>]
 let ``validCalc demo 0`` () =
   let validCalc =
@@ -202,13 +198,13 @@ circuit validCalc(): Uint<64> {
   """
 
   let obligations = extractWithEmptyEnv validCalc
-  let firstObligation = obligations["validCalc"][0]
-  printfn $"{firstObligation}" 
+  let firstObligation = obligations["validCalc"][0] |> string
+
   // proof {lemma firstObligation}
   // |> inspect
   // |> summary
   // |> print
-  // 
+  //
   // let a, b, eighteen = mkIntVar "a", mkIntVar "b", Integer 18
   // proof {
   //   lemma firstObligation
@@ -226,4 +222,4 @@ circuit validCalc(): Uint<64> {
   // |> summary
   // |> print
 
-
+  firstObligation |> shouldEqual "a = 18 ∧ b = 1 ⇒ b ≠ 0"
