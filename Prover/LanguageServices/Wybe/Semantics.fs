@@ -16,7 +16,7 @@ and SemanticResult =
   | NotFoundVar of string
   | Untyped
 
-  member this.GetType() =
+  member this.Type =
     match this with
     | Typed r -> Some r
     | TypedDomain(r, _) -> Some r
@@ -28,16 +28,29 @@ and SemanticResult =
     | TypedDomain(t, xs) -> TypedDomain(t, expr :: xs)
     | _ -> failwith $"cannot add domain to wrongly typed expression {this}"
 
+  member this.Domain =
+    match this with
+    | TypedDomain(_, []) -> None
+    | TypedDomain(_, x :: xs) ->
+      xs
+      |> List.fold (fun acc x -> ST((Typed WybeType.Boolean, Binary(x.Expr, WybeOp.And, acc.Expr)), [ acc; x ])) x
+      |> Some
+    | _ -> None
+
 and SemanticTree =
   | ST of value: (SemanticResult * Expr) * children: SemanticTree list
-
-  member this.GetType() =
-    let (ST((r, _), _)) = this
-    r.GetType()
 
   member this.AddDomain(expr: SemanticTree) =
     let (ST((r, e), xs)) = this
     ST((r.AddDomain expr, e), xs)
+
+  member this.Expr =
+    let (ST((_, expr), _)) = this
+    expr
+
+  member this.SemanticResult =
+    let (ST((r, _), _)) = this
+    r
 
 let rec checkChildrenFixedType
   (vars: Map<string, WybeType>)
@@ -48,7 +61,7 @@ let rec checkChildrenFixedType
 
   xs
   |> List.mapi (fun i r ->
-    match r.GetType() with
+    match r.SemanticResult.Type with
     | Some t when t = expectedType -> None
     | Some t ->
       Some
@@ -63,7 +76,7 @@ let rec checkChildrenFixedType
 
 and checkChildrenEqualType (vars: Map<string, WybeType>) (e: Expr, resultType: WybeType) (children: Expr list) =
   let xs = children |> List.map (extractSemantics vars)
-  let types = xs |> List.choose (_.GetType()) |> Set
+  let types = xs |> List.choose _.SemanticResult.Type |> Set
 
   if Set.count types = 1 then
     ST((Typed resultType, e), xs)
@@ -162,3 +175,65 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
         r.AddDomain arrayDomain
       | _ -> ST((Typed t, e), [ indexResult ])
     | None -> ST((Untyped, e), [])
+
+let rec exprToTree: Expr -> Core.SymbolTree =
+  function
+  | Binary(left, op, right) ->
+    let l = exprToTree left
+    let r = exprToTree right
+
+    let opSymbol =
+      match op with
+      | WybeOp.Plus -> Core.Symbol.Op("+", 5)
+      | WybeOp.Minus -> Core.Symbol.Op("-", 5)
+      | WybeOp.Times -> Core.Symbol.Op("×", 5)
+      | WybeOp.Div -> Core.Symbol.Op("÷", 5)
+      | WybeOp.Eq -> Core.Symbol.Op("=", 4)
+      | WybeOp.NotEq -> Core.Symbol.Op("≠", 4)
+      | WybeOp.AtMost -> Core.Symbol.Op("≤", 4)
+      | WybeOp.AtLeast -> Core.Symbol.Op("≥", 4)
+      | WybeOp.LessThan -> Core.Symbol.Op("<", 4)
+      | WybeOp.Exceeds -> Core.Symbol.Op(">", 4)
+      | WybeOp.And -> Core.Symbol.Op("∧", 2)
+      | WybeOp.Or -> Core.Symbol.Op("∨", 2)
+      | WybeOp.Implies -> Core.Symbol.Op("⇒", 1)
+      | WybeOp.Follows -> Core.Symbol.Op("⇐", 1)
+      | WybeOp.Equiv -> Core.Symbol.Op("≡", 0)
+      | WybeOp.NotEquiv -> Core.Symbol.Op("≢", 0)
+      | WybeOp.Not -> Core.Symbol.Op("¬", 3)
+      | WybeOp.UnaryMinus -> Core.Symbol.Op("-", 6)
+      | WybeOp.Length -> Core.Symbol.Op("#", 6)
+
+    Core.SymbolTree.Node(opSymbol, [ l; r ])
+  | Unary(op, inner) ->
+    let t = exprToTree inner
+
+    let sym =
+      match op with
+      | WybeOp.Not -> Core.Symbol.Op("¬", 3)
+      | WybeOp.UnaryMinus -> Core.Symbol.Op("-", 6)
+      | WybeOp.Length -> Core.Symbol.Op("#", 6)
+      | _ -> Core.Symbol.Op(string op, 7)
+
+    Core.SymbolTree.Node(sym, [ t ])
+  | Var name -> Core.SymbolTree.Node(Core.Symbol.Var name, [])
+  | Lit literal ->
+    let txt =
+      match literal with
+      | Int i -> string i
+      | Bool b -> if b then "true" else "false"
+      | Str s -> $"\"{s}\""
+
+    Core.SymbolTree.Node(Core.Symbol.Const txt, [])
+  | Array elems ->
+    let trees = elems |> List.map exprToTree
+
+    match List.rev trees with
+    | [] -> Core.SymbolTree.Node(Core.Symbol.Atom "array", [])
+    | x :: xs ->
+      let commaTree =
+        xs
+        |> List.fold (fun acc e -> Core.SymbolTree.Node(Core.Symbol.Op(",", 0), [ e; acc ])) x
+
+      Core.SymbolTree.Node(Core.Symbol.Atom "array", [ commaTree ])
+  | ArrayElem(name, index) -> Core.SymbolTree.Node(Core.Symbol.Atom name, [ exprToTree index ])
