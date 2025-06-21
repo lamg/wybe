@@ -166,7 +166,7 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
       | ST((v, _), _) -> ST((v, e), r :: rs)
   | ArrayElem(name, index) ->
     match Map.tryFind name vars with
-    | Some t ->
+    | Some(WybeType.Array t) ->
       let indexResult = extractSemantics vars index
 
       match indexResult with
@@ -183,6 +183,15 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
 
         r.AddDomain arrayDomain
       | _ -> ST((Typed t, e), [ indexResult ])
+    | Some t ->
+      ST(
+        (Expecting
+          [ { expected = WybeType.Array(WybeType.VarType "a")
+              got = Typed t
+              atChild = 0 } ],
+         e),
+        []
+      )
     | None -> ST((Untyped, e), [])
 
 let rec exprToTree: Expr -> Core.SymbolTree =

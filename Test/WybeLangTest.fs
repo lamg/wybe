@@ -50,5 +50,25 @@ let ``typing array literal and string representation`` () =
     shouldEqual expectedString s
     let r = extractSemantics Map.empty x
     Assert.True r.SemanticResult.Domain.IsNone
-    shouldEqual r.SemanticResult.Type expectedType
-    shouldEqual r.SemanticResult.MismatchedTypes mismatchedTypes)
+    shouldEqual expectedType r.SemanticResult.Type
+    shouldEqual mismatchedTypes r.SemanticResult.MismatchedTypes)
+
+[<Fact>]
+let ``typing array element access`` () =
+  let vars =
+    [ "xs", WybeType.Array WybeType.Integer; "i", WybeType.Integer ] |> Map.ofList
+
+  let indexExpr = Binary(Var "i", WybeOp.Plus, Lit(Int 1))
+  let r = extractSemantics vars (ArrayElem("xs", indexExpr))
+
+  shouldEqual (Some WybeType.Integer) r.SemanticResult.Type
+
+  let expectedDomain =
+    Binary(
+      Binary(Lit(Int 0), WybeOp.AtMost, indexExpr),
+      WybeOp.And,
+      Binary(indexExpr, WybeOp.LessThan, Unary(WybeOp.Length, Var "xs"))
+    )
+    |> extractSemantics vars
+
+  shouldEqual (Some expectedDomain) r.SemanticResult.Domain
