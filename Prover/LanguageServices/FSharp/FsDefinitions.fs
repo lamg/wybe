@@ -33,14 +33,10 @@ module FsDefinitions
 // - Visit the syntactic tree and with the list of variables found above construct propositions accordingly
 
 open System
-open System.IO
-open System.Reflection
-open Microsoft.FSharp.Core.CompilerServices
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Text
 open FSharp.Compiler.Symbols
 open FSharp.Compiler.Syntax
-open ProviderImplementation.ProvidedTypes
 open Core
 
 #nowarn 86

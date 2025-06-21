@@ -37,6 +37,11 @@ and SemanticResult =
       |> Some
     | _ -> None
 
+  member this.MismatchedTypes =
+    match this with
+    | Expecting xs -> xs
+    | _ -> []
+
 and SemanticTree =
   | ST of value: (SemanticResult * Expr) * children: SemanticTree list
 
@@ -148,7 +153,11 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
           |> List.mapi (fun i ->
             function
             | ST((Typed u, _), _) when t = u -> None
-            | ST((u, _), _) -> Some { expected = t; got = u; atChild = i })
+            | ST((u, _), _) ->
+              Some
+                { expected = t
+                  got = u
+                  atChild = i + 1 })
           |> List.choose id
 
         match diffElemTypes with
@@ -227,13 +236,14 @@ let rec exprToTree: Expr -> Core.SymbolTree =
     Core.SymbolTree.Node(Core.Symbol.Const txt, [])
   | Array elems ->
     let trees = elems |> List.map exprToTree
+    let arraySymbol = Core.Symbol.Enclosed("[", "]")
 
     match List.rev trees with
-    | [] -> Core.SymbolTree.Node(Core.Symbol.Atom "array", [])
+    | [] -> Core.SymbolTree.Node(arraySymbol, [])
     | x :: xs ->
       let commaTree =
         xs
         |> List.fold (fun acc e -> Core.SymbolTree.Node(Core.Symbol.Op(",", 0), [ e; acc ])) x
 
-      Core.SymbolTree.Node(Core.Symbol.Atom "array", [ commaTree ])
+      Core.SymbolTree.Node(arraySymbol, [ commaTree ])
   | ArrayElem(name, index) -> Core.SymbolTree.Node(Core.Symbol.Atom name, [ exprToTree index ])

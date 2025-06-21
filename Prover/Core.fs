@@ -55,6 +55,7 @@ type Symbol =
   | Var of string
   | Const of string
   | Atom of string
+  | Enclosed of startSym: string * endSym: string
 
   member this.Precedence =
     match this with
@@ -67,6 +68,7 @@ type Symbol =
     | Var s
     | Atom s
     | Const s -> s
+    | Enclosed(s, e) -> $"{s}{e}"
 
 [<RequireQualifiedAccess>]
 type SymbolTree =
@@ -96,6 +98,7 @@ type SymbolTree =
           child.ToString()
 
     match this with
+    | Node(Symbol.Enclosed(s, e), [ x ]) -> $"{s} {x} {e}"
     | Node(x, [ left; right ]) when x.Symbol = "," -> $"{parenthesise x left}{x.Symbol} {parenthesise x right}"
     | Node(x, [ left; right ]) -> $"{parenthesise x left} {x.Symbol} {parenthesise x right}"
     | Node(x, [ right ]) -> $"{x.Symbol}{parenthesise x right}"
