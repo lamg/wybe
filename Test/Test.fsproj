@@ -16,6 +16,7 @@
     <Compile Include="FunctionTest.fs" />
     <Compile Include="FsDefinitionsTest.fs" />
     <Compile Include="CompactTest.fs" />
+    <Compile Include="WybeTest.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

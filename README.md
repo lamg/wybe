@@ -25,6 +25,7 @@ A formal verification tool with the following features:
   - [ ] [Compact][Compact Docs]
     - [Compact modules](./Prover/LanguageServices/Compact/)
     - [Compact demo](./Test/CompactTest.fs)
+  - [ ] [Wybe](./Prover/LanguageServices/Wybe/README.md), a language inspired by Dijkstra's [Guarded Command Language][GCL]
 
 ## Installation instructions
 
@@ -46,3 +47,5 @@ A formal verification tool with the following features:
 [Wybe Tests Shield]: https://img.shields.io/github/actions/workflow/status/lamg/wybe/test.yml?style=flat-square&label=tests
 
 [Compact Docs]: https://docs.midnight.network/develop/reference/compact
+
+[GCL]: https://en.wikipedia.org/wiki/Guarded_Command_Language
