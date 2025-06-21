@@ -29,7 +29,7 @@ let ``failed typing x div y`` () =
   shouldEqual
     (Expecting
       [ { expected = WybeType.Integer
-          got = Typed(WybeType.Boolean, [])
+          got = Typed WybeType.Boolean
           atChild = 1 } ])
     r.SemanticResult
 
@@ -42,7 +42,7 @@ let ``typing array literal and string representation`` () =
     "[ true, 1 ]",
     None,
     [ { expected = WybeType.Boolean
-        got = Typed(WybeType.Integer, [])
+        got = Typed WybeType.Integer
         atChild = 1 } ] ]
   |> List.iter (fun (x, expectedString, expectedType, mismatchedTypes) ->
     let s = x |> exprToTree |> string
