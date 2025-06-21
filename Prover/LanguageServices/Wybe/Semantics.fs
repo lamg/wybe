@@ -8,8 +8,7 @@ type Expected =
     atChild: int }
 
 and SemanticResult =
-  | Typed of WybeType
-  | TypedDomain of WybeType * domain: SemanticTree list
+  | Typed of WybeType * domain: SemanticTree list
   | Expecting of Expected list
   | ExpectingSameType of got: WybeType list
   | NotRecognizedOperator of WybeOp
@@ -18,23 +17,26 @@ and SemanticResult =
 
   member this.Type =
     match this with
-    | Typed r -> Some r
-    | TypedDomain(r, _) -> Some r
+    | Typed(r, _) -> Some r
     | _ -> None
 
   member this.AddDomain(expr: SemanticTree) =
     match this with
-    | Typed t -> TypedDomain(t, [ expr ])
-    | TypedDomain(t, xs) -> TypedDomain(t, expr :: xs)
+    | Typed(t, xs) -> Typed(t, expr :: xs)
     | _ -> this
+
+  static member DomainConjunction(xs: SemanticTree list) =
+    match xs with
+    | [] -> None
+    | y :: ys ->
+      ys
+      |> List.fold (fun acc x -> ST((Typed(WybeType.Boolean, []), Binary(x.Expr, WybeOp.And, acc.Expr)), [ acc; x ])) y
+      |> Some
 
   member this.Domain =
     match this with
-    | TypedDomain(_, []) -> None
-    | TypedDomain(_, x :: xs) ->
-      xs
-      |> List.fold (fun acc x -> ST((Typed WybeType.Boolean, Binary(x.Expr, WybeOp.And, acc.Expr)), [ acc; x ])) x
-      |> Some
+    | Typed(_, []) -> None
+    | Typed(_, xs) -> SemanticResult.DomainConjunction xs
     | _ -> None
 
   member this.MismatchedTypes =
@@ -71,12 +73,12 @@ let rec checkChildrenFixedType
     | Some t ->
       Some
         { expected = expectedType
-          got = Typed t
+          got = Typed(t, [])
           atChild = i }
     | _ -> None)
   |> List.choose id
   |> function
-    | [] -> ST((Typed resultType, e), xs)
+    | [] -> ST((Typed(resultType, []), e), xs)
     | rs -> ST((Expecting rs, e), xs)
 
 and checkChildrenEqualType (vars: Map<string, WybeType>) (e: Expr, resultType: WybeType) (children: Expr list) =
@@ -84,7 +86,7 @@ and checkChildrenEqualType (vars: Map<string, WybeType>) (e: Expr, resultType: W
   let types = xs |> List.choose _.SemanticResult.Type |> Set
 
   if Set.count types = 1 then
-    ST((Typed resultType, e), xs)
+    ST((Typed(resultType, []), e), xs)
   else
     ST((ExpectingSameType(Set.toList types), e), xs)
 
@@ -128,13 +130,13 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
       ST((NotRecognizedOperator op, e), [ r ])
   | Var name ->
     match Map.tryFind name vars with
-    | Some v -> ST((Typed v, e), [])
+    | Some v -> ST((Typed(v, []), e), [])
     | None -> ST((NotFoundVar name, e), [])
   | Lit v ->
     match v with
-    | Int _ -> ST((Typed WybeType.Integer, e), [])
-    | Bool _ -> ST((Typed WybeType.Boolean, e), [])
-    | Str _ -> ST((Typed WybeType.String, e), [])
+    | Int _ -> ST((Typed(WybeType.Integer, []), e), [])
+    | Bool _ -> ST((Typed(WybeType.Boolean, []), e), [])
+    | Str _ -> ST((Typed(WybeType.String, []), e), [])
   | Array xs ->
     match xs with
     | [] -> ST((Untyped, e), [])
@@ -143,7 +145,7 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
       let rs = ys |> List.map (extractSemantics vars)
 
       match r with
-      | ST((Typed t, _), _) ->
+      | ST((Typed(t, _), _), _) ->
         // this branch reports which array elements do not have the
         // same type as the first element
         // in case the list of different types is empty, then the array
@@ -152,7 +154,7 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
           rs
           |> List.mapi (fun i ->
             function
-            | ST((Typed u, _), _) when t = u -> None
+            | ST((Typed(u, _), _), _) when t = u -> None
             | ST((u, _), _) ->
               Some
                 { expected = t
@@ -161,7 +163,7 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
           |> List.choose id
 
         match diffElemTypes with
-        | [] -> ST((Typed(WybeType.Array t), e), r :: rs)
+        | [] -> ST((Typed(WybeType.Array t, []), e), r :: rs)
         | _ -> ST((Expecting diffElemTypes, e), r :: rs)
       | ST((v, _), _) -> ST((v, e), r :: rs)
   | ArrayElem(name, index) ->
@@ -170,8 +172,8 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
       let indexResult = extractSemantics vars index
 
       match indexResult with
-      | ST((Typed WybeType.Integer, _), _) ->
-        let r = ST((Typed t, e), [ indexResult ])
+      | ST((Typed(WybeType.Integer, domain), _), _) ->
+        let r = ST((Typed(t, domain), e), [ indexResult ])
 
         let arrayDomain =
           Binary(
@@ -182,12 +184,12 @@ and extractSemantics (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
           |> extractSemantics vars
 
         r.AddDomain arrayDomain
-      | _ -> ST((Typed t, e), [ indexResult ])
+      | _ -> ST((Typed(t, []), e), [ indexResult ])
     | Some t ->
       ST(
         (Expecting
           [ { expected = WybeType.Array(WybeType.VarType "a")
-              got = Typed t
+              got = Typed(t, [])
               atChild = 0 } ],
          e),
         []
@@ -245,14 +247,14 @@ let rec exprToTree: Expr -> Core.SymbolTree =
     Core.SymbolTree.Node(Core.Symbol.Const txt, [])
   | Array elems ->
     let trees = elems |> List.map exprToTree
-    let arraySymbol = Core.Symbol.Enclosed("[", "]")
 
     match List.rev trees with
-    | [] -> Core.SymbolTree.Node(arraySymbol, [])
+    | [] -> Core.SymbolTree.Node(Core.Symbol.Indexed, [])
     | x :: xs ->
       let commaTree =
         xs
         |> List.fold (fun acc e -> Core.SymbolTree.Node(Core.Symbol.Op(",", 0), [ e; acc ])) x
 
-      Core.SymbolTree.Node(arraySymbol, [ commaTree ])
-  | ArrayElem(name, index) -> Core.SymbolTree.Node(Core.Symbol.Atom name, [ exprToTree index ])
+      Core.SymbolTree.Node(Core.Symbol.Indexed, [ commaTree ])
+  | ArrayElem(name, index) ->
+    Core.SymbolTree.Node(Core.Symbol.Atom name, [ Core.SymbolTree.Node(Core.Symbol.Indexed, [ exprToTree index ]) ])

@@ -29,7 +29,7 @@ let ``failed typing x div y`` () =
   shouldEqual
     (Expecting
       [ { expected = WybeType.Integer
-          got = Typed WybeType.Boolean
+          got = Typed(WybeType.Boolean, [])
           atChild = 1 } ])
     r.SemanticResult
 
@@ -42,7 +42,7 @@ let ``typing array literal and string representation`` () =
     "[ true, 1 ]",
     None,
     [ { expected = WybeType.Boolean
-        got = Typed WybeType.Integer
+        got = Typed(WybeType.Integer, [])
         atChild = 1 } ] ]
   |> List.iter (fun (x, expectedString, expectedType, mismatchedTypes) ->
     let s = x |> exprToTree |> string
@@ -72,3 +72,37 @@ let ``typing array element access`` () =
     |> extractSemantics vars
 
   shouldEqual (Some expectedDomain) r.SemanticResult.Domain
+
+[<Fact>]
+let ``domain conjunction`` () =
+  let vars =
+    [ "xs", WybeType.Array WybeType.Integer
+      "i", WybeType.Integer
+      "j", WybeType.Integer ]
+    |> Map.ofList
+
+  let indexExpr = Binary(Var "i", WybeOp.Div, Var "j")
+  let r = extractSemantics vars (ArrayElem("xs", indexExpr))
+  shouldEqual "xs[ i ÷ j ]" (r.Expr |> exprToTree |> string)
+  shouldEqual (Some WybeType.Integer) r.SemanticResult.Type
+
+  let arrayDomain =
+    Binary(
+      Binary(Lit(Int 0), WybeOp.AtMost, indexExpr),
+      WybeOp.And,
+      Binary(indexExpr, WybeOp.LessThan, Unary(WybeOp.Length, Var "xs"))
+    )
+
+  let divDomain = Binary(Var "j", WybeOp.NotEq, Lit(Int 0))
+
+  let expectedDomain =
+    Binary(divDomain, WybeOp.And, arrayDomain)
+    |> extractSemantics vars
+    |> _.Expr
+    |> exprToTree
+    |> string
+
+  shouldEqual "j ≠ 0 ∧ 0 ≤ i ÷ j ∧ i ÷ j < #xs" expectedDomain
+  let actualDomain = exprToTree (r.SemanticResult.Domain.Value.Expr) |> string
+
+  shouldEqual expectedDomain actualDomain

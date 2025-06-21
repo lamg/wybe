@@ -21,6 +21,7 @@ open Microsoft.Z3
 // 5: + - × ÷
 // 6: - (unary minus) # :: ++ ◁ ▷
 // 7: variables, function applications, and other atoms like true, false, ϵ, expressions inside parenthesis and angle brackets, like universal and existential quantifiers
+// 8: array access
 
 [<RequireQualifiedAccess>]
 type Expected =
@@ -55,11 +56,12 @@ type Symbol =
   | Var of string
   | Const of string
   | Atom of string
-  | Enclosed of startSym: string * endSym: string
+  | Indexed
 
   member this.Precedence =
     match this with
     | Op(_, p) -> p
+    | Indexed -> 8
     | _ -> 7
 
   member this.Symbol =
@@ -68,7 +70,7 @@ type Symbol =
     | Var s
     | Atom s
     | Const s -> s
-    | Enclosed(s, e) -> $"{s}{e}"
+    | Indexed -> "[]"
 
 [<RequireQualifiedAccess>]
 type SymbolTree =
@@ -98,7 +100,7 @@ type SymbolTree =
           child.ToString()
 
     match this with
-    | Node(Symbol.Enclosed(s, e), [ x ]) -> $"{s} {x} {e}"
+    | Node(Symbol.Indexed, [ x ]) -> $"[ {x} ]"
     | Node(x, [ left; right ]) when x.Symbol = "," -> $"{parenthesise x left}{x.Symbol} {parenthesise x right}"
     | Node(x, [ left; right ]) -> $"{parenthesise x left} {x.Symbol} {parenthesise x right}"
     | Node(x, [ right ]) -> $"{x.Symbol}{parenthesise x right}"
