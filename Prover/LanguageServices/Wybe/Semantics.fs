@@ -26,7 +26,7 @@ and SemanticResult =
     match this with
     | Typed t -> TypedDomain(t, [ expr ])
     | TypedDomain(t, xs) -> TypedDomain(t, expr :: xs)
-    | _ -> failwith $"cannot add domain to wrongly typed expression {this}"
+    | _ -> this
 
   member this.Domain =
     match this with
