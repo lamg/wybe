@@ -33,6 +33,14 @@ type WybeOp =
   | Follows
   // sequence -> integer
   | Length
+  | HasType
+  // sequence operations
+  | Cons // element -> sequence -> sequence
+  | Concat // sequence -> sequence -> sequence
+  | IsPrefix // sequence -> sequence -> boolean
+  | IsSuffix // sequence -> sequence -> boolean
+  | Head // sequence -> element
+  | Tail // sequence -> sequence
 
 type Expr =
   | Var of name: string

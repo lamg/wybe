@@ -10,7 +10,7 @@ open Semantics
 let ``typing x div y`` () =
   let vars = [ "x", WybeType.Integer; "y", WybeType.Integer ] |> Map.ofList
   let divVars = Binary(Var "x", WybeOp.Div, Var "y")
-  let r = extractSemantics vars divVars
+  let r = extractTypeAndDomain vars divVars
   shouldEqual "x ÷ y" (r.Expr |> exprToTree |> string)
   shouldEqual (Some WybeType.Integer) r.SemanticResult.Type
   Assert.True r.SemanticResult.Domain.IsSome
@@ -23,7 +23,7 @@ let ``typing x div y`` () =
 let ``failed typing x div y`` () =
   let vars = [ "x", WybeType.Integer; "y", WybeType.Boolean ] |> Map.ofList
   let divVars = Binary(Var "x", WybeOp.Div, Var "y")
-  let r = extractSemantics vars divVars
+  let r = extractTypeAndDomain vars divVars
   Assert.True r.SemanticResult.Domain.IsNone
 
   shouldEqual
@@ -32,6 +32,8 @@ let ``failed typing x div y`` () =
           got = Typed WybeType.Boolean
           atChild = 1 } ])
     r.SemanticResult
+
+  collectSemanticTreeInfo r |> List.iter (printfn "%s")
 
 [<Fact>]
 let ``typing array literal and string representation`` () =
@@ -48,7 +50,7 @@ let ``typing array literal and string representation`` () =
     let s = x |> exprToTree |> string
 
     shouldEqual expectedString s
-    let r = extractSemantics Map.empty x
+    let r = extractTypeAndDomain Map.empty x
     Assert.True r.SemanticResult.Domain.IsNone
     shouldEqual expectedType r.SemanticResult.Type
     shouldEqual mismatchedTypes r.SemanticResult.MismatchedTypes)
@@ -59,7 +61,7 @@ let ``typing array element access`` () =
     [ "xs", WybeType.Array WybeType.Integer; "i", WybeType.Integer ] |> Map.ofList
 
   let indexExpr = Binary(Var "i", WybeOp.Plus, Lit(Int 1))
-  let r = extractSemantics vars (ArrayElem("xs", indexExpr))
+  let r = extractTypeAndDomain vars (ArrayElem("xs", indexExpr))
 
   shouldEqual (Some WybeType.Integer) r.SemanticResult.Type
 
@@ -69,7 +71,7 @@ let ``typing array element access`` () =
       WybeOp.And,
       Binary(indexExpr, WybeOp.LessThan, Unary(WybeOp.Length, Var "xs"))
     )
-    |> extractSemantics vars
+    |> extractTypeAndDomain vars
 
   shouldEqual (Some expectedDomain) r.SemanticResult.Domain
 
@@ -82,7 +84,7 @@ let ``domain conjunction`` () =
     |> Map.ofList
 
   let indexExpr = Binary(Var "i", WybeOp.Div, Var "j")
-  let r = extractSemantics vars (ArrayElem("xs", indexExpr))
+  let r = extractTypeAndDomain vars (ArrayElem("xs", indexExpr))
   shouldEqual "xs[ i ÷ j ]" (r.Expr |> exprToTree |> string)
   shouldEqual (Some WybeType.Integer) r.SemanticResult.Type
 
@@ -97,7 +99,7 @@ let ``domain conjunction`` () =
 
   let expectedDomain =
     Binary(divDomain, WybeOp.And, arrayDomain)
-    |> extractSemantics vars
+    |> extractTypeAndDomain vars
     |> _.Expr
     |> exprToTree
     |> string
