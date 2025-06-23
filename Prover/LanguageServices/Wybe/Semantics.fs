@@ -119,7 +119,7 @@ and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
     | Op.And
     | Op.Or
     | Op.Implies
-    | Op.Follows -> checkChildrenFixedType vars (e, Type.Boolean) (Type.Integer, [ left; right ])
+    | Op.Follows -> checkChildrenFixedType vars (e, Type.Boolean) (Type.Boolean, [ left; right ])
     | Op.Cons ->
       let l, r = extractTypeAndDomain vars left, extractTypeAndDomain vars right
 
@@ -322,7 +322,16 @@ let collectSemanticTreeInfo (e: SemanticTree) : string list =
 
 open GriesSchneider
 
-type DomainWExpr = DomainWExpr of domain: WExpr option * expr: WExpr
+type DomainWExpr =
+  | DomainWExpr of domain: WExpr option * expr: WExpr
+
+  member this.Expr =
+    let (DomainWExpr(_, expr)) = this
+    expr
+
+  member this.Domain =
+    let (DomainWExpr(domain, _)) = this
+    domain
 
 let semanticExprToWExpr (e: SemanticTree) : DomainWExpr option =
   let rec typedToWExpr (e: SemanticTree) : WExpr option =

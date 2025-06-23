@@ -55,8 +55,7 @@ let ``typing array literal and string representation`` () =
 
 [<Fact>]
 let ``typing array element access`` () =
-  let vars =
-    [ "xs", Type.Array Type.Integer; "i", Type.Integer ] |> Map.ofList
+  let vars = [ "xs", Type.Array Type.Integer; "i", Type.Integer ] |> Map.ofList
 
   let indexExpr = Binary(Var "i", Op.Plus, Lit(Int 1))
   let r = extractTypeAndDomain vars (ArrayElem("xs", indexExpr))
@@ -64,11 +63,7 @@ let ``typing array element access`` () =
   shouldEqual (Some Type.Integer) r.SemanticResult.Type
 
   let expectedDomain =
-    Binary(
-      Binary(Lit(Int 0), Op.AtMost, indexExpr),
-      Op.And,
-      Binary(indexExpr, Op.LessThan, Unary(Op.Length, Var "xs"))
-    )
+    Binary(Binary(Lit(Int 0), Op.AtMost, indexExpr), Op.And, Binary(indexExpr, Op.LessThan, Unary(Op.Length, Var "xs")))
     |> extractTypeAndDomain vars
 
   shouldEqual (Some expectedDomain) r.SemanticResult.Domain
@@ -76,9 +71,7 @@ let ``typing array element access`` () =
 [<Fact>]
 let ``domain conjunction`` () =
   let vars =
-    [ "xs", Type.Array Type.Integer
-      "i", Type.Integer
-      "j", Type.Integer ]
+    [ "xs", Type.Array Type.Integer; "i", Type.Integer; "j", Type.Integer ]
     |> Map.ofList
 
   let indexExpr = Binary(Var "i", Op.Div, Var "j")
@@ -87,11 +80,7 @@ let ``domain conjunction`` () =
   shouldEqual (Some Type.Integer) r.SemanticResult.Type
 
   let arrayDomain =
-    Binary(
-      Binary(Lit(Int 0), Op.AtMost, indexExpr),
-      Op.And,
-      Binary(indexExpr, Op.LessThan, Unary(Op.Length, Var "xs"))
-    )
+    Binary(Binary(Lit(Int 0), Op.AtMost, indexExpr), Op.And, Binary(indexExpr, Op.LessThan, Unary(Op.Length, Var "xs")))
 
   let divDomain = Binary(Var "j", Op.Differs, Lit(Int 0))
 
@@ -107,5 +96,21 @@ let ``domain conjunction`` () =
 
   shouldEqual expectedDomain actualDomain
 
+open GriesSchneider
+
 [<Fact>]
-let ``Expr to WExpr`` () = ()
+let ``Expr to WExpr`` () =
+  let x, y = mkBoolVar "x", mkBoolVar "y"
+  let n, m = mkIntVar "n", mkIntVar "m"
+
+  let vars =
+    [ "n", Type.Integer; "m", Type.Integer; "x", Type.Boolean; "y", Type.Boolean ]
+    |> Map.ofList
+
+  [ Binary(Expr.Var "n", Op.Plus, Expr.Var "m"), n + m :> Core.WExpr
+    Binary(Expr.Var "x", Op.And, Expr.Var "y"), x <&&> y ]
+  |> List.iter (fun (expr, expected) ->
+    let e = extractTypeAndDomain vars expr
+    let r = semanticExprToWExpr e
+    Assert.True(r.IsSome, $"{collectSemanticTreeInfo e}")
+    shouldEqual expected r.Value.Expr)
