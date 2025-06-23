@@ -6,7 +6,7 @@ type Literal =
   | Str of string
 
 [<RequireQualifiedAccess>]
-type WybeOp =
+type Op =
   // integer → integer → integer
   | Plus
   | Minus
@@ -14,8 +14,8 @@ type WybeOp =
   | Div
   | UnaryMinus // integer → integer
   // 'a → 'a → boolean
-  | Eq
-  | NotEq
+  | Equals
+  | Differs
   // integer → integer → boolean
   // this terminology comes from https://www.cs.utexas.edu/~EWD/ewd07xx/EWD768.PDF
   | AtMost // ≤
@@ -26,7 +26,7 @@ type WybeOp =
   | Not // boolean → boolean
   // boolean → boolean → boolean
   | Equiv
-  | NotEquiv
+  | Inequiv
   | And
   | Or
   | Implies
@@ -45,20 +45,20 @@ type WybeOp =
 type Expr =
   | Var of name: string
   | Lit of Literal
-  | Unary of WybeOp * Expr
-  | Binary of Expr * WybeOp * Expr
+  | Unary of Op * Expr
+  | Binary of Expr * Op * Expr
   | Array of Expr list
   | ArrayElem of name: string * index: Expr
 
 [<RequireQualifiedAccess>]
-type WybeType =
+type Type =
   | Integer
   | Boolean
   | String
   | VarType of string
-  | Array of WybeType
+  | Array of Type
 
-type SameTypeDecl = string list * WybeType
+type SameTypeDecl = string list * Type
 type Guard = Guard of Expr * Statement list
 
 and Statement =

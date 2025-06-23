@@ -3,16 +3,16 @@ module LanguageServices.Wybe.Semantics
 open AST
 
 type Expected =
-  { expected: WybeType
+  { expected: Type
     got: SemanticResult
     atChild: int }
 
 and SemanticResult =
-  | Typed of WybeType
-  | TypedDomain of WybeType * domain: SemanticTree list
+  | Typed of Type
+  | TypedDomain of Type * domain: SemanticTree list
   | Expecting of Expected list
-  | ExpectingSameType of got: WybeType list
-  | NotRecognizedOperator of WybeOp
+  | ExpectingSameType of got: Type list
+  | NotRecognizedOperator of Op
   | NotFoundVar of string
   | Untyped
 
@@ -35,7 +35,7 @@ and SemanticResult =
       | [] -> None
       | y :: ys ->
         ys
-        |> List.fold (fun acc x -> ST((Typed WybeType.Boolean, Binary(x.Expr, WybeOp.And, acc.Expr)), [ acc; x ])) y
+        |> List.fold (fun acc x -> ST((Typed Type.Boolean, Binary(x.Expr, Op.And, acc.Expr)), [ acc; x ])) y
         |> Some
     | _ -> None
 
@@ -64,9 +64,9 @@ and SemanticTree =
     children
 
 let rec checkChildrenFixedType
-  (vars: Map<string, WybeType>)
-  (e: Expr, resultType: WybeType)
-  (expectedType: WybeType, children: Expr list)
+  (vars: Map<string, Type>)
+  (e: Expr, resultType: Type)
+  (expectedType: Type, children: Expr list)
   =
   let xs = children |> List.map (extractTypeAndDomain vars)
 
@@ -85,7 +85,7 @@ let rec checkChildrenFixedType
     | [] -> ST((Typed resultType, e), xs)
     | rs -> ST((Expecting rs, e), xs)
 
-and checkChildrenEqualType (vars: Map<string, WybeType>) (e: Expr, resultType: WybeType) (children: Expr list) =
+and checkChildrenEqualType (vars: Map<string, Type>) (e: Expr, resultType: Type) (children: Expr list) =
   let xs = children |> List.map (extractTypeAndDomain vars)
   let types = xs |> List.choose _.SemanticResult.Type |> Set
 
@@ -94,67 +94,65 @@ and checkChildrenEqualType (vars: Map<string, WybeType>) (e: Expr, resultType: W
   else
     ST((ExpectingSameType(Set.toList types), e), xs)
 
-and extractTypeAndDomain (vars: Map<string, WybeType>) (e: Expr) : SemanticTree =
+and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
   match e with
   | Binary(left, op, right) ->
 
     match op with
-    | WybeOp.Plus
-    | WybeOp.Minus
-    | WybeOp.Times -> checkChildrenFixedType vars (e, WybeType.Integer) (WybeType.Integer, [ left; right ])
-    | WybeOp.Div ->
+    | Op.Plus
+    | Op.Minus
+    | Op.Times -> checkChildrenFixedType vars (e, Type.Integer) (Type.Integer, [ left; right ])
+    | Op.Div ->
       let r =
-        checkChildrenFixedType vars (e, WybeType.Integer) (WybeType.Integer, [ left; right ])
+        checkChildrenFixedType vars (e, Type.Integer) (Type.Integer, [ left; right ])
 
-      let divDomain = Binary(right, WybeOp.NotEq, Lit(Int 0)) |> extractTypeAndDomain vars
+      let divDomain = Binary(right, Op.Differs, Lit(Int 0)) |> extractTypeAndDomain vars
       r.AddDomain divDomain
-    | WybeOp.Eq
-    | WybeOp.NotEq -> checkChildrenEqualType vars (e, WybeType.Boolean) [ left; right ]
-    | WybeOp.AtMost
-    | WybeOp.AtLeast
-    | WybeOp.LessThan
-    | WybeOp.Exceeds -> checkChildrenFixedType vars (e, WybeType.Boolean) (WybeType.Integer, [ left; right ])
-    | WybeOp.Equiv
-    | WybeOp.NotEquiv
-    | WybeOp.And
-    | WybeOp.Or
-    | WybeOp.Implies
-    | WybeOp.Follows -> checkChildrenFixedType vars (e, WybeType.Boolean) (WybeType.Integer, [ left; right ])
-    | WybeOp.Cons ->
+    | Op.Equals
+    | Op.Differs -> checkChildrenEqualType vars (e, Type.Boolean) [ left; right ]
+    | Op.AtMost
+    | Op.AtLeast
+    | Op.LessThan
+    | Op.Exceeds -> checkChildrenFixedType vars (e, Type.Boolean) (Type.Integer, [ left; right ])
+    | Op.Equiv
+    | Op.Inequiv
+    | Op.And
+    | Op.Or
+    | Op.Implies
+    | Op.Follows -> checkChildrenFixedType vars (e, Type.Boolean) (Type.Integer, [ left; right ])
+    | Op.Cons ->
       let l, r = extractTypeAndDomain vars left, extractTypeAndDomain vars right
 
       match l.SemanticResult.Type, r.SemanticResult.Type with
-      | Some t, Some(WybeType.Array u) when u = t -> ST((Typed(WybeType.Array t), e), [ l; r ])
+      | Some t, Some(Type.Array u) when u = t -> ST((Typed(Type.Array t), e), [ l; r ])
       | _ -> ST((NotRecognizedOperator op, e), [ l; r ])
-    | WybeOp.Concat ->
+    | Op.Concat ->
       let l, r = extractTypeAndDomain vars left, extractTypeAndDomain vars right
 
       match l.SemanticResult.Type, r.SemanticResult.Type with
-      | Some(WybeType.Array t), Some(WybeType.Array u) when u = t -> ST((Typed(WybeType.Array t), e), [ l; r ])
+      | Some(Type.Array t), Some(Type.Array u) when u = t -> ST((Typed(Type.Array t), e), [ l; r ])
       | _ -> ST((NotRecognizedOperator op, e), [ l; r ])
-    | WybeOp.IsPrefix
-    | WybeOp.IsSuffix ->
-      checkChildrenFixedType vars (e, WybeType.Boolean) (WybeType.Array(WybeType.VarType "a"), [ left; right ])
+    | Op.IsPrefix
+    | Op.IsSuffix -> checkChildrenFixedType vars (e, Type.Boolean) (Type.Array(Type.VarType "a"), [ left; right ])
     | _ ->
       let l, r = extractTypeAndDomain vars left, extractTypeAndDomain vars right
       ST((NotRecognizedOperator op, e), [ l; r ])
   | Unary(op, right) ->
     match op with
-    | WybeOp.Not -> checkChildrenFixedType vars (e, WybeType.Boolean) (WybeType.Boolean, [ right ])
-    | WybeOp.UnaryMinus -> checkChildrenFixedType vars (e, WybeType.Integer) (WybeType.Integer, [ right ])
-    | WybeOp.Length ->
-      checkChildrenFixedType vars (e, WybeType.Integer) (WybeType.Array(WybeType.VarType "a"), [ right ])
-    | WybeOp.Head ->
+    | Op.Not -> checkChildrenFixedType vars (e, Type.Boolean) (Type.Boolean, [ right ])
+    | Op.UnaryMinus -> checkChildrenFixedType vars (e, Type.Integer) (Type.Integer, [ right ])
+    | Op.Length -> checkChildrenFixedType vars (e, Type.Integer) (Type.Array(Type.VarType "a"), [ right ])
+    | Op.Head ->
       let r = extractTypeAndDomain vars right
 
       match r.SemanticResult.Type with
-      | Some(WybeType.Array t) -> ST((Typed t, e), [ r ])
+      | Some(Type.Array t) -> ST((Typed t, e), [ r ])
       | _ -> ST((NotRecognizedOperator op, e), [ r ])
-    | WybeOp.Tail ->
+    | Op.Tail ->
       let r = extractTypeAndDomain vars right
 
       match r.SemanticResult.Type with
-      | Some(WybeType.Array t) -> ST((Typed(WybeType.Array t), e), [ r ])
+      | Some(Type.Array t) -> ST((Typed(Type.Array t), e), [ r ])
       | _ -> ST((NotRecognizedOperator op, e), [ r ])
     | _ ->
       let r = extractTypeAndDomain vars right
@@ -165,9 +163,9 @@ and extractTypeAndDomain (vars: Map<string, WybeType>) (e: Expr) : SemanticTree 
     | None -> ST((NotFoundVar name, e), [])
   | Lit v ->
     match v with
-    | Int _ -> ST((Typed WybeType.Integer, e), [])
-    | Bool _ -> ST((Typed WybeType.Boolean, e), [])
-    | Str _ -> ST((Typed WybeType.String, e), [])
+    | Int _ -> ST((Typed Type.Integer, e), [])
+    | Bool _ -> ST((Typed Type.Boolean, e), [])
+    | Str _ -> ST((Typed Type.String, e), [])
   | Array xs ->
     match xs with
     | [] -> ST((Untyped, e), [])
@@ -194,26 +192,22 @@ and extractTypeAndDomain (vars: Map<string, WybeType>) (e: Expr) : SemanticTree 
           |> List.choose id
 
         match diffElemTypes with
-        | [] -> ST((Typed(WybeType.Array t), e), r :: rs)
+        | [] -> ST((Typed(Type.Array t), e), r :: rs)
         | _ -> ST((Expecting diffElemTypes, e), r :: rs)
       | ST((v, _), _) -> ST((v, e), r :: rs)
   | ArrayElem(name, index) ->
     match Map.tryFind name vars with
-    | Some(WybeType.Array t) ->
+    | Some(Type.Array t) ->
       let indexResult = extractTypeAndDomain vars index
 
       match indexResult with
-      | ST((TypedDomain(WybeType.Integer, _), _), _)
-      | ST((Typed WybeType.Integer, _), _) ->
+      | ST((TypedDomain(Type.Integer, _), _), _)
+      | ST((Typed Type.Integer, _), _) ->
         let domain = indexResult.SemanticResult.Domain |> Option.toList
         let r = ST((TypedDomain(t, domain), e), [ indexResult ])
 
         let arrayDomain =
-          Binary(
-            Binary(Lit(Int 0), WybeOp.AtMost, index),
-            WybeOp.And,
-            Binary(index, WybeOp.LessThan, Unary(WybeOp.Length, Var name))
-          )
+          Binary(Binary(Lit(Int 0), Op.AtMost, index), Op.And, Binary(index, Op.LessThan, Unary(Op.Length, Var name)))
           |> extractTypeAndDomain vars
 
         r.AddDomain arrayDomain
@@ -221,7 +215,7 @@ and extractTypeAndDomain (vars: Map<string, WybeType>) (e: Expr) : SemanticTree 
     | Some t ->
       ST(
         (Expecting
-          [ { expected = WybeType.Array(WybeType.VarType "a")
+          [ { expected = Type.Array(Type.VarType "a")
               got = Typed t
               atChild = 0 } ],
          e),
@@ -238,30 +232,30 @@ let rec exprToTree: Expr -> SymbolTree =
 
     let opSymbol =
       match op with
-      | WybeOp.Plus -> Symbol.Op("+", 5)
-      | WybeOp.Minus -> Symbol.Op("-", 5)
-      | WybeOp.Times -> Symbol.Op("×", 5)
-      | WybeOp.Div -> Symbol.Op("÷", 5)
-      | WybeOp.Eq -> Symbol.Op("=", 4)
-      | WybeOp.NotEq -> Symbol.Op("≠", 4)
-      | WybeOp.AtMost -> Symbol.Op("≤", 4)
-      | WybeOp.AtLeast -> Symbol.Op("≥", 4)
-      | WybeOp.LessThan -> Symbol.Op("<", 4)
-      | WybeOp.Exceeds -> Symbol.Op(">", 4)
-      | WybeOp.And -> Symbol.Op("∧", 2)
-      | WybeOp.Or -> Symbol.Op("∨", 2)
-      | WybeOp.Implies -> Symbol.Op("⇒", 1)
-      | WybeOp.Follows -> Symbol.Op("⇐", 1)
-      | WybeOp.Equiv -> Symbol.Op("≡", 0)
-      | WybeOp.NotEquiv -> Symbol.Op("≢", 0)
-      | WybeOp.Not -> Symbol.Op("¬", 3)
-      | WybeOp.UnaryMinus -> Symbol.Op("-", 6)
-      | WybeOp.Length -> Symbol.Op("#", 6)
-      | WybeOp.HasType -> Symbol.Op(":", 0)
-      | WybeOp.Cons -> Symbol.Op("::", 6)
-      | WybeOp.Concat -> Symbol.Op("++", 6)
-      | WybeOp.IsPrefix -> Symbol.Op("◁", 6)
-      | WybeOp.IsSuffix -> Symbol.Op("▷", 6)
+      | Op.Plus -> Symbol.Op("+", 5)
+      | Op.Minus -> Symbol.Op("-", 5)
+      | Op.Times -> Symbol.Op("×", 5)
+      | Op.Div -> Symbol.Op("÷", 5)
+      | Op.Equals -> Symbol.Op("=", 4)
+      | Op.Differs -> Symbol.Op("≠", 4)
+      | Op.AtMost -> Symbol.Op("≤", 4)
+      | Op.AtLeast -> Symbol.Op("≥", 4)
+      | Op.LessThan -> Symbol.Op("<", 4)
+      | Op.Exceeds -> Symbol.Op(">", 4)
+      | Op.And -> Symbol.Op("∧", 2)
+      | Op.Or -> Symbol.Op("∨", 2)
+      | Op.Implies -> Symbol.Op("⇒", 1)
+      | Op.Follows -> Symbol.Op("⇐", 1)
+      | Op.Equiv -> Symbol.Op("≡", 0)
+      | Op.Inequiv -> Symbol.Op("≢", 0)
+      | Op.Not -> Symbol.Op("¬", 3)
+      | Op.UnaryMinus -> Symbol.Op("-", 6)
+      | Op.Length -> Symbol.Op("#", 6)
+      | Op.HasType -> Symbol.Op(":", 0)
+      | Op.Cons -> Symbol.Op("::", 6)
+      | Op.Concat -> Symbol.Op("++", 6)
+      | Op.IsPrefix -> Symbol.Op("◁", 6)
+      | Op.IsSuffix -> Symbol.Op("▷", 6)
       | _ -> failwith $"unexpected binary operator {op}"
 
     SymbolTree.Node(opSymbol, [ l; r ])
@@ -270,11 +264,11 @@ let rec exprToTree: Expr -> SymbolTree =
 
     let sym =
       match op with
-      | WybeOp.Not -> Symbol.Op("¬", 3)
-      | WybeOp.UnaryMinus -> Symbol.Op("-", 6)
-      | WybeOp.Length -> Symbol.Op("#", 6)
-      | WybeOp.Head -> Symbol.Atom "head"
-      | WybeOp.Tail -> Symbol.Atom "tail"
+      | Op.Not -> Symbol.Op("¬", 3)
+      | Op.UnaryMinus -> Symbol.Op("-", 6)
+      | Op.Length -> Symbol.Op("#", 6)
+      | Op.Head -> Symbol.Atom "head"
+      | Op.Tail -> Symbol.Atom "tail"
       | _ -> Symbol.Op(string op, 7)
 
     SymbolTree.Node(sym, [ t ])
@@ -333,101 +327,101 @@ type DomainWExpr = DomainWExpr of domain: WExpr option * expr: WExpr
 let semanticExprToWExpr (e: SemanticTree) : DomainWExpr option =
   let rec typedToWExpr (e: SemanticTree) : WExpr option =
     match e.SemanticResult.Type with
-    | Some WybeType.Boolean ->
+    | Some Type.Boolean ->
       match e.Expr, e.Children with
-      | Binary(_, WybeOp.And, _), [ l; r ] ->
+      | Binary(_, Op.And, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(a <&&> b)
         | _ -> None
-      | Binary(_, WybeOp.Or, _), [ l; r ] ->
+      | Binary(_, Op.Or, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(a <||> b)
         | _ -> None
-      | Binary(_, WybeOp.Implies, _), [ l; r ] ->
+      | Binary(_, Op.Implies, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(a ==> b)
         | _ -> None
-      | Binary(_, WybeOp.Follows, _), [ l; r ] ->
+      | Binary(_, Op.Follows, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(a <== b)
         | _ -> None
-      | Binary(_, WybeOp.Equiv, _), [ l; r ] ->
+      | Binary(_, Op.Equiv, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(a === b)
         | _ -> None
-      | Binary(_, WybeOp.NotEquiv, _), [ l; r ] ->
+      | Binary(_, Op.Inequiv, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(a !== b)
         | _ -> None
-      | Binary(_, WybeOp.Eq, _), [ l; r ] ->
+      | Binary(_, Op.Equals, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(Core.Equals(a, b))
         | _ -> None
-      | Binary(_, WybeOp.NotEq, _), [ l; r ] ->
+      | Binary(_, Op.Differs, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(a != b)
         | _ -> None
-      | Binary(_, WybeOp.AtMost, _), [ l; r ] ->
+      | Binary(_, Op.AtMost, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some(a <= b)
         | _ -> None
-      | Binary(_, WybeOp.AtLeast, _), [ l; r ] ->
+      | Binary(_, Op.AtLeast, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some((a :?> Integer) >= (b :?> Integer))
         | _ -> None
-      | Binary(_, WybeOp.LessThan, _), [ l; r ] ->
+      | Binary(_, Op.LessThan, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some((a :?> Integer) < (b :?> Integer))
         | _ -> None
-      | Binary(_, WybeOp.Exceeds, _), [ l; r ] ->
+      | Binary(_, Op.Exceeds, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some((a :?> Integer) > (b :?> Integer))
         | _ -> None
-      | Binary(_, WybeOp.IsPrefix, _), [ l; r ] ->
+      | Binary(_, Op.IsPrefix, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some lW, Some rW -> Some(IsPrefix(lW :?> Sequence, rW :?> Sequence) :> WExpr)
         | _ -> None
-      | Binary(_, WybeOp.IsSuffix, _), [ l; r ] ->
+      | Binary(_, Op.IsSuffix, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some lW, Some rW -> Some(IsSuffix(lW :?> Sequence, rW :?> Sequence) :> WExpr)
         | _ -> None
-      | Unary(WybeOp.Not, _), [ c ] ->
+      | Unary(Op.Not, _), [ c ] ->
         match typedToWExpr c with
         | Some a -> Some(!a)
         | None -> None
       | Lit(Bool b), [] -> Some(if b then True else False)
       | Expr.Var name, [] -> Some(mkBoolVar name)
       | _ -> failwith $"not implemented: {exprToTree e.Expr}"
-    | Some WybeType.Integer ->
+    | Some Type.Integer ->
       match e.Expr, e.Children with
       | Lit(Int i), [] -> Some(Integer i)
-      | Unary(WybeOp.UnaryMinus, _), [ c ] ->
+      | Unary(Op.UnaryMinus, _), [ c ] ->
         match typedToWExpr c with
         | Some a -> Some(-(a :?> Integer))
         | None -> None
-      | Unary(WybeOp.Length, _), [ c ] ->
+      | Unary(Op.Length, _), [ c ] ->
         match typedToWExpr c with
         | Some a -> Some(len a)
         | None -> None
-      | Binary(_, WybeOp.Plus, _), [ l; r ] ->
+      | Binary(_, Op.Plus, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some((a :?> Integer) + (b :?> Integer) :> WExpr)
         | _ -> None
-      | Binary(_, WybeOp.Minus, _), [ l; r ] ->
+      | Binary(_, Op.Minus, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some((a :?> Integer) - (b :?> Integer) :> WExpr)
         | _ -> None
-      | Binary(_, WybeOp.Times, _), [ l; r ] ->
+      | Binary(_, Op.Times, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some((a :?> Integer) * (b :?> Integer) :> WExpr)
         | _ -> None
-      | Binary(_, WybeOp.Div, _), [ l; r ] ->
+      | Binary(_, Op.Div, _), [ l; r ] ->
         match typedToWExpr l, typedToWExpr r with
         | Some a, Some b -> Some((a :?> Integer) / (b :?> Integer) :> WExpr)
         | _ -> None
       | Expr.Var name, [] -> Some(mkIntVar name)
       | _ -> failwith $"not implemented: {exprToTree e.Expr}"
-    | Some(WybeType.Array inner) ->
+    | Some(Type.Array inner) ->
       // sequence operations and literals for integer or boolean sequences
       match e.Expr, e.Children with
       // literal array
@@ -441,28 +435,28 @@ let semanticExprToWExpr (e: SemanticTree) : DomainWExpr option =
 
           let seqSort =
             match inner with
-            | WybeType.Integer -> WSeq WInt
-            | WybeType.Boolean -> WSeq WBool
+            | Type.Integer -> WSeq WInt
+            | Type.Boolean -> WSeq WBool
             | _ -> failwith $"unsupported sequence element type: {inner}"
 
           let seqW = List.rev ws |> List.fold (fun acc v -> Cons(v, acc)) (Empty seqSort)
           Some(seqW :> WExpr)
       // cons operator
-      | Binary(_, WybeOp.Cons, _), [ lST; rST ] ->
+      | Binary(_, Op.Cons, _), [ lST; rST ] ->
         match typedToWExpr lST, typedToWExpr rST with
         | Some v, Some s -> Some(Cons(v, s :?> Sequence) :> WExpr)
         | _ -> None
       // concat operator
-      | Binary(_, WybeOp.Concat, _), [ lST; rST ] ->
+      | Binary(_, Op.Concat, _), [ lST; rST ] ->
         match typedToWExpr lST, typedToWExpr rST with
         | Some lW, Some rW -> Some(Concat(lW :?> Sequence, rW :?> Sequence) :> WExpr)
         | _ -> None
       // head and tail
-      | Unary(WybeOp.Head, _), [ cST ] ->
+      | Unary(Op.Head, _), [ cST ] ->
         match typedToWExpr cST with
         | Some s -> Some(Head(s :?> Sequence) :> WExpr)
         | None -> None
-      | Unary(WybeOp.Tail, _), [ cST ] ->
+      | Unary(Op.Tail, _), [ cST ] ->
         match typedToWExpr cST with
         | Some s -> Some(Tail(s :?> Sequence) :> WExpr)
         | None -> None
