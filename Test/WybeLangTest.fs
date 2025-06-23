@@ -74,34 +74,23 @@ let ``domain conjunction`` () =
     [ "xs", Type.Array Type.Integer; "i", Type.Integer; "j", Type.Integer ]
     |> Map.ofList
 
-  let indexExpr = Binary(Var "i", Op.Div, Var "j")
-  let r = extractTypeAndDomain vars (ArrayElem("xs", indexExpr))
-  shouldEqual "xs[ i ÷ j ]" (r.Expr |> exprToTree |> string)
-  shouldEqual (Some Type.Integer) r.SemanticResult.Type
+  let iDivJ = Binary(Var "i", Op.Div, Var "j")
 
-  let arrayDomain =
-    Binary(Binary(Lit(Int 0), Op.AtMost, indexExpr), Op.And, Binary(indexExpr, Op.LessThan, Unary(Op.Length, Var "xs")))
+  [ ArrayElem("xs", iDivJ), (Some Type.Integer), "xs[ i ÷ j ]", "j ≠ 0 ∧ 0 ≤ i ÷ j ∧ i ÷ j < #xs"
+    Binary(iDivJ, Op.Exceeds, Lit(Int 0)), (Some Type.Boolean), "i ÷ j > 0", "j ≠ 0" ]
+  |> List.iter (fun (expr, expectedType, representation, domain) ->
+    let r = extractTypeAndDomain vars expr
+    shouldEqual representation (r.Expr |> exprToTree |> string)
+    shouldEqual expectedType r.SemanticResult.Type
+    Assert.True(r.SemanticResult.Domain.IsSome, $"No domain at {representation}")
+    let actualDomain = exprToTree (r.SemanticResult.Domain.Value.Expr) |> string
 
-  let divDomain = Binary(Var "j", Op.Differs, Lit(Int 0))
-
-  let expectedDomain =
-    Binary(divDomain, Op.And, arrayDomain)
-    |> extractTypeAndDomain vars
-    |> _.Expr
-    |> exprToTree
-    |> string
-
-  shouldEqual "j ≠ 0 ∧ 0 ≤ i ÷ j ∧ i ÷ j < #xs" expectedDomain
-  let actualDomain = exprToTree (r.SemanticResult.Domain.Value.Expr) |> string
-
-  shouldEqual expectedDomain actualDomain
+    shouldEqual domain actualDomain)
 
 open GriesSchneider
 
 [<Fact>]
 let ``Expr to WExpr`` () =
-  let x, y = mkBoolVar "x", mkBoolVar "y"
-  let n, m = mkIntVar "n", mkIntVar "m"
 
   let vars =
     [ "n", Type.Integer; "m", Type.Integer; "x", Type.Boolean; "y", Type.Boolean ]
@@ -114,3 +103,17 @@ let ``Expr to WExpr`` () =
     let r = semanticExprToWExpr e
     Assert.True(r.IsSome, $"{collectSemanticTreeInfo e}")
     shouldEqual expected r.Value.Expr)
+
+[<Fact>]
+let ``weakest precondition assignment`` () =
+  let vars =
+    [ "n", Type.Integer; "m", Type.Integer; "x", Type.Boolean; "y", Type.Boolean ]
+    |> Map.ofList
+
+  let nExceeds0 = Binary(Expr.Var "n", Op.Exceeds, Lit(Int 0))
+
+  [ "n", Binary(Expr.Var "n", Op.Plus, Lit(Int 1)), nExceeds0, Some(n + 1 > zero)
+    "n", Binary(Expr.Var "n", Op.Div, Expr.Var "m"), nExceeds0, Some(m != zero <&&> (n / m > zero)) ]
+  |> List.iter (fun (var, expr, postcondition, wp) ->
+    let r = wpAssignment (vars, var, expr, postcondition)
+    shouldEqual wp r)

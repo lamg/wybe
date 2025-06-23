@@ -82,7 +82,13 @@ let rec checkChildrenFixedType
     | _ -> None)
   |> List.choose id
   |> function
-    | [] -> ST((Typed resultType, e), xs)
+    | [] ->
+      let childrenDomains = xs |> List.choose (fun x -> x.SemanticResult.Domain)
+
+      match childrenDomains with
+      | [] -> ST((Typed resultType, e), xs)
+      | _ -> ST((TypedDomain(resultType, childrenDomains), e), xs)
+
     | rs -> ST((Expecting rs, e), xs)
 
 and checkChildrenEqualType (vars: Map<string, Type>) (e: Expr, resultType: Type) (children: Expr list) =
@@ -90,7 +96,11 @@ and checkChildrenEqualType (vars: Map<string, Type>) (e: Expr, resultType: Type)
   let types = xs |> List.choose _.SemanticResult.Type |> Set
 
   if Set.count types = 1 then
-    ST((Typed resultType, e), xs)
+    let childrenDomains = xs |> List.choose (fun x -> x.SemanticResult.Domain)
+
+    match childrenDomains with
+    | [] -> ST((Typed resultType, e), xs)
+    | _ -> ST((TypedDomain(resultType, childrenDomains), e), xs)
   else
     ST((ExpectingSameType(Set.toList types), e), xs)
 
@@ -106,8 +116,12 @@ and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
       let r =
         checkChildrenFixedType vars (e, Type.Integer) (Type.Integer, [ left; right ])
 
-      let divDomain = Binary(right, Op.Differs, Lit(Int 0)) |> extractTypeAndDomain vars
-      r.AddDomain divDomain
+      let zero = Lit(Int 0)
+      let diffZero = Binary(right, Op.Differs, zero)
+      let typedZero = ST((Typed Type.Integer, zero), [])
+
+      let domain = ST((Typed Type.Boolean, diffZero), [ r.Children[1]; typedZero ])
+      r.AddDomain domain
     | Op.Equals
     | Op.Differs -> checkChildrenEqualType vars (e, Type.Boolean) [ left; right ]
     | Op.AtMost
@@ -400,7 +414,7 @@ let semanticExprToWExpr (e: SemanticTree) : DomainWExpr option =
         | None -> None
       | Lit(Bool b), [] -> Some(if b then True else False)
       | Expr.Var name, [] -> Some(mkBoolVar name)
-      | _ -> failwith $"not implemented: {exprToTree e.Expr}"
+      | _ -> failwith $"unexpected boolean expression: {exprToTree e.Expr}"
     | Some Type.Integer ->
       match e.Expr, e.Children with
       | Lit(Int i), [] -> Some(Integer i)
@@ -475,3 +489,28 @@ let semanticExprToWExpr (e: SemanticTree) : DomainWExpr option =
 
   let domain = e.SemanticResult.Domain |> Option.bind typedToWExpr
   typedToWExpr e |> Option.map (fun r -> DomainWExpr(domain, r))
+
+// weakest precondition of assignemt
+let wpAssignment (vars: Map<string, Type>, var: string, expr: Expr, postcondition: Expr) =
+  let rec loop (target: Expr) =
+    match target with
+    | Expr.Var name when name.Equals var -> expr
+    | Binary(l, op, r) -> Binary(loop l, op, loop r)
+    | Unary(op, r) -> Unary(op, loop r)
+    | Array xs -> Array(xs |> List.map loop)
+    | ArrayElem(name, index) -> ArrayElem(name, loop index)
+    | _ -> target
+
+  match extractTypeAndDomain vars postcondition with
+  | postconditionST when postconditionST.SemanticResult.Type.Equals(Some Type.Boolean) ->
+    let exprSubstituted = loop postcondition
+
+    match extractTypeAndDomain vars exprSubstituted with
+    | substituted when substituted.SemanticResult.Type.Equals(Some Type.Boolean) ->
+
+      match semanticExprToWExpr substituted with
+      | Some wexpr when wexpr.Domain.IsSome -> Some(wexpr.Domain.Value <&&> wexpr.Expr)
+      | Some wexpr -> Some(wexpr.Expr :?> Proposition)
+      | _ -> None
+    | _ -> None
+  | _ -> None
