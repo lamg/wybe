@@ -125,11 +125,16 @@ type SymbolTree =
 
 type BoundVars = Map<string, Expr>
 
+
+let invalidExprEmbedded (r: 'a, inType: string, target: 'a) =
+  $"invalid expression {r} embedded in {inType} {target}"
+
 type WExpr =
   // translates a Wybe expression to a Z3 expression, which is then used to check proofs
   abstract member ToZ3Expr: Context * BoundVars -> Expr
   // translatees a Wybe expression to a symbol tree, which is then used for creating a string representation
   abstract member ToSymbolTree: unit -> SymbolTree
+  abstract member TextualSubstitution: string -> WExpr -> WExpr
 
 and Integer =
   | ExtInteger of WExpr
@@ -221,6 +226,29 @@ and Integer =
         let x = ctx.MkIntConst x
         let p, q = toExp n, toExp m
         ctx.MkExists([| x |], ctx.MkEq(ctx.MkMul(p, x), q))
+
+    member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
+      let substitute (e: WExpr) =
+        e.TextualSubstitution varName expr :?> Integer
+
+      match this with
+      | ExtInteger e ->
+        match e.TextualSubstitution varName expr with
+        | :? Var as v when v.Sort = WInt -> ExtInteger v
+        | :? Integer as n -> n
+        | :? FnApp as f when f.FnDecl.ReturnType = WInt -> ExtInteger f
+        | r -> failwith (invalidExprEmbedded (r, "Integer", this))
+      | Integer n -> Integer n
+      | UnaryMinus right -> UnaryMinus right
+      | Plus(left, right) -> Plus(substitute left, substitute right)
+      | Minus(left, right) -> Minus(substitute left, substitute right)
+      | Times(left, right) -> Times(substitute left, substitute right)
+      | Divide(left, right) -> Divide(substitute left, substitute right)
+      | Exceeds(left, right) -> Exceeds(substitute left, substitute right)
+      | LessThan(left, right) -> LessThan(substitute left, substitute right)
+      | AtLeast(left, right) -> AtLeast(substitute left, substitute right)
+      | AtMost(left, right) -> AtMost(substitute left, substitute right)
+      | IsDivisor(left, right) -> IsDivisor(substitute left, substitute right)
 
 and Quantifier =
   | Forall
@@ -429,6 +457,33 @@ and Proposition =
         | Forall -> ctx.MkForall(z3Vars, body = z3Body, patterns = patterns)
         | Exists -> ctx.MkExists(z3Vars, body = z3Body, patterns = patterns)
 
+    member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
+      let subs (t: WExpr) =
+        t.TextualSubstitution varName expr :?> Proposition
+
+      match this with
+      | ExtProposition e ->
+        match e.TextualSubstitution varName expr with
+        | :? Proposition as p -> p
+        | :? Var as v when v.Sort = WBool -> ExtProposition v
+        | :? FnApp as f when f.FnDecl.ReturnType = WBool -> ExtProposition f
+        | :? Integer as n when n.IsAtMost || n.IsAtLeast || n.IsExceeds || n.IsLessThan || n.IsDivide ->
+          ExtProposition n
+        | :? Sequence as s when s.IsIsPrefix || s.IsIsSuffix -> ExtProposition s
+        | r -> failwith (invalidExprEmbedded (r, "Proposition", this))
+      | Equals(left, right) -> Equals(subs left, subs right)
+      | Differs(left, right) -> Differs(subs left, subs right)
+      | Not right -> Not(subs right)
+      | And(left, right) -> And(subs left, subs right)
+      | Or(left, right) -> Or(subs left, subs right)
+      | Equiv(left, right) -> Equiv(subs left, subs right)
+      | Inequiv(left, right) -> Inequiv(subs left, subs right)
+      | Implies(left, right) -> Implies(subs left, subs right)
+      | Follows(left, right) -> Follows(subs left, subs right)
+      | Quantifier(q, vars, body) -> Quantifier(q, vars, subs body) // TODO think about collisions here
+      | True
+      | False -> this
+
 and Sequence =
   | Empty of WSort
   | ExtSequence of WExpr
@@ -482,6 +537,18 @@ and Sequence =
         let tailLength = ctx.MkSub(ctx.MkLength xs, ctx.MkInt 1) :?> IntExpr
         ctx.MkExtract(xs, one, tailLength)
 
+    member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
+      match this with
+      | ExtSequence e -> ExtSequence(e.TextualSubstitution varName expr) :> WExpr
+      | Empty(_) -> failwith "Not Implemented"
+      | Cons(_, _) -> failwith "Not Implemented"
+      | Concat(_, _) -> failwith "Not Implemented"
+      | IsPrefix(_, _) -> failwith "Not Implemented"
+      | IsSuffix(_, _) -> failwith "Not Implemented"
+      | Length(_) -> failwith "Not Implemented"
+      | Head(_) -> failwith "Not Implemented"
+      | Tail(_) -> failwith "Not Implemented"
+
 and WSort =
   | WInt
   | WBool
@@ -527,6 +594,9 @@ and Var =
       | Some e -> e
       | None -> ctx.MkConst(this.Name, mkSort this.Sort)
 
+    member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
+      if this.Name = varName then expr else this
+
 and FnDecl =
   | FnDecl of name: string * signature: (WSort list)
 
@@ -537,6 +607,8 @@ and FnDecl =
   member this.Signature =
     let (FnDecl(_, signature)) = this
     signature
+
+  member this.ReturnType = List.last this.Signature
 
 and FnApp =
   | FnApp of FnDecl * (WExpr list)
@@ -584,6 +656,8 @@ and FnApp =
 
       let funcDecl = toZ3FnDecl this.FnDecl.Signature
       funcDecl.Apply z3Args
+
+    member this.TextualSubstitution (arg1: string) (arg2: WExpr) : WExpr = failwith "Not Implemented"
 
 // Calculation
 //

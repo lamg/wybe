@@ -59,7 +59,17 @@ type Type =
   | Array of Type
 
 type SameTypeDecl = string list * Type
-type Guard = Guard of Expr * Statement list
+
+type Guard =
+  | Guard of condition: Expr * body: Statement
+
+  member this.Condition =
+    let (Guard(condition, _)) = this
+    condition
+
+  member this.Body =
+    let (Guard(_, body)) = this
+    body
 
 and Statement =
   | VarDecl of SameTypeDecl list
@@ -69,5 +79,6 @@ and Statement =
   | Assert of Expr
   | Compose of Statement * Statement
   | Skip
+  | Abort
 
-type TopLevel = Procedure of name: string * Statement list
+type TopLevel = Procedure of name: string * Statement

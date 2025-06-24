@@ -76,14 +76,14 @@ let ``domain conjunction`` () =
 
   let iDivJ = Binary(Var "i", Op.Div, Var "j")
 
-  [ ArrayElem("xs", iDivJ), (Some Type.Integer), "xs[ i ÷ j ]", "j ≠ 0 ∧ 0 ≤ i ÷ j ∧ i ÷ j < #xs"
-    Binary(iDivJ, Op.Exceeds, Lit(Int 0)), (Some Type.Boolean), "i ÷ j > 0", "j ≠ 0" ]
+  [ ArrayElem("xs", iDivJ), Some Type.Integer, "xs[ i ÷ j ]", "j ≠ 0 ∧ 0 ≤ i ÷ j ∧ i ÷ j < #xs"
+    Binary(iDivJ, Op.Exceeds, Lit(Int 0)), Some Type.Boolean, "i ÷ j > 0", "j ≠ 0" ]
   |> List.iter (fun (expr, expectedType, representation, domain) ->
     let r = extractTypeAndDomain vars expr
     shouldEqual representation (r.Expr |> exprToTree |> string)
     shouldEqual expectedType r.SemanticResult.Type
     Assert.True(r.SemanticResult.Domain.IsSome, $"No domain at {representation}")
-    let actualDomain = exprToTree (r.SemanticResult.Domain.Value.Expr) |> string
+    let actualDomain = exprToTree r.SemanticResult.Domain.Value.Expr |> string
 
     shouldEqual domain actualDomain)
 
@@ -101,8 +101,7 @@ let ``Expr to WExpr`` () =
   |> List.iter (fun (expr, expected) ->
     let e = extractTypeAndDomain vars expr
     let r = semanticExprToWExpr e
-    Assert.True(r.IsSome, $"{collectSemanticTreeInfo e}")
-    shouldEqual expected r.Value.Expr)
+    shouldEqual expected r.Expr)
 
 [<Fact>]
 let ``weakest precondition assignment`` () =
@@ -110,10 +109,13 @@ let ``weakest precondition assignment`` () =
     [ "n", Type.Integer; "m", Type.Integer; "x", Type.Boolean; "y", Type.Boolean ]
     |> Map.ofList
 
-  let nExceeds0 = Binary(Expr.Var "n", Op.Exceeds, Lit(Int 0))
+  let nExceeds0 = n > zero
 
-  [ "n", Binary(Expr.Var "n", Op.Plus, Lit(Int 1)), nExceeds0, Some(n + 1 > zero)
-    "n", Binary(Expr.Var "n", Op.Div, Expr.Var "m"), nExceeds0, Some(m != zero <&&> (n / m > zero)) ]
+  [ "n", DomainWExpr(None, n + 1), nExceeds0, n + 1 > zero
+    "n", DomainWExpr(Some(m != zero), n / m), nExceeds0, m != zero <&&> (n / m > zero) ]
   |> List.iter (fun (var, expr, postcondition, wp) ->
-    let r = wpAssignment (vars, var, expr, postcondition)
-    shouldEqual wp r)
+    let r = wpAssignment [ var, expr ] (StateSpace(vars, postcondition))
+    shouldEqual wp r.Proposition)
+
+[<Fact>]
+let ``weakest precondition composition`` () = ()

@@ -309,7 +309,7 @@ let rec exprToTree: Expr -> SymbolTree =
     SymbolTree.Node(Symbol.Atom name, [ SymbolTree.Node(Symbol.Indexed, [ exprToTree index ]) ])
 
 
-let collectSemanticTreeInfo (e: SemanticTree) : string list =
+let collectSemanticTreeInfo (e: SemanticTree) =
   let errorInfo (e: SemanticTree) =
     match e.SemanticResult with
     | Expecting xs -> xs |> List.map (fun x -> $"expecting {x.expected}, got {x.got}")
@@ -347,170 +347,157 @@ type DomainWExpr =
     let (DomainWExpr(domain, _)) = this
     domain
 
-let semanticExprToWExpr (e: SemanticTree) : DomainWExpr option =
-  let rec typedToWExpr (e: SemanticTree) : WExpr option =
+let semanticExprToWExpr (e: SemanticTree) : DomainWExpr =
+  let rec typedToWExpr (e: SemanticTree) : WExpr =
     match e.SemanticResult.Type with
     | Some Type.Boolean ->
       match e.Expr, e.Children with
-      | Binary(_, Op.And, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(a <&&> b)
-        | _ -> None
-      | Binary(_, Op.Or, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(a <||> b)
-        | _ -> None
-      | Binary(_, Op.Implies, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(a ==> b)
-        | _ -> None
-      | Binary(_, Op.Follows, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(a <== b)
-        | _ -> None
-      | Binary(_, Op.Equiv, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(a === b)
-        | _ -> None
-      | Binary(_, Op.Inequiv, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(a !== b)
-        | _ -> None
-      | Binary(_, Op.Equals, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(Core.Equals(a, b))
-        | _ -> None
-      | Binary(_, Op.Differs, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(a != b)
-        | _ -> None
-      | Binary(_, Op.AtMost, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some(a <= b)
-        | _ -> None
-      | Binary(_, Op.AtLeast, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some((a :?> Integer) >= (b :?> Integer))
-        | _ -> None
-      | Binary(_, Op.LessThan, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some((a :?> Integer) < (b :?> Integer))
-        | _ -> None
-      | Binary(_, Op.Exceeds, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some((a :?> Integer) > (b :?> Integer))
-        | _ -> None
+      | Binary(_, Op.And, _), [ l; r ] -> (typedToWExpr l) <&&> (typedToWExpr r)
+      | Binary(_, Op.Or, _), [ l; r ] -> (typedToWExpr l) <||> (typedToWExpr r)
+      | Binary(_, Op.Implies, _), [ l; r ] -> (typedToWExpr l) ==> (typedToWExpr r)
+      | Binary(_, Op.Follows, _), [ l; r ] -> (typedToWExpr l) <== (typedToWExpr r)
+      | Binary(_, Op.Equiv, _), [ l; r ] -> (typedToWExpr l) === (typedToWExpr r)
+      | Binary(_, Op.Inequiv, _), [ l; r ] -> (typedToWExpr l) !== (typedToWExpr r)
+      | Binary(_, Op.Equals, _), [ l; r ] -> Core.Equals(typedToWExpr l, typedToWExpr r)
+      | Binary(_, Op.Differs, _), [ l; r ] -> (typedToWExpr l) != (typedToWExpr r)
+      | Binary(_, Op.AtMost, _), [ l; r ] -> (typedToWExpr l) <= (typedToWExpr r)
+      | Binary(_, Op.AtLeast, _), [ l; r ] -> (typedToWExpr l :?> Integer) >= (typedToWExpr r :?> Integer)
+      | Binary(_, Op.LessThan, _), [ l; r ] -> (typedToWExpr l :?> Integer) < (typedToWExpr r :?> Integer)
+      | Binary(_, Op.Exceeds, _), [ l; r ] -> (typedToWExpr l :?> Integer) > (typedToWExpr r :?> Integer)
       | Binary(_, Op.IsPrefix, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some lW, Some rW -> Some(IsPrefix(lW :?> Sequence, rW :?> Sequence) :> WExpr)
-        | _ -> None
+        IsPrefix(typedToWExpr l :?> Sequence, typedToWExpr r :?> Sequence) :> WExpr
       | Binary(_, Op.IsSuffix, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some lW, Some rW -> Some(IsSuffix(lW :?> Sequence, rW :?> Sequence) :> WExpr)
-        | _ -> None
-      | Unary(Op.Not, _), [ c ] ->
-        match typedToWExpr c with
-        | Some a -> Some(!a)
-        | None -> None
-      | Lit(Bool b), [] -> Some(if b then True else False)
-      | Expr.Var name, [] -> Some(mkBoolVar name)
+        IsSuffix(typedToWExpr l :?> Sequence, typedToWExpr r :?> Sequence) :> WExpr
+      | Unary(Op.Not, _), [ c ] -> !(typedToWExpr c)
+      | Lit(Bool b), [] -> if b then True else False
+      | Expr.Var name, [] -> mkBoolVar name
       | _ -> failwith $"unexpected boolean expression: {exprToTree e.Expr}"
     | Some Type.Integer ->
       match e.Expr, e.Children with
-      | Lit(Int i), [] -> Some(Integer i)
-      | Unary(Op.UnaryMinus, _), [ c ] ->
-        match typedToWExpr c with
-        | Some a -> Some(-(a :?> Integer))
-        | None -> None
-      | Unary(Op.Length, _), [ c ] ->
-        match typedToWExpr c with
-        | Some a -> Some(len a)
-        | None -> None
-      | Binary(_, Op.Plus, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some((a :?> Integer) + (b :?> Integer) :> WExpr)
-        | _ -> None
-      | Binary(_, Op.Minus, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some((a :?> Integer) - (b :?> Integer) :> WExpr)
-        | _ -> None
-      | Binary(_, Op.Times, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some((a :?> Integer) * (b :?> Integer) :> WExpr)
-        | _ -> None
-      | Binary(_, Op.Div, _), [ l; r ] ->
-        match typedToWExpr l, typedToWExpr r with
-        | Some a, Some b -> Some((a :?> Integer) / (b :?> Integer) :> WExpr)
-        | _ -> None
-      | Expr.Var name, [] -> Some(mkIntVar name)
+      | Lit(Int i), [] -> Integer i :> WExpr
+      | Unary(Op.UnaryMinus, _), [ c ] -> -(typedToWExpr c :?> Integer) :> WExpr
+      | Unary(Op.Length, _), [ c ] -> len (typedToWExpr c) :> WExpr
+      | Binary(_, Op.Plus, _), [ l; r ] -> ((typedToWExpr l :?> Integer) + (typedToWExpr r :?> Integer)) :> WExpr
+      | Binary(_, Op.Minus, _), [ l; r ] -> ((typedToWExpr l :?> Integer) - (typedToWExpr r :?> Integer)) :> WExpr
+      | Binary(_, Op.Times, _), [ l; r ] -> ((typedToWExpr l :?> Integer) * (typedToWExpr r :?> Integer)) :> WExpr
+      | Binary(_, Op.Div, _), [ l; r ] -> ((typedToWExpr l :?> Integer) / (typedToWExpr r :?> Integer)) :> WExpr
+      | Expr.Var name, [] -> mkIntVar name
       | _ -> failwith $"not implemented: {exprToTree e.Expr}"
     | Some(Type.Array inner) ->
-      // sequence operations and literals for integer or boolean sequences
       match e.Expr, e.Children with
-      // literal array
       | Array _, elemsST ->
-        let elems = elemsST |> List.map typedToWExpr
+        let ws = elemsST |> List.map typedToWExpr
 
-        if List.exists Option.isNone elems then
-          None
-        else
-          let ws = elems |> List.map Option.get
+        let seqSort =
+          match inner with
+          | Type.Integer -> WSeq WInt
+          | Type.Boolean -> WSeq WBool
+          | _ -> failwith $"unsupported sequence element type: {inner}"
 
-          let seqSort =
-            match inner with
-            | Type.Integer -> WSeq WInt
-            | Type.Boolean -> WSeq WBool
-            | _ -> failwith $"unsupported sequence element type: {inner}"
-
-          let seqW = List.rev ws |> List.fold (fun acc v -> Cons(v, acc)) (Empty seqSort)
-          Some(seqW :> WExpr)
-      // cons operator
-      | Binary(_, Op.Cons, _), [ lST; rST ] ->
-        match typedToWExpr lST, typedToWExpr rST with
-        | Some v, Some s -> Some(Cons(v, s :?> Sequence) :> WExpr)
-        | _ -> None
-      // concat operator
+        List.rev ws |> List.fold (fun acc v -> Cons(v, acc)) (Empty seqSort) :> WExpr
+      | Binary(_, Op.Cons, _), [ lST; rST ] -> Cons(typedToWExpr lST, typedToWExpr rST :?> Sequence) :> WExpr
       | Binary(_, Op.Concat, _), [ lST; rST ] ->
-        match typedToWExpr lST, typedToWExpr rST with
-        | Some lW, Some rW -> Some(Concat(lW :?> Sequence, rW :?> Sequence) :> WExpr)
-        | _ -> None
-      // head and tail
-      | Unary(Op.Head, _), [ cST ] ->
-        match typedToWExpr cST with
-        | Some s -> Some(Head(s :?> Sequence) :> WExpr)
-        | None -> None
-      | Unary(Op.Tail, _), [ cST ] ->
-        match typedToWExpr cST with
-        | Some s -> Some(Tail(s :?> Sequence) :> WExpr)
-        | None -> None
+        Concat(typedToWExpr lST :?> Sequence, typedToWExpr rST :?> Sequence) :> WExpr
+      | Unary(Op.Head, _), [ cST ] -> Head(typedToWExpr cST :?> Sequence) :> WExpr
+      | Unary(Op.Tail, _), [ cST ] -> Tail(typedToWExpr cST :?> Sequence) :> WExpr
       | _ -> failwith $"not implemented sequence op: {exprToTree e.Expr}"
-    | None -> None
-    | _ -> None
+    | _ -> failwith $"not implemented: {exprToTree e.Expr}"
 
-  let domain = e.SemanticResult.Domain |> Option.bind typedToWExpr
-  typedToWExpr e |> Option.map (fun r -> DomainWExpr(domain, r))
+  let domain = e.SemanticResult.Domain |> Option.map typedToWExpr
+  DomainWExpr(domain, typedToWExpr e)
+
+type StateSpace =
+  | StateSpace of Map<string, Type> * Proposition
+
+  member this.Proposition =
+    let (StateSpace(_, prop)) = this
+    prop
+
+  member this.Vars =
+    let (StateSpace(vars, _)) = this
+    vars
+
+let makeStateSpace vars (predicate: Expr) =
+  match checkChildrenFixedType vars (predicate, Type.Boolean) (Type.Boolean, [ predicate ]) with
+  | pred when pred.SemanticResult.Type.IsSome ->
+    match semanticExprToWExpr pred with
+    | wexpr when wexpr.Domain.IsSome -> Ok(StateSpace(vars, wexpr.Domain.Value <&&> wexpr.Expr))
+    | wexpr -> Ok(StateSpace(vars, wexpr.Expr :?> Proposition))
+  | r -> Error r
+
+type Guard =
+  | Guard of condition: WExpr * body: Statement
+
+  member this.Condition =
+    let (Guard(condition, _)) = this
+    condition
+
+  member this.Body =
+    let (Guard(_, body)) = this
+    body
+
+and Statement =
+  | VarDecl of SameTypeDecl list
+  | Becomes of (string * DomainWExpr) list
+  | If of Guard list
+  | Do of Guard list
+  | Assert of WExpr
+  | Compose of Statement * Statement
+  | Skip
+  | Abort
 
 // weakest precondition of assignemt
-let wpAssignment (vars: Map<string, Type>, var: string, expr: Expr, postcondition: Expr) =
-  let rec loop (target: Expr) =
-    match target with
-    | Expr.Var name when name.Equals var -> expr
-    | Binary(l, op, r) -> Binary(loop l, op, loop r)
-    | Unary(op, r) -> Unary(op, loop r)
-    | Array xs -> Array(xs |> List.map loop)
-    | ArrayElem(name, index) -> ArrayElem(name, loop index)
-    | _ -> target
+// wp.(x := E).P = defined.E ∧ P[x := E]
+let wpAssignment (becomes: (string * DomainWExpr) list) (space: StateSpace) =
+  let rec substitute (target: WExpr) ((var, expr): string * DomainWExpr) =
+    target.TextualSubstitution var expr.Expr
 
-  match extractTypeAndDomain vars postcondition with
-  | postconditionST when postconditionST.SemanticResult.Type.Equals(Some Type.Boolean) ->
-    let exprSubstituted = loop postcondition
+  let expr = becomes |> List.fold substitute space.Proposition
 
-    match extractTypeAndDomain vars exprSubstituted with
-    | substituted when substituted.SemanticResult.Type.Equals(Some Type.Boolean) ->
+  match becomes |> List.choose (snd >> _.Domain) with
+  | [] -> StateSpace(space.Vars, expr :?> Proposition)
+  | x :: xs ->
+    let domain = xs |> List.fold (fun acc x -> acc <&&> x) (x :?> Proposition)
+    StateSpace(space.Vars, domain <&&> expr)
 
-      match semanticExprToWExpr substituted with
-      | Some wexpr when wexpr.Domain.IsSome -> Some(wexpr.Domain.Value <&&> wexpr.Expr)
-      | Some wexpr -> Some(wexpr.Expr :?> Proposition)
-      | _ -> None
-    | _ -> None
-  | _ -> None
+let wpVarDecls (xs: SameTypeDecl list) (space: StateSpace) =
+  let addVarType t (acc: Map<string, Type>) name = Map.add name t acc
+  let addSameType vars t map = vars |> List.fold (addVarType t) map
+
+  let newVars =
+    xs |> List.fold (fun acc (vars, t) -> addSameType vars t acc) space.Vars
+
+  StateSpace(newVars, space.Proposition)
+
+let rec wpComposition (s: Statement, t: Statement) (space: StateSpace) = wpStatement s (wpStatement t space)
+// wp.(if cond0 -> body0 | cond1 -> body1 fi).P = (cond0 ∨ cond1) ∧ (cond0 ⇒ wp.body0.P) ∧ (cond1 ⇒ wp.body1.P)
+and wpAlternative (guards: Guard list) (space: StateSpace) =
+  let conds, bodies =
+    guards
+    |> List.map (fun g -> g.Condition, g.Condition ==> (wpStatement g.Body space).Proposition)
+    |> List.unzip
+
+  let orConds =
+    conds.Tail |> List.fold (fun acc c -> acc <||> c) (conds.Head :?> Proposition)
+
+  let andBodies = bodies.Tail |> List.fold (fun acc c -> acc <&&> c) bodies.Head
+  StateSpace(space.Vars, orConds <&&> andBodies)
+// wlp.(do cond0 → body0 | cond1 → body1 od).P = (cond0 ∧ P ⇒ wp.body0.P) ∧ (cond1 ∧ P ⇒ wp.body1.P)
+and wlpRepetition (guards: Guard list) (space: StateSpace) =
+  let bodies =
+    guards
+    |> List.map (fun g -> g.Condition <&&> space.Proposition ==> (wpStatement g.Body space).Proposition)
+
+  let andBodies = bodies.Tail |> List.fold (fun acc c -> acc <&&> c) bodies.Head
+  StateSpace(space.Vars, andBodies <&&> space.Proposition)
+
+and wpStatement (s: Statement) (space: StateSpace) =
+  match s with
+  | VarDecl xs -> wpVarDecls xs space
+  | Becomes becomes -> wpAssignment becomes space
+  | Compose(s, t) -> wpComposition (s, t) space
+  | If guards -> wpAlternative guards space
+  | Do guards -> wlpRepetition guards space
+  | Assert expr -> StateSpace(space.Vars, expr ==> space.Proposition)
+  | Skip -> space // wp.skip.P = P
+  | Abort -> StateSpace(Map.empty, False)
