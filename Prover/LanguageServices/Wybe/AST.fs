@@ -77,8 +77,7 @@ and Statement =
   | If of Guard list
   | Do of Guard list
   | Assert of Expr
-  | Compose of Statement * Statement
   | Skip
   | Abort
 
-type TopLevel = Procedure of name: string * Statement
+type TopLevel = Procedure of name: string * Statement list

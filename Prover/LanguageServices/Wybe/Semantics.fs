@@ -15,6 +15,9 @@ and SemanticResult =
   | NotRecognizedOperator of Op
   | NotFoundVar of string
   | Untyped
+  | MalformedAssignment
+  | MultipleResults of SemanticResult list
+  | UndeclaredVariable of string
 
   member this.Type =
     match this with
@@ -417,6 +420,11 @@ type StateSpace =
     let (StateSpace(vars, _)) = this
     vars
 
+let makeWExpr vars (expected: Type) (expr: Expr) =
+  match checkChildrenFixedType vars (expr, expected) (expected, [ expr ]) with
+  | e when e.SemanticResult.Type.IsSome -> Ok(semanticExprToWExpr e)
+  | e -> Error e.SemanticResult
+
 let makeStateSpace vars (predicate: Expr) =
   match checkChildrenFixedType vars (predicate, Type.Boolean) (Type.Boolean, [ predicate ]) with
   | pred when pred.SemanticResult.Type.IsSome ->
@@ -501,3 +509,63 @@ and wpStatement (s: Statement) (space: StateSpace) =
   | Assert expr -> StateSpace(space.Vars, expr ==> space.Proposition)
   | Skip -> space // wp.skip.P = P
   | Abort -> StateSpace(Map.empty, False)
+
+let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) =
+  let splitResult (rs: Result<'a, 'b> list) =
+    let oks, errs = rs |> List.partition Result.isOk
+
+    let oks =
+      oks
+      |> List.map (function
+        | Ok x -> x
+        | _ -> failwith "expecting ok")
+
+    let errs =
+      errs
+      |> List.map (function
+        | Error e -> e
+        | _ -> failwith "expecting error")
+
+    oks, errs
+
+  match s with
+  | AST.VarDecl xs -> Ok(VarDecl xs)
+  | AST.Abort -> Ok Abort
+  | AST.Skip -> Ok Skip
+  | AST.Assert expr ->
+    match makeStateSpace vars expr with
+    | Ok s -> Ok(Assert s.Proposition)
+    | Error e -> Error e
+  | AST.Becomes(vs, exprs) when vs.Length.Equals exprs.Length ->
+    let oks, errs =
+      exprs
+      |> List.zip vs
+      |> List.map (fun (v, e) ->
+        match Map.tryFind v vars with
+        | Some t -> makeWExpr vars t e |> Result.map (fun r -> v, r)
+        | None -> Error(UndeclaredVariable v))
+      |> splitResult
+
+    match errs with
+    | [] -> Ok(Becomes oks)
+    | [ e ] -> Error(ST((e, Lit(Str "")), []))
+    | _ -> Error(ST((MultipleResults errs, Lit(Str "")), []))
+  | AST.Becomes _ -> Error(ST((MalformedAssignment, Lit(Str "")), []))
+  | AST.Do guards ->
+    let oks, errs =
+      guards
+      |> List.map (fun g ->
+        match makeStateSpace vars g.Condition with
+        | Ok e ->
+          match astStatementToSemantic vars g.Body with
+          | Ok body -> Ok(Guard(e.Proposition, body))
+          | Error m -> Error m
+        | Error m -> Error m)
+      |> splitResult
+
+    match errs with
+    | [] -> Ok(Do oks)
+    | errs ->
+      let r = errs |> List.map _.SemanticResult |> MultipleResults
+      Error(ST((r, Lit(Str "")), []))
+  | AST.If _ -> failwith "boeu"
