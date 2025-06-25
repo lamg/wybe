@@ -509,7 +509,7 @@ and wlpRepetition (guards: Guard list) (space: StateSpace) =
     |> List.map (fun g -> g.Condition <&&> space.Proposition ==> (wpStatement g.Body space).Proposition)
 
   let andBodies = bodies.Tail |> List.fold (fun acc c -> acc <&&> c) bodies.Head
-  StateSpace(space.Vars, andBodies <&&> space.Proposition)
+  StateSpace(space.Vars, andBodies)
 
 and wpStatement (s: Statement) (space: StateSpace) =
   match s with

@@ -138,4 +138,13 @@ let ``wp alternative`` () =
     ) ]
   |> List.iter (fun (guards, space, expected) ->
     let r = wpAlternative guards space
-    shouldEqual (expected.Proposition.ToString()) (r.Proposition.ToString()))
+    shouldEqual $"{expected}" $"{r}")
+
+[<Fact>]
+let ``wlp repetition`` () =
+  [ [ Guard(n > zero, Becomes [ "n", DomainWExpr(None, n - 1) ]) ],
+    StateSpace(vars, n >= zero),
+    StateSpace(vars, (n > zero <&&> (n >= zero) ==> (n - 1 >= zero))) ]
+  |> List.iter (fun (guards, space, expected) ->
+    let r = wlpRepetition guards space
+    shouldEqual expected r)
