@@ -5,31 +5,54 @@ open Core
 #nowarn 86
 
 // Propositions
-
-let private toProposition (x: WExpr) =
+let private toProp (x: WExpr) =
   match x with
   | :? Var as x ->
     match x.Sort with
-    | WBool -> ExtProposition x
-    | _ -> failwith $"expecting boolean variable {x}"
-  | :? Proposition as x -> x
-  | _ -> failwith $"expecting proposition {x}"
+    | WBool -> Ok(ExtProposition x)
+    | _ -> Error $"expecting boolean variable {x}"
+  | :? Proposition as x -> Ok x
+  | _ -> Error $"expecting proposition at {x}"
 
-let (!) x = Not(toProposition x)
+let private underline x =
+  let str = x.ToString()
+  let line = String.replicate str.Length "^"
+  str, line
 
-let (===) (x: WExpr) (y: WExpr) = Equiv(toProposition x, toProposition y)
+let private toBinaryProposition (op: string) (x: WExpr) (y: WExpr) =
+  let strX, lineX = underline x
+  let strY, lineY = underline y
+  let separator = String.replicate $" {op} ".Length " "
+  let opStr = $"{strX} {op} {strY}"
 
-let (!==) x y =
-  Inequiv(toProposition x, toProposition y)
+  match toProp x, toProp y with
+  | Ok x, Ok y -> x, y
+  | Error e, Error d -> failwith $"\n{opStr}\n{lineX}{separator}{lineY}\n{e}\n{d}"
+  | Error e, Ok _ -> failwith $"\n{opStr}\n{lineX}\n{e}"
+  | Ok _, Error d ->
+    let blankX = String.replicate $"{strX} {op} ".Length " "
+    failwith $"\n{opStr}\n{blankX}{lineY}\n{d}"
 
-let (==>) x y =
-  Implies(toProposition x, toProposition y)
+let private toUnaryProposition (op: string) (x: WExpr) =
+  match toProp x with
+  | Ok x -> x
+  | Error e ->
+    let strX, lineX = underline x
+    let separator = String.replicate op.Length " "
+    failwith $"{op}{strX}\n{separator}{lineX}"
 
-let (<==) x y =
-  Follows(toProposition x, toProposition y)
+let (!) x = Not(toUnaryProposition "¬" x)
 
-let (<&&>) x y = And(toProposition x, toProposition y)
-let (<||>) x y = Or(toProposition x, toProposition y)
+let (===) (x: WExpr) (y: WExpr) = Equiv(toBinaryProposition "≡" x y)
+
+let (!==) x y = Inequiv(toBinaryProposition "≢" x y)
+
+let (==>) x y = Implies(toBinaryProposition "⇒" x y)
+
+let (<==) x y = Follows(toBinaryProposition "⇐" x y)
+
+let (<&&>) x y = And(toBinaryProposition "∧" x y)
+let (<||>) x y = Or(toBinaryProposition "∨" x y)
 let ``∀`` vars f = Quantifier(Forall, vars, f)
 let ``∃`` vars f = Quantifier(Exists, vars, f)
 
@@ -210,7 +233,7 @@ let (>) (x: WExpr) (y: WExpr) =
 
 let ``+ associativity`` = n + m + p = n + m + p |> axiom "+ associativity"
 
-let ``× associativity`` = (n * m) * p = n * (m * p) |> axiom "× associativity"
+let ``× associativity`` = n * m * p = n * m * p |> axiom "× associativity"
 
 let ``+ symmetry`` = n + m = m + n |> axiom "+ symmetry"
 

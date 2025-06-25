@@ -104,7 +104,7 @@ let ``Expr to WExpr`` () =
     shouldEqual expected r.Expr)
 
 [<Fact>]
-let ``weakest precondition assignment`` () =
+let ``wp assignment`` () =
   let nExceeds0 = n > zero
 
   [ "n", DomainWExpr(None, n + 1), nExceeds0, n + 1 > zero
@@ -114,7 +114,7 @@ let ``weakest precondition assignment`` () =
     shouldEqual wp r.Proposition)
 
 [<Fact>]
-let ``weakest precondition composition`` () =
+let ``wp composition`` () =
   [ Becomes [ "n", DomainWExpr(None, n + 1) ],
     Becomes [ "n", DomainWExpr(None, n * 2) ],
     StateSpace(vars, n > zero),
@@ -122,3 +122,20 @@ let ``weakest precondition composition`` () =
   |> List.iter (fun (s, t, postcondition, expected) ->
     let wp = wpComposition (s, t) postcondition
     shouldEqual expected wp)
+
+[<Fact>]
+let ``wp alternative`` () =
+  [ [ Guard(Core.Equals(n, zero), Becomes [ "n", DomainWExpr(None, n + 1) ])
+      Guard(n > zero, Skip)
+      Guard(n < zero, Becomes [ "n", DomainWExpr(None, n * -1) ]) ],
+    StateSpace(vars, n > zero),
+    StateSpace(
+      vars,
+      (n = zero <||> (n > zero) <||> (n < zero))
+      <&&> (n = zero ==> (n + 1 > zero))
+      <&&> (n > zero ==> (n > zero))
+      <&&> (n < zero ==> (n * -1 > zero))
+    ) ]
+  |> List.iter (fun (guards, space, expected) ->
+    let r = wpAlternative guards space
+    shouldEqual (expected.Proposition.ToString()) (r.Proposition.ToString()))

@@ -412,6 +412,17 @@ let semanticExprToWExpr (e: SemanticTree) : DomainWExpr =
 type StateSpace =
   | StateSpace of Map<string, Type> * Proposition
 
+  override this.ToString() : string =
+    let p = this.Proposition.ToString()
+
+    let vars =
+      this.Vars
+      |> Map.toList
+      |> List.map (fun (k, v) -> $"{k}: {v}")
+      |> String.concat "\n"
+
+    $"\n{vars}\n{p}"
+
   member this.Proposition =
     let (StateSpace(_, prop)) = this
     prop
