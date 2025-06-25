@@ -317,7 +317,7 @@ and Proposition =
       | :? Integer as p ->
         match p with
         | ExtInteger m -> loop m
-        | Integer(_) -> [], []
+        | Integer _ -> [], []
         | UnaryMinus m -> loop m
         | Plus(x, y)
         | Minus(x, y)
@@ -542,14 +542,14 @@ and Sequence =
     member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
       match this with
       | ExtSequence e -> ExtSequence(e.TextualSubstitution varName expr) :> WExpr
-      | Empty(_) -> failwith "Not Implemented"
+      | Empty _ -> failwith "Not Implemented"
       | Cons(_, _) -> failwith "Not Implemented"
       | Concat(_, _) -> failwith "Not Implemented"
       | IsPrefix(_, _) -> failwith "Not Implemented"
       | IsSuffix(_, _) -> failwith "Not Implemented"
-      | Length(_) -> failwith "Not Implemented"
-      | Head(_) -> failwith "Not Implemented"
-      | Tail(_) -> failwith "Not Implemented"
+      | Length _ -> failwith "Not Implemented"
+      | Head _ -> failwith "Not Implemented"
+      | Tail _ -> failwith "Not Implemented"
 
 and WSort =
   | WInt
@@ -750,7 +750,7 @@ let internal checkAssuming (ctx: Context) (assumptions: Proposition list) (p: Pr
   assumptions
   |> List.iter (fun l -> solver.Assert((l :> WExpr).ToZ3Expr(ctx, Map.empty) :?> BoolExpr))
 
-  let exp = ((p :> WExpr).ToZ3Expr(ctx, Map.empty)) :?> BoolExpr
+  let exp = (p :> WExpr).ToZ3Expr(ctx, Map.empty) :?> BoolExpr
   solver.Assert(ctx.MkNot exp)
 
   match solver.Check() with

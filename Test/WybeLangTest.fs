@@ -115,8 +115,8 @@ let ``weakest precondition assignment`` () =
 
 [<Fact>]
 let ``weakest precondition composition`` () =
-  [ Becomes ["n", DomainWExpr(None, n + 1)],
-    Becomes ["n", DomainWExpr(None, n * 2)],
+  [ Becomes [ "n", DomainWExpr(None, n + 1) ],
+    Becomes [ "n", DomainWExpr(None, n * 2) ],
     StateSpace(vars, n > zero),
     StateSpace(vars, (n + 1) * 2 > zero) ]
   |> List.iter (fun (s, t, postcondition, expected) ->

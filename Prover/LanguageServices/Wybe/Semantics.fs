@@ -380,10 +380,10 @@ let semanticExprToWExpr (e: SemanticTree) : DomainWExpr =
       | Lit(Int i), [] -> Integer i :> WExpr
       | Unary(Op.UnaryMinus, _), [ c ] -> -(typedToWExpr c :?> Integer) :> WExpr
       | Unary(Op.Length, _), [ c ] -> len (typedToWExpr c) :> WExpr
-      | Binary(_, Op.Plus, _), [ l; r ] -> ((typedToWExpr l :?> Integer) + (typedToWExpr r :?> Integer)) :> WExpr
-      | Binary(_, Op.Minus, _), [ l; r ] -> ((typedToWExpr l :?> Integer) - (typedToWExpr r :?> Integer)) :> WExpr
-      | Binary(_, Op.Times, _), [ l; r ] -> ((typedToWExpr l :?> Integer) * (typedToWExpr r :?> Integer)) :> WExpr
-      | Binary(_, Op.Div, _), [ l; r ] -> ((typedToWExpr l :?> Integer) / (typedToWExpr r :?> Integer)) :> WExpr
+      | Binary(_, Op.Plus, _), [ l; r ] -> (typedToWExpr l :?> Integer) + (typedToWExpr r :?> Integer) :> WExpr
+      | Binary(_, Op.Minus, _), [ l; r ] -> (typedToWExpr l :?> Integer) - (typedToWExpr r :?> Integer) :> WExpr
+      | Binary(_, Op.Times, _), [ l; r ] -> (typedToWExpr l :?> Integer) * (typedToWExpr r :?> Integer) :> WExpr
+      | Binary(_, Op.Div, _), [ l; r ] -> (typedToWExpr l :?> Integer) / (typedToWExpr r :?> Integer) :> WExpr
       | Expr.Var name, [] -> mkIntVar name
       | _ -> failwith $"not implemented: {exprToTree e.Expr}"
     | Some(Type.Array inner) ->
