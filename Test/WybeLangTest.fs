@@ -89,12 +89,12 @@ let ``domain conjunction`` () =
 
 open GriesSchneider
 
+let vars =
+  [ "n", Type.Integer; "m", Type.Integer; "x", Type.Boolean; "y", Type.Boolean ]
+  |> Map.ofList
+
 [<Fact>]
 let ``Expr to WExpr`` () =
-
-  let vars =
-    [ "n", Type.Integer; "m", Type.Integer; "x", Type.Boolean; "y", Type.Boolean ]
-    |> Map.ofList
 
   [ Binary(Expr.Var "n", Op.Plus, Expr.Var "m"), n + m :> Core.WExpr
     Binary(Expr.Var "x", Op.And, Expr.Var "y"), x <&&> y ]
@@ -105,10 +105,6 @@ let ``Expr to WExpr`` () =
 
 [<Fact>]
 let ``weakest precondition assignment`` () =
-  let vars =
-    [ "n", Type.Integer; "m", Type.Integer; "x", Type.Boolean; "y", Type.Boolean ]
-    |> Map.ofList
-
   let nExceeds0 = n > zero
 
   [ "n", DomainWExpr(None, n + 1), nExceeds0, n + 1 > zero
@@ -118,4 +114,11 @@ let ``weakest precondition assignment`` () =
     shouldEqual wp r.Proposition)
 
 [<Fact>]
-let ``weakest precondition composition`` () = ()
+let ``weakest precondition composition`` () =
+  [ Becomes ["n", DomainWExpr(None, n + 1)],
+    Becomes ["n", DomainWExpr(None, n * 2)],
+    StateSpace(vars, n > zero),
+    StateSpace(vars, (n + 1) * 2 > zero) ]
+  |> List.iter (fun (s, t, postcondition, expected) ->
+    let wp = wpComposition (s, t) postcondition
+    shouldEqual expected wp)

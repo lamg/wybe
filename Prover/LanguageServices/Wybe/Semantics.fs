@@ -355,18 +355,18 @@ let semanticExprToWExpr (e: SemanticTree) : DomainWExpr =
     match e.SemanticResult.Type with
     | Some Type.Boolean ->
       match e.Expr, e.Children with
-      | Binary(_, Op.And, _), [ l; r ] -> (typedToWExpr l) <&&> (typedToWExpr r)
-      | Binary(_, Op.Or, _), [ l; r ] -> (typedToWExpr l) <||> (typedToWExpr r)
-      | Binary(_, Op.Implies, _), [ l; r ] -> (typedToWExpr l) ==> (typedToWExpr r)
-      | Binary(_, Op.Follows, _), [ l; r ] -> (typedToWExpr l) <== (typedToWExpr r)
-      | Binary(_, Op.Equiv, _), [ l; r ] -> (typedToWExpr l) === (typedToWExpr r)
-      | Binary(_, Op.Inequiv, _), [ l; r ] -> (typedToWExpr l) !== (typedToWExpr r)
+      | Binary(_, Op.And, _), [ l; r ] -> typedToWExpr l <&&> typedToWExpr r
+      | Binary(_, Op.Or, _), [ l; r ] -> typedToWExpr l <||> typedToWExpr r
+      | Binary(_, Op.Implies, _), [ l; r ] -> typedToWExpr l ==> typedToWExpr r
+      | Binary(_, Op.Follows, _), [ l; r ] -> typedToWExpr l <== typedToWExpr r
+      | Binary(_, Op.Equiv, _), [ l; r ] -> typedToWExpr l === typedToWExpr r
+      | Binary(_, Op.Inequiv, _), [ l; r ] -> typedToWExpr l !== typedToWExpr r
       | Binary(_, Op.Equals, _), [ l; r ] -> Core.Equals(typedToWExpr l, typedToWExpr r)
-      | Binary(_, Op.Differs, _), [ l; r ] -> (typedToWExpr l) != (typedToWExpr r)
-      | Binary(_, Op.AtMost, _), [ l; r ] -> (typedToWExpr l) <= (typedToWExpr r)
-      | Binary(_, Op.AtLeast, _), [ l; r ] -> (typedToWExpr l :?> Integer) >= (typedToWExpr r :?> Integer)
-      | Binary(_, Op.LessThan, _), [ l; r ] -> (typedToWExpr l :?> Integer) < (typedToWExpr r :?> Integer)
-      | Binary(_, Op.Exceeds, _), [ l; r ] -> (typedToWExpr l :?> Integer) > (typedToWExpr r :?> Integer)
+      | Binary(_, Op.Differs, _), [ l; r ] -> typedToWExpr l != typedToWExpr r
+      | Binary(_, Op.AtMost, _), [ l; r ] -> typedToWExpr l <= typedToWExpr r
+      | Binary(_, Op.AtLeast, _), [ l; r ] -> typedToWExpr l >= typedToWExpr r
+      | Binary(_, Op.LessThan, _), [ l; r ] -> typedToWExpr l < typedToWExpr r
+      | Binary(_, Op.Exceeds, _), [ l; r ] -> typedToWExpr l > typedToWExpr r
       | Binary(_, Op.IsPrefix, _), [ l; r ] ->
         IsPrefix(typedToWExpr l :?> Sequence, typedToWExpr r :?> Sequence) :> WExpr
       | Binary(_, Op.IsSuffix, _), [ l; r ] ->
@@ -490,6 +490,7 @@ and wpAlternative (guards: Guard list) (space: StateSpace) =
 
   let andBodies = bodies.Tail |> List.fold (fun acc c -> acc <&&> c) bodies.Head
   StateSpace(space.Vars, orConds <&&> andBodies)
+
 // wlp.(do cond0 → body0 | cond1 → body1 od).P = (cond0 ∧ P ⇒ wp.body0.P) ∧ (cond1 ∧ P ⇒ wp.body1.P)
 and wlpRepetition (guards: Guard list) (space: StateSpace) =
   let bodies =
@@ -528,6 +529,25 @@ let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) =
 
     oks, errs
 
+  let guardedBlock (guards: AST.Guard list) =
+    let oks, errs =
+      guards
+      |> List.map (fun g ->
+        match makeStateSpace vars g.Condition with
+        | Ok e ->
+          match astStatementToSemantic vars g.Body with
+          | Ok body -> Ok(Guard(e.Proposition, body))
+          | Error m -> Error m
+        | Error m -> Error m)
+      |> splitResult
+
+    match errs with
+    | [] -> Ok oks
+    | errs ->
+      let r = errs |> List.map _.SemanticResult |> MultipleResults
+      Error(ST((r, Lit(Str "")), []))
+
+
   match s with
   | AST.VarDecl xs -> Ok(VarDecl xs)
   | AST.Abort -> Ok Abort
@@ -551,21 +571,5 @@ let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) =
     | [ e ] -> Error(ST((e, Lit(Str "")), []))
     | _ -> Error(ST((MultipleResults errs, Lit(Str "")), []))
   | AST.Becomes _ -> Error(ST((MalformedAssignment, Lit(Str "")), []))
-  | AST.Do guards ->
-    let oks, errs =
-      guards
-      |> List.map (fun g ->
-        match makeStateSpace vars g.Condition with
-        | Ok e ->
-          match astStatementToSemantic vars g.Body with
-          | Ok body -> Ok(Guard(e.Proposition, body))
-          | Error m -> Error m
-        | Error m -> Error m)
-      |> splitResult
-
-    match errs with
-    | [] -> Ok(Do oks)
-    | errs ->
-      let r = errs |> List.map _.SemanticResult |> MultipleResults
-      Error(ST((r, Lit(Str "")), []))
-  | AST.If _ -> failwith "boeu"
+  | AST.Do guards -> guardedBlock guards |> Result.map Do
+  | AST.If guards -> guardedBlock guards |> Result.map If

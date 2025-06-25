@@ -165,6 +165,8 @@ and Integer =
   static member (-)(x: Integer, y: int) = Minus(x, Integer y)
   static member (*)(x: Integer, y: Integer) = Times(x, y)
   static member (*)(x: int, y: Integer) = Times(Integer x, y)
+  static member (*)(x: Integer, y: int) = Times(x, Integer y)
+
   static member (/)(x: Integer, y: Integer) = Divide(x, y)
 
   interface WExpr with

@@ -166,7 +166,7 @@ let ``∨ ∧ absorption`` () =
 
 let ``⇒ definition`` = x ==> y === (x <||> y === x) |> axiom "⇒ definition"
 let consequence = x <== y === (y ==> x) |> axiom "consquence"
-let weakening = (x <&&> y) ==> x |> axiom "weakening"
+let weakening = x <&&> y ==> x |> axiom "weakening"
 
 let ``Leibniz as axiom`` f x y =
   x = y ==> (f x = f y) |> axiom "Leibniz as axiom"
@@ -196,13 +196,17 @@ let extractIntegers (name: string) (x: WExpr, y: WExpr) =
   | (:? Integer as x), (:? Var as y) -> x, ExtInteger y
   | _ -> failwith $"unexpected {x} {y} for {name}"
 
-let (>=) (x: Integer) (y: Integer) = ExtProposition(AtLeast(x, y))
+let (>=) (x: WExpr) (y: WExpr) =
+  ExtProposition(AtLeast(extractIntegers "≥" (x, y)))
 
 let (<=) (x: WExpr) (y: WExpr) =
-  ExtProposition(AtMost(extractIntegers "≥" (x, y)))
+  ExtProposition(AtMost(extractIntegers "≤" (x, y)))
 
-let (<) (x: Integer) (y: Integer) = ExtProposition(LessThan(x, y))
-let (>) (x: Integer) (y: Integer) = ExtProposition(Exceeds(x, y))
+let (<) (x: WExpr) (y: WExpr) =
+  ExtProposition(LessThan(extractIntegers "<" (x, y)))
+
+let (>) (x: WExpr) (y: WExpr) =
+  ExtProposition(Exceeds(extractIntegers ">" (x, y)))
 
 let ``+ associativity`` = n + m + p = n + m + p |> axiom "+ associativity"
 
