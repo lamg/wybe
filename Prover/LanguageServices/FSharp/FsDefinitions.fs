@@ -278,7 +278,7 @@ let parseAndTypeCheckSingleFile (file, input) =
 
   // Wait until type checking succeeds (or 100 attempts)
   match checkFileResults with
-  | FSharpCheckFileAnswer.Succeeded(res) -> parseFileResults, res
+  | FSharpCheckFileAnswer.Succeeded res -> parseFileResults, res
   | res -> failwithf "Parsing did not finish... (%A)" res
 
 

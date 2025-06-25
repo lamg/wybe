@@ -409,39 +409,20 @@ let semanticExprToWExpr (e: SemanticTree) : DomainWExpr =
   let domain = e.SemanticResult.Domain |> Option.map typedToWExpr
   DomainWExpr(domain, typedToWExpr e)
 
-type StateSpace =
-  | StateSpace of Map<string, Type> * Proposition
-
-  override this.ToString() : string =
-    let p = this.Proposition.ToString()
-
-    let vars =
-      this.Vars
-      |> Map.toList
-      |> List.map (fun (k, v) -> $"{k}: {v}")
-      |> String.concat "\n"
-
-    $"\n{vars}\n{p}"
-
-  member this.Proposition =
-    let (StateSpace(_, prop)) = this
-    prop
-
-  member this.Vars =
-    let (StateSpace(vars, _)) = this
-    vars
+let varsToString (vars: Map<string, Type>) =
+  vars |> Map.toList |> List.map (fun (k, v) -> $"{k}: {v}") |> String.concat "\n"
 
 let makeWExpr vars (expected: Type) (expr: Expr) =
   match checkChildrenFixedType vars (expr, expected) (expected, [ expr ]) with
   | e when e.SemanticResult.Type.IsSome -> Ok(semanticExprToWExpr e)
   | e -> Error e.SemanticResult
 
-let makeStateSpace vars (predicate: Expr) =
+let makePredicate vars (predicate: Expr) =
   match checkChildrenFixedType vars (predicate, Type.Boolean) (Type.Boolean, [ predicate ]) with
   | pred when pred.SemanticResult.Type.IsSome ->
     match semanticExprToWExpr pred with
-    | wexpr when wexpr.Domain.IsSome -> Ok(StateSpace(vars, wexpr.Domain.Value <&&> wexpr.Expr))
-    | wexpr -> Ok(StateSpace(vars, wexpr.Expr :?> Proposition))
+    | wexpr when wexpr.Domain.IsSome -> Ok(wexpr.Domain.Value <&&> wexpr.Expr)
+    | wexpr -> Ok(wexpr.Expr :?> Proposition)
   | r -> Error r
 
 type Guard =
@@ -456,73 +437,68 @@ type Guard =
     body
 
 and Statement =
-  | VarDecl of SameTypeDecl list
   | Becomes of (string * DomainWExpr) list
   | If of Guard list
   | Do of Guard list
-  | Assert of WExpr
+  | Assert of Proposition
   | Compose of Statement * Statement
   | Skip
   | Abort
 
 // weakest precondition of assignemt
 // wp.(x := E).P = defined.E ∧ P[x := E]
-let wpAssignment (becomes: (string * DomainWExpr) list) (space: StateSpace) =
+let wpAssignment (becomes: (string * DomainWExpr) list) (postcondition: Proposition) =
   let rec substitute (target: WExpr) ((var, expr): string * DomainWExpr) =
     target.TextualSubstitution var expr.Expr
 
-  let expr = becomes |> List.fold substitute space.Proposition
+  let expr = becomes |> List.fold substitute postcondition
 
   match becomes |> List.choose (snd >> _.Domain) with
-  | [] -> StateSpace(space.Vars, expr :?> Proposition)
+  | [] -> expr :?> Proposition
   | x :: xs ->
     let domain = xs |> List.fold (fun acc x -> acc <&&> x) (x :?> Proposition)
-    StateSpace(space.Vars, domain <&&> expr)
+    domain <&&> expr
 
-let wpVarDecls (xs: SameTypeDecl list) (space: StateSpace) =
-  let addVarType t (acc: Map<string, Type>) name = Map.add name t acc
-  let addSameType vars t map = vars |> List.fold (addVarType t) map
-
-  let newVars =
-    xs |> List.fold (fun acc (vars, t) -> addSameType vars t acc) space.Vars
-
-  StateSpace(newVars, space.Proposition)
-
-let rec wpComposition (s: Statement, t: Statement) (space: StateSpace) = wpStatement s (wpStatement t space)
+let rec wpComposition (s: Statement, t: Statement) (postcondition: Proposition) =
+  wpStatement s (wpStatement t postcondition)
 // wp.(if cond0 -> body0 | cond1 -> body1 fi).P = (cond0 ∨ cond1) ∧ (cond0 ⇒ wp.body0.P) ∧ (cond1 ⇒ wp.body1.P)
-and wpAlternative (guards: Guard list) (space: StateSpace) =
+and wpAlternative (guards: Guard list) (postcondition: Proposition) =
   let conds, bodies =
     guards
-    |> List.map (fun g -> g.Condition, g.Condition ==> (wpStatement g.Body space).Proposition)
+    |> List.map (fun g -> g.Condition, g.Condition ==> wpStatement g.Body postcondition)
     |> List.unzip
 
   let orConds =
     conds.Tail |> List.fold (fun acc c -> acc <||> c) (conds.Head :?> Proposition)
 
   let andBodies = bodies.Tail |> List.fold (fun acc c -> acc <&&> c) bodies.Head
-  StateSpace(space.Vars, orConds <&&> andBodies)
+  orConds <&&> andBodies
 
 // wlp.(do cond0 → body0 | cond1 → body1 od).P = (cond0 ∧ P ⇒ wp.body0.P) ∧ (cond1 ∧ P ⇒ wp.body1.P)
-and wlpRepetition (guards: Guard list) (space: StateSpace) =
+and wlpRepetition (guards: Guard list) (postcondition: Proposition) =
   let bodies =
     guards
-    |> List.map (fun g -> g.Condition <&&> space.Proposition ==> (wpStatement g.Body space).Proposition)
+    |> List.map (fun g -> g.Condition <&&> postcondition ==> wpStatement g.Body postcondition)
 
   let andBodies = bodies.Tail |> List.fold (fun acc c -> acc <&&> c) bodies.Head
-  StateSpace(space.Vars, andBodies)
+  andBodies
 
-and wpStatement (s: Statement) (space: StateSpace) =
+and wpStatement (s: Statement) (postcondition: Proposition) =
   match s with
-  | VarDecl xs -> wpVarDecls xs space
-  | Becomes becomes -> wpAssignment becomes space
-  | Compose(s, t) -> wpComposition (s, t) space
-  | If guards -> wpAlternative guards space
-  | Do guards -> wlpRepetition guards space
-  | Assert expr -> StateSpace(space.Vars, expr ==> space.Proposition)
-  | Skip -> space // wp.skip.P = P
-  | Abort -> StateSpace(Map.empty, False)
+  | Becomes becomes -> wpAssignment becomes postcondition
+  | Compose(s, t) -> wpComposition (s, t) postcondition
+  | If guards -> wpAlternative guards postcondition
+  | Do guards -> wlpRepetition guards postcondition
+  | Assert expr -> expr ==> postcondition
+  | Skip -> postcondition // wp.skip.P = P
+  | Abort -> False
 
-let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) =
+type AstSemanticResult =
+  | NewVars of Map<string, Type>
+  | NewStatement of Statement
+  | FailedSemantic of SemanticResult
+
+let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) : AstSemanticResult =
   let splitResult (rs: Result<'a, 'b> list) =
     let oks, errs = rs |> List.partition Result.isOk
 
@@ -540,33 +516,36 @@ let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) =
 
     oks, errs
 
-  let guardedBlock (guards: AST.Guard list) =
+  let guardedBlock (constructor: Guard list -> Statement) (guards: AST.Guard list) =
     let oks, errs =
       guards
       |> List.map (fun g ->
-        match makeStateSpace vars g.Condition with
+        match makePredicate vars g.Condition with
         | Ok e ->
           match astStatementToSemantic vars g.Body with
-          | Ok body -> Ok(Guard(e.Proposition, body))
-          | Error m -> Error m
-        | Error m -> Error m)
+          | NewStatement body -> Ok(Guard(e, body))
+          | FailedSemantic m -> Error m
+          | NewVars _ -> failwith "not implemented"
+        | Error m -> Error m.SemanticResult)
       |> splitResult
 
     match errs with
-    | [] -> Ok oks
-    | errs ->
-      let r = errs |> List.map _.SemanticResult |> MultipleResults
-      Error(ST((r, Lit(Str "")), []))
-
+    | [] -> constructor oks |> NewStatement
+    | errs -> errs |> MultipleResults |> FailedSemantic
 
   match s with
-  | AST.VarDecl xs -> Ok(VarDecl xs)
-  | AST.Abort -> Ok Abort
-  | AST.Skip -> Ok Skip
+  | AST.VarDecl xs ->
+    let addVarType t (acc: Map<string, Type>) name = Map.add name t acc
+    let addSameType vars t map = vars |> List.fold (addVarType t) map
+
+    let newVars = xs |> List.fold (fun acc (vars, t) -> addSameType vars t acc) vars
+    NewVars newVars
+  | AST.Abort -> NewStatement Abort
+  | AST.Skip -> NewStatement Skip
   | AST.Assert expr ->
-    match makeStateSpace vars expr with
-    | Ok s -> Ok(Assert s.Proposition)
-    | Error e -> Error e
+    match makePredicate vars expr with
+    | Ok s -> NewStatement(Assert s)
+    | Error e -> FailedSemantic e.SemanticResult
   | AST.Becomes(vs, exprs) when vs.Length.Equals exprs.Length ->
     let oks, errs =
       exprs
@@ -578,9 +557,9 @@ let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) =
       |> splitResult
 
     match errs with
-    | [] -> Ok(Becomes oks)
-    | [ e ] -> Error(ST((e, Lit(Str "")), []))
-    | _ -> Error(ST((MultipleResults errs, Lit(Str "")), []))
-  | AST.Becomes _ -> Error(ST((MalformedAssignment, Lit(Str "")), []))
-  | AST.Do guards -> guardedBlock guards |> Result.map Do
-  | AST.If guards -> guardedBlock guards |> Result.map If
+    | [] -> NewStatement(Becomes oks)
+    | [ e ] -> FailedSemantic e
+    | _ -> FailedSemantic(MultipleResults errs)
+  | AST.Becomes _ -> FailedSemantic MalformedAssignment
+  | AST.Do guards -> guardedBlock Do guards
+  | AST.If guards -> guardedBlock If guards

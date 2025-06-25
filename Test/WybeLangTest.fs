@@ -110,15 +110,12 @@ let ``wp assignment`` () =
   [ "n", DomainWExpr(None, n + 1), nExceeds0, n + 1 > zero
     "n", DomainWExpr(Some(m != zero), n / m), nExceeds0, m != zero <&&> (n / m > zero) ]
   |> List.iter (fun (var, expr, postcondition, wp) ->
-    let r = wpAssignment [ var, expr ] (StateSpace(vars, postcondition))
-    shouldEqual wp r.Proposition)
+    let r = wpAssignment [ var, expr ] postcondition
+    shouldEqual wp r)
 
 [<Fact>]
 let ``wp composition`` () =
-  [ Becomes [ "n", DomainWExpr(None, n + 1) ],
-    Becomes [ "n", DomainWExpr(None, n * 2) ],
-    StateSpace(vars, n > zero),
-    StateSpace(vars, (n + 1) * 2 > zero) ]
+  [ Becomes [ "n", DomainWExpr(None, n + 1) ], Becomes [ "n", DomainWExpr(None, n * 2) ], n > zero, (n + 1) * 2 > zero ]
   |> List.iter (fun (s, t, postcondition, expected) ->
     let wp = wpComposition (s, t) postcondition
     shouldEqual expected wp)
@@ -128,23 +125,20 @@ let ``wp alternative`` () =
   [ [ Guard(Core.Equals(n, zero), Becomes [ "n", DomainWExpr(None, n + 1) ])
       Guard(n > zero, Skip)
       Guard(n < zero, Becomes [ "n", DomainWExpr(None, n * -1) ]) ],
-    StateSpace(vars, n > zero),
-    StateSpace(
-      vars,
-      (n = zero <||> (n > zero) <||> (n < zero))
-      <&&> (n = zero ==> (n + 1 > zero))
-      <&&> (n > zero ==> (n > zero))
-      <&&> (n < zero ==> (n * -1 > zero))
-    ) ]
-  |> List.iter (fun (guards, space, expected) ->
-    let r = wpAlternative guards space
-    shouldEqual $"{expected}" $"{r}")
+    n > zero,
+    (n = zero <||> (n > zero) <||> (n < zero))
+    <&&> (n = zero ==> (n + 1 > zero))
+    <&&> (n > zero ==> (n > zero))
+    <&&> (n < zero ==> (n * -1 > zero)) ]
+  |> List.iter (fun (guards, postcondition, expected) ->
+    let wp = wpAlternative guards postcondition
+    shouldEqual $"{expected}" $"{wp}")
 
 [<Fact>]
 let ``wlp repetition`` () =
   [ [ Guard(n > zero, Becomes [ "n", DomainWExpr(None, n - 1) ]) ],
-    StateSpace(vars, n >= zero),
-    StateSpace(vars, (n > zero <&&> (n >= zero) ==> (n - 1 >= zero))) ]
-  |> List.iter (fun (guards, space, expected) ->
-    let r = wlpRepetition guards space
-    shouldEqual expected r)
+    n >= zero,
+    (n > zero <&&> (n >= zero) ==> (n - 1 >= zero)) ]
+  |> List.iter (fun (guards, postcondition, expected) ->
+    let wp = wlpRepetition guards postcondition
+    shouldEqual expected wp)
