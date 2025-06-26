@@ -4,19 +4,19 @@ open AST
 
 type Expected =
   { expected: Type
-    got: SemanticResult
+    got: TypingResult
     atChild: int }
 
-and SemanticResult =
+and TypingResult =
   | Typed of Type
-  | TypedDomain of Type * domain: SemanticTree list
+  | TypedDomain of Type * domain: TypedTree list
   | Expecting of Expected list
   | ExpectingSameType of got: Type list
   | NotRecognizedOperator of Op
   | NotFoundVar of string
   | Untyped
   | MalformedAssignment
-  | MultipleResults of SemanticResult list
+  | MultipleResults of TypingResult list
   | UndeclaredVariable of string
 
   member this.Type =
@@ -25,7 +25,7 @@ and SemanticResult =
     | TypedDomain(r, _) -> Some r
     | _ -> None
 
-  member this.AddDomain(expr: SemanticTree) =
+  member this.AddDomain(expr: TypedTree) =
     match this with
     | Typed t -> TypedDomain(t, [ expr ])
     | TypedDomain(t, xs) -> TypedDomain(t, expr :: xs)
@@ -38,7 +38,7 @@ and SemanticResult =
       | [] -> None
       | y :: ys ->
         ys
-        |> List.fold (fun acc x -> ST((Typed Type.Boolean, Binary(x.Expr, Op.And, acc.Expr)), [ acc; x ])) y
+        |> List.fold (fun acc x -> TypedTree(Typed Type.Boolean, Binary(x.Expr, Op.And, acc.Expr), [ acc; x ])) y
         |> Some
     | _ -> None
 
@@ -47,23 +47,23 @@ and SemanticResult =
     | Expecting xs -> xs
     | _ -> []
 
-and SemanticTree =
-  | ST of value: (SemanticResult * Expr) * children: SemanticTree list
+and TypedTree =
+  | TypedTree of result: TypingResult * expr: Expr * children: TypedTree list
 
-  member this.AddDomain(expr: SemanticTree) =
-    let (ST((r, e), xs)) = this
-    ST((r.AddDomain expr, e), xs)
+  member this.AddDomain(expr: TypedTree) =
+    let (TypedTree(r, e, xs)) = this
+    TypedTree(r.AddDomain expr, e, xs)
 
   member this.Expr =
-    let (ST((_, expr), _)) = this
+    let (TypedTree(_, expr, _)) = this
     expr
 
   member this.SemanticResult =
-    let (ST((r, _), _)) = this
+    let (TypedTree(r, _, _)) = this
     r
 
   member this.Children =
-    let (ST(_, children)) = this
+    let (TypedTree(_, _, children)) = this
     children
 
 let rec checkChildrenFixedType
@@ -89,10 +89,10 @@ let rec checkChildrenFixedType
       let childrenDomains = xs |> List.choose (fun x -> x.SemanticResult.Domain)
 
       match childrenDomains with
-      | [] -> ST((Typed resultType, e), xs)
-      | _ -> ST((TypedDomain(resultType, childrenDomains), e), xs)
+      | [] -> TypedTree(Typed resultType, e, xs)
+      | _ -> TypedTree(TypedDomain(resultType, childrenDomains), e, xs)
 
-    | rs -> ST((Expecting rs, e), xs)
+    | rs -> TypedTree(Expecting rs, e, xs)
 
 and checkChildrenEqualType (vars: Map<string, Type>) (e: Expr, resultType: Type) (children: Expr list) =
   let xs = children |> List.map (extractTypeAndDomain vars)
@@ -102,12 +102,12 @@ and checkChildrenEqualType (vars: Map<string, Type>) (e: Expr, resultType: Type)
     let childrenDomains = xs |> List.choose (fun x -> x.SemanticResult.Domain)
 
     match childrenDomains with
-    | [] -> ST((Typed resultType, e), xs)
-    | _ -> ST((TypedDomain(resultType, childrenDomains), e), xs)
+    | [] -> TypedTree(Typed resultType, e, xs)
+    | _ -> TypedTree(TypedDomain(resultType, childrenDomains), e, xs)
   else
-    ST((ExpectingSameType(Set.toList types), e), xs)
+    TypedTree(ExpectingSameType(Set.toList types), e, xs)
 
-and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
+and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : TypedTree =
   match e with
   | Binary(left, op, right) ->
 
@@ -121,9 +121,9 @@ and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
 
       let zero = Lit(Int 0)
       let diffZero = Binary(right, Op.Differs, zero)
-      let typedZero = ST((Typed Type.Integer, zero), [])
+      let typedZero = TypedTree(Typed Type.Integer, zero, [])
 
-      let domain = ST((Typed Type.Boolean, diffZero), [ r.Children[1]; typedZero ])
+      let domain = TypedTree(Typed Type.Boolean, diffZero, [ r.Children[1]; typedZero ])
       r.AddDomain domain
     | Op.Equals
     | Op.Differs -> checkChildrenEqualType vars (e, Type.Boolean) [ left; right ]
@@ -141,19 +141,19 @@ and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
       let l, r = extractTypeAndDomain vars left, extractTypeAndDomain vars right
 
       match l.SemanticResult.Type, r.SemanticResult.Type with
-      | Some t, Some(Type.Array u) when u = t -> ST((Typed(Type.Array t), e), [ l; r ])
-      | _ -> ST((NotRecognizedOperator op, e), [ l; r ])
+      | Some t, Some(Type.Array u) when u = t -> TypedTree(Typed(Type.Array t), e, [ l; r ])
+      | _ -> TypedTree(NotRecognizedOperator op, e, [ l; r ])
     | Op.Concat ->
       let l, r = extractTypeAndDomain vars left, extractTypeAndDomain vars right
 
       match l.SemanticResult.Type, r.SemanticResult.Type with
-      | Some(Type.Array t), Some(Type.Array u) when u = t -> ST((Typed(Type.Array t), e), [ l; r ])
-      | _ -> ST((NotRecognizedOperator op, e), [ l; r ])
+      | Some(Type.Array t), Some(Type.Array u) when u = t -> TypedTree(Typed(Type.Array t), e, [ l; r ])
+      | _ -> TypedTree(NotRecognizedOperator op, e, [ l; r ])
     | Op.IsPrefix
     | Op.IsSuffix -> checkChildrenFixedType vars (e, Type.Boolean) (Type.Array(Type.VarType "a"), [ left; right ])
     | _ ->
       let l, r = extractTypeAndDomain vars left, extractTypeAndDomain vars right
-      ST((NotRecognizedOperator op, e), [ l; r ])
+      TypedTree(NotRecognizedOperator op, e, [ l; r ])
   | Unary(op, right) ->
     match op with
     | Op.Not -> checkChildrenFixedType vars (e, Type.Boolean) (Type.Boolean, [ right ])
@@ -163,35 +163,35 @@ and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
       let r = extractTypeAndDomain vars right
 
       match r.SemanticResult.Type with
-      | Some(Type.Array t) -> ST((Typed t, e), [ r ])
-      | _ -> ST((NotRecognizedOperator op, e), [ r ])
+      | Some(Type.Array t) -> TypedTree(Typed t, e, [ r ])
+      | _ -> TypedTree(NotRecognizedOperator op, e, [ r ])
     | Op.Tail ->
       let r = extractTypeAndDomain vars right
 
       match r.SemanticResult.Type with
-      | Some(Type.Array t) -> ST((Typed(Type.Array t), e), [ r ])
-      | _ -> ST((NotRecognizedOperator op, e), [ r ])
+      | Some(Type.Array t) -> TypedTree(Typed(Type.Array t), e, [ r ])
+      | _ -> TypedTree(NotRecognizedOperator op, e, [ r ])
     | _ ->
       let r = extractTypeAndDomain vars right
-      ST((NotRecognizedOperator op, e), [ r ])
+      TypedTree(NotRecognizedOperator op, e, [ r ])
   | Var name ->
     match Map.tryFind name vars with
-    | Some v -> ST((Typed v, e), [])
-    | None -> ST((NotFoundVar name, e), [])
+    | Some v -> TypedTree(Typed v, e, [])
+    | None -> TypedTree(NotFoundVar name, e, [])
   | Lit v ->
     match v with
-    | Int _ -> ST((Typed Type.Integer, e), [])
-    | Bool _ -> ST((Typed Type.Boolean, e), [])
-    | Str _ -> ST((Typed Type.String, e), [])
+    | Int _ -> TypedTree(Typed Type.Integer, e, [])
+    | Bool _ -> TypedTree(Typed Type.Boolean, e, [])
+    | Str _ -> TypedTree(Typed Type.String, e, [])
   | Array xs ->
     match xs with
-    | [] -> ST((Untyped, e), [])
+    | [] -> TypedTree(Untyped, e, [])
     | y :: ys ->
       let r = extractTypeAndDomain vars y
       let rs = ys |> List.map (extractTypeAndDomain vars)
 
       match r with
-      | ST((Typed t, _), _) ->
+      | TypedTree(Typed t, _, _) ->
         // this branch reports which array elements do not have the
         // same type as the first element
         // in case the list of different types is empty, then the array
@@ -200,8 +200,8 @@ and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
           rs
           |> List.mapi (fun i ->
             function
-            | ST((Typed u, _), _) when t = u -> None
-            | ST((u, _), _) ->
+            | TypedTree(Typed u, _, _) when t = u -> None
+            | TypedTree(u, _, _) ->
               Some
                 { expected = t
                   got = u
@@ -209,36 +209,36 @@ and extractTypeAndDomain (vars: Map<string, Type>) (e: Expr) : SemanticTree =
           |> List.choose id
 
         match diffElemTypes with
-        | [] -> ST((Typed(Type.Array t), e), r :: rs)
-        | _ -> ST((Expecting diffElemTypes, e), r :: rs)
-      | ST((v, _), _) -> ST((v, e), r :: rs)
+        | [] -> TypedTree(Typed(Type.Array t), e, r :: rs)
+        | _ -> TypedTree(Expecting diffElemTypes, e, r :: rs)
+      | TypedTree(v, _, _) -> TypedTree(v, e, r :: rs)
   | ArrayElem(name, index) ->
     match Map.tryFind name vars with
     | Some(Type.Array t) ->
       let indexResult = extractTypeAndDomain vars index
 
       match indexResult with
-      | ST((TypedDomain(Type.Integer, _), _), _)
-      | ST((Typed Type.Integer, _), _) ->
+      | TypedTree(TypedDomain(Type.Integer, _), _, _)
+      | TypedTree(Typed Type.Integer, _, _) ->
         let domain = indexResult.SemanticResult.Domain |> Option.toList
-        let r = ST((TypedDomain(t, domain), e), [ indexResult ])
+        let r = TypedTree(TypedDomain(t, domain), e, [ indexResult ])
 
         let arrayDomain =
           Binary(Binary(Lit(Int 0), Op.AtMost, index), Op.And, Binary(index, Op.LessThan, Unary(Op.Length, Var name)))
           |> extractTypeAndDomain vars
 
         r.AddDomain arrayDomain
-      | _ -> ST((Typed t, e), [ indexResult ])
+      | _ -> TypedTree(Typed t, e, [ indexResult ])
     | Some t ->
-      ST(
-        (Expecting
+      TypedTree(
+        Expecting
           [ { expected = Type.Array(Type.VarType "a")
               got = Typed t
               atChild = 0 } ],
-         e),
+        e,
         []
       )
-    | None -> ST((Untyped, e), [])
+    | None -> TypedTree(Untyped, e, [])
 
 open Core
 
@@ -312,8 +312,8 @@ let rec exprToTree: Expr -> SymbolTree =
     SymbolTree.Node(Symbol.Atom name, [ SymbolTree.Node(Symbol.Indexed, [ exprToTree index ]) ])
 
 
-let collectSemanticTreeInfo (e: SemanticTree) =
-  let errorInfo (e: SemanticTree) =
+let collectSemanticTreeInfo (e: TypedTree) =
+  let errorInfo (e: TypedTree) =
     match e.SemanticResult with
     | Expecting xs -> xs |> List.map (fun x -> $"expecting {x.expected}, got {x.got}")
     | ExpectingSameType got -> [ $"expecting same type, got: {got |> List.map string}" ]
@@ -323,7 +323,7 @@ let collectSemanticTreeInfo (e: SemanticTree) =
     | _ -> []
     |> List.map (fun r -> $"{exprToTree e.Expr}: {r}")
 
-  let rec innerInfo (e: SemanticTree) =
+  let rec innerInfo (e: TypedTree) =
     let info = errorInfo e
     info @ (e.Children |> List.collect innerInfo)
 
@@ -350,8 +350,8 @@ type DomainWExpr =
     let (DomainWExpr(domain, _)) = this
     domain
 
-let semanticExprToWExpr (e: SemanticTree) : DomainWExpr =
-  let rec typedToWExpr (e: SemanticTree) : WExpr =
+let semanticExprToWExpr (e: TypedTree) : DomainWExpr =
+  let rec typedToWExpr (e: TypedTree) : WExpr =
     match e.SemanticResult.Type with
     | Some Type.Boolean ->
       match e.Expr, e.Children with
@@ -496,7 +496,7 @@ and wpStatement (s: Statement) (postcondition: Proposition) =
 type AstSemanticResult =
   | NewVars of Map<string, Type>
   | NewStatement of Statement
-  | FailedSemantic of SemanticResult
+  | FailedSemantic of TypingResult
 
 let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) : AstSemanticResult =
   let splitResult (rs: Result<'a, 'b> list) =
