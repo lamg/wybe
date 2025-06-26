@@ -142,3 +142,40 @@ let ``wlp repetition`` () =
   |> List.iter (fun (guards, postcondition, expected) ->
     let wp = wlpRepetition guards postcondition
     shouldEqual expected wp)
+
+[<Fact>]
+let ``ast to semantic block`` () =
+  let m, n, zero = Expr.Var "m", Expr.Var "n", Lit(Int 0)
+  let exceeds x y = Binary(x, Op.Exceeds, y)
+
+  let diff x y = Binary(x, Op.Differs, y)
+
+  let andOp x y = Binary(x, Op.And, y)
+  let minus x y = Binary(x, Op.Minus, y)
+  let equals x y = Binary(x, Op.Equals, y)
+  let branch0 = AST.Guard(exceeds m n, AST.Becomes([ "m" ], [ minus m n ]))
+  let branch1 = AST.Guard(exceeds n m, AST.Becomes([ "n" ], [ minus n m ]))
+
+  let vars, errs, statement =
+    [ VarDecl [ [ "m"; "n" ], Type.Integer ]
+      AST.Assert(andOp (exceeds m zero) (exceeds n zero))
+      AST.Do [ AST.Guard(diff m n, AST.If [ branch0; branch1 ]) ]
+      AST.Assert(equals m n) ]
+    |> astBlockToSemantic
+
+  shouldBeEmpty errs
+  shouldEqual (Map.ofList [ "m", Type.Integer; "n", Type.Integer ]) vars
+  let m, n, zero = GriesSchneider.m, GriesSchneider.n, GriesSchneider.zero
+  let assertMN = Assert(m > zero <&&> (n > zero))
+
+  let ifBody =
+    If
+      [ Guard(m > n, Becomes [ "m", DomainWExpr(None, m - n) ])
+        Guard(n > m, Becomes [ "n", DomainWExpr(None, n - m) ]) ]
+
+  let doMeqN = Do [ Guard(m != n, ifBody) ]
+
+  let expected =
+    Compose(assertMN, Compose(doMeqN, Assert(Core.Equals(GriesSchneider.m, GriesSchneider.n))))
+
+  shouldEqual $"{expected}" $"{statement}"

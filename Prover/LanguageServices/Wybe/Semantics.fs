@@ -374,7 +374,7 @@ let semanticExprToWExpr (e: TypedTree) : DomainWExpr =
       | Unary(Op.Not, _), [ c ] -> !(typedToWExpr c)
       | Lit(Bool b), [] -> if b then True else False
       | Expr.Var name, [] -> mkBoolVar name
-      | _ -> failwith $"unexpected boolean expression: {exprToTree e.Expr}"
+      | _ -> failwith $"unexpected boolean expression: {exprToTree e.Expr} children length {e.Children.Length}"
     | Some Type.Integer ->
       match e.Expr, e.Children with
       | Lit(Int i), [] -> Integer i :> WExpr
@@ -414,13 +414,13 @@ let varsToString (vars: Map<string, Type>) =
 
 let makeWExpr vars (expected: Type) (expr: Expr) =
   match checkChildrenFixedType vars (expr, expected) (expected, [ expr ]) with
-  | e when e.SemanticResult.Type.IsSome -> Ok(semanticExprToWExpr e)
+  | e when e.SemanticResult.Type.IsSome -> Ok(semanticExprToWExpr e.Children.Head)
   | e -> Error e.SemanticResult
 
 let makePredicate vars (predicate: Expr) =
   match checkChildrenFixedType vars (predicate, Type.Boolean) (Type.Boolean, [ predicate ]) with
   | pred when pred.SemanticResult.Type.IsSome ->
-    match semanticExprToWExpr pred with
+    match semanticExprToWExpr pred.Children.Head with
     | wexpr when wexpr.Domain.IsSome -> Ok(wexpr.Domain.Value <&&> wexpr.Expr)
     | wexpr -> Ok(wexpr.Expr :?> Proposition)
   | r -> Error r
@@ -444,6 +444,23 @@ and Statement =
   | Compose of Statement * Statement
   | Skip
   | Abort
+
+  override this.ToString() =
+    let guardsToStr (guards: Guard list) =
+      guards |> List.map (fun g -> $"{g.Condition} → {g.Body}") |> String.concat " ⫿ "
+
+    match this with
+    | Becomes xs ->
+      let lhs, rhs = List.unzip xs
+      let vars = lhs |> String.concat ", "
+      let exprs = rhs |> List.map (_.Expr >> string) |> String.concat ", "
+      $"{vars} ≔ {exprs}"
+    | If guards -> $"if {guardsToStr guards} fi"
+    | Do guards -> $"do {guardsToStr guards} od"
+    | Assert p -> $"{{{p}}}"
+    | Compose(s, t) -> $"{s};{t}"
+    | Skip -> "skip"
+    | Abort -> "abort"
 
 // weakest precondition of assignemt
 // wp.(x := E).P = defined.E ∧ P[x := E]
@@ -498,7 +515,7 @@ type AstSemanticResult =
   | NewStatement of Statement
   | FailedSemantic of TypingResult
 
-let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) : AstSemanticResult =
+let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) =
   let splitResult (rs: Result<'a, 'b> list) =
     let oks, errs = rs |> List.partition Result.isOk
 
@@ -519,19 +536,20 @@ let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) : As
   let guardedBlock (constructor: Guard list -> Statement) (guards: AST.Guard list) =
     let oks, errs =
       guards
-      |> List.map (fun g ->
-        match makePredicate vars g.Condition with
-        | Ok e ->
-          match astStatementToSemantic vars g.Body with
-          | NewStatement body -> Ok(Guard(e, body))
-          | FailedSemantic m -> Error m
-          | NewVars _ -> failwith "not implemented"
-        | Error m -> Error m.SemanticResult)
-      |> splitResult
+      |> List.fold
+        (fun (oks, errs) g ->
+          match makePredicate vars g.Condition with
+          | Ok e ->
+            match astStatementToSemantic vars g.Body with
+            | NewStatement body -> Guard(e, body) :: oks, errs
+            | FailedSemantic m -> oks, m :: errs
+            | NewVars _ -> oks, errs
+          | Error m -> oks, m.SemanticResult :: errs)
+        ([], [])
 
     match errs with
-    | [] -> constructor oks |> NewStatement
-    | errs -> errs |> MultipleResults |> FailedSemantic
+    | [] -> constructor (List.rev oks) |> NewStatement
+    | errs -> (List.rev errs) |> MultipleResults |> FailedSemantic
 
   match s with
   | AST.VarDecl xs ->
@@ -563,3 +581,14 @@ let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) : As
   | AST.Becomes _ -> FailedSemantic MalformedAssignment
   | AST.Do guards -> guardedBlock Do guards
   | AST.If guards -> guardedBlock If guards
+
+let astBlockToSemantic (xs: AST.Statement list) =
+  xs
+  |> List.fold
+    (fun (vars, errs, s) x ->
+      match astStatementToSemantic vars x with
+      | NewVars newVars -> (newVars, errs, s)
+      | NewStatement r when s.Equals Skip -> (vars, errs, r)
+      | NewStatement r -> (vars, errs, Compose(s, r))
+      | FailedSemantic e -> (vars, e :: errs, s))
+    (Map.empty, [], Skip)
