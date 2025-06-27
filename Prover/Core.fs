@@ -150,6 +150,8 @@ and Integer =
   | AtLeast of Integer * Integer // ≥
   | AtMost of Integer * Integer // ≤
   | IsDivisor of Integer * Integer // ∣
+  | Max of Integer * Integer // x ↑ y
+  | Min of Integer * Integer // x ↓ y
 
   override this.ToString() : string =
     (this :> WExpr).ToSymbolTree().ToString()
@@ -173,19 +175,24 @@ and Integer =
     member this.ToSymbolTree() =
       let toTree (e: WExpr) = e.ToSymbolTree()
 
+      let binary5 symbol x y =
+        SymbolTree.Node(Symbol.Op(symbol, 5), [ toTree x; toTree y ])
+
       match this with
       | ExtInteger e -> e.ToSymbolTree()
       | Integer i -> SymbolTree.Node(Symbol.Const $"{i}", [])
       | UnaryMinus n -> SymbolTree.Node(Symbol.Op("-", 6), [ toTree n ])
-      | Plus(x, y) -> SymbolTree.Node(Symbol.Op("+", 5), [ toTree x; toTree y ])
-      | Minus(x, y) -> SymbolTree.Node(Symbol.Op("-", 5), [ toTree x; toTree y ])
-      | Times(x, y) -> SymbolTree.Node(Symbol.Op("×", 5), [ toTree x; toTree y ])
-      | Divide(x, y) -> SymbolTree.Node(Symbol.Op("÷", 5), [ toTree x; toTree y ])
-      | Exceeds(x, y) -> SymbolTree.Node(Symbol.Op(">", 5), [ toTree x; toTree y ])
-      | LessThan(x, y) -> SymbolTree.Node(Symbol.Op("<", 5), [ toTree x; toTree y ])
-      | AtLeast(x, y) -> SymbolTree.Node(Symbol.Op("≥", 5), [ toTree x; toTree y ])
-      | AtMost(x, y) -> SymbolTree.Node(Symbol.Op("≤", 5), [ toTree x; toTree y ])
-      | IsDivisor(x, y) -> SymbolTree.Node(Symbol.Op("∣", 5), [ toTree x; toTree y ])
+      | Plus(x, y) -> binary5 "+" x y
+      | Minus(x, y) -> binary5 "-" x y
+      | Times(x, y) -> binary5 "×" x y
+      | Divide(x, y) -> binary5 "÷" x y
+      | Exceeds(x, y) -> binary5 ">" x y
+      | LessThan(x, y) -> binary5 "<" x y
+      | AtLeast(x, y) -> binary5 "≥" x y
+      | AtMost(x, y) -> binary5 "≤" x y
+      | IsDivisor(x, y) -> binary5 "∣" x y
+      | Max(x, y) -> binary5 "↑" x y
+      | Min(x, y) -> binary5 "↓" x y
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toExp n =
@@ -228,6 +235,8 @@ and Integer =
         let x = ctx.MkIntConst x
         let p, q = toExp n, toExp m
         ctx.MkExists([| x |], ctx.MkEq(ctx.MkMul(p, x), q))
+      | Max(_, _) -> failwith "Not Implemented"
+      | Min(_, _) -> failwith "Not Implemented"
 
     member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
       let substitute (e: WExpr) =
@@ -251,10 +260,87 @@ and Integer =
       | AtLeast(left, right) -> AtLeast(substitute left, substitute right)
       | AtMost(left, right) -> AtMost(substitute left, substitute right)
       | IsDivisor(left, right) -> IsDivisor(substitute left, substitute right)
+      | Max(_, _) -> failwith "Not Implemented"
+      | Min(_, _) -> failwith "Not Implemented"
 
-and Quantifier =
+and QuantifierDef =
   | Forall
   | Exists
+  | Maximum
+  | Minimum
+  | Product
+  | Sum
+
+and Quantifier =
+  | Quantifier of QuantifierDef * vars: WExpr list * body: WExpr
+
+  member this.Body =
+    let (Quantifier(_, _, body)) = this
+    body
+
+  member this.Vars =
+    let (Quantifier(_, vars, _)) = this
+    vars
+
+  member this.QuantifierDef =
+    let (Quantifier(q, _, _)) = this
+    q
+
+  interface WExpr with
+    member this.ToSymbolTree() : SymbolTree =
+      let symbol =
+        match this.QuantifierDef with
+        | Forall -> "∀"
+        | Exists -> "∃"
+        | Maximum -> "↑"
+        | Minimum -> "↓"
+        | Product -> "Π"
+        | Sum -> "Σ"
+
+      let vs = this.Vars |> List.map (fun v -> v.ToString()) |> String.concat ","
+      let p = this.Body.ToSymbolTree().ToString()
+
+      SymbolTree.Node(Symbol.Atom $"⟨{symbol}{vs} → {p}⟩", [])
+
+    member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
+      let rec mkBoundExpr i (v: WExpr) =
+        match v with
+        | :? Var as v -> v, ctx.MkBound(uint32 i, v.Sort.toZ3Sort ctx)
+        | :? Proposition as p ->
+          match p with
+          | ExtProposition e -> mkBoundExpr i e
+          | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
+        | :? Sequence as s ->
+          match s with
+          | ExtSequence e -> mkBoundExpr i e
+          | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
+        | :? Integer as n ->
+          match n with
+          | ExtInteger e -> mkBoundExpr i e
+          | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
+        | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
+
+      let z3Vars =
+        this.Vars |> List.map (fun v -> v.ToZ3Expr(ctx, boundVars)) |> List.toArray
+
+      let boundVars =
+        this.Vars
+        |> List.mapi mkBoundExpr
+        |> List.fold (fun m (k, v) -> Map.add k.Name v m) boundVars
+
+      let z3Body = this.Body.ToZ3Expr(ctx, boundVars)
+      let patterns = Proposition.extractPatternFromRecurrence (ctx, boundVars, this.Body)
+
+      match this.QuantifierDef with
+      | Forall -> ctx.MkForall(z3Vars, body = z3Body, patterns = patterns)
+      | Exists -> ctx.MkExists(z3Vars, body = z3Body, patterns = patterns)
+      | Maximum -> failwith "transforming Maximum quantifiers requires an equality"
+      | Minimum -> failwith "transforming Minimum quantifiers requires an equality"
+      | Product -> failwith "Not Implemented"
+      | Sum -> failwith "Not Implemented"
+
+    member this.TextualSubstitution (arg: string) (arg_1: WExpr) : WExpr =
+      raise (System.NotImplementedException())
 
 and Proposition =
   | ExtProposition of WExpr // used for wrapping other operators that return booleans besides Equals and Differs (variables, >, <, etc.)
@@ -269,7 +355,6 @@ and Proposition =
   | Inequiv of left: Proposition * right: Proposition
   | Implies of left: Proposition * right: Proposition
   | Follows of left: Proposition * right: Proposition
-  | Quantifier of Quantifier * vars: WExpr list * body: Proposition
 
   override this.ToString() : string =
     (this :> WExpr).ToSymbolTree().ToString()
@@ -313,7 +398,7 @@ and Proposition =
           let l, _ = loop left
           let r, _ = loop right
           l @ r, []
-        | Quantifier(_, _, body) -> loop body
+      | :? Quantifier as q -> loop q.Body
       | :? Integer as p ->
         match p with
         | ExtInteger m -> loop m
@@ -331,6 +416,8 @@ and Proposition =
           let _, l = loop x
           let _, r = loop y
           [], l @ r
+        | Max(_, _) -> failwith "Not Implemented"
+        | Min(_, _) -> failwith "Not Implemented"
       | :? Sequence as p ->
         match p with
         | Empty _ -> [], []
@@ -399,17 +486,6 @@ and Proposition =
 
         SymbolTree.Node(Symbol.Op("≡", 0), [ l; r ])
       | Inequiv(left, right) -> SymbolTree.Node(Symbol.Op("≢", 0), [ toTree left; toTree right ])
-      | Quantifier(q, vars, body) ->
-        let symbol =
-          match q with
-          | Forall -> "∀"
-          | Exists -> "∃"
-
-        let vs = vars |> List.map (fun v -> v.ToString()) |> String.concat ","
-        let p = (body :> WExpr).ToSymbolTree().ToString()
-
-        SymbolTree.Node(Symbol.Atom $"⟨{symbol}{vs} → {p}⟩", [])
-
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toExp (p: WExpr) = p.ToZ3Expr(ctx, boundVars) :?> BoolExpr
@@ -427,41 +503,12 @@ and Proposition =
       | Inequiv(left, right) -> toExp (Not(Equiv(left, right)))
       | Implies(left, right) -> ctx.MkImplies(toExp left, toExp right)
       | Follows(left, right) -> ctx.MkImplies(toExp right, toExp left)
-      | Quantifier(q, vars, body) ->
-        let rec mkBoundExpr i (v: WExpr) =
-          match v with
-          | :? Var as v -> v, ctx.MkBound(uint32 i, v.Sort.toZ3Sort ctx)
-          | :? Proposition as p ->
-            match p with
-            | ExtProposition e -> mkBoundExpr i e
-            | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
-          | :? Sequence as s ->
-            match s with
-            | ExtSequence e -> mkBoundExpr i e
-            | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
-          | :? Integer as n ->
-            match n with
-            | ExtInteger e -> mkBoundExpr i e
-            | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
-          | _ -> raise (WybeException(NonVarInQuantifiedVars(string v)))
-
-        let z3Vars = vars |> List.map (fun v -> v.ToZ3Expr(ctx, boundVars)) |> List.toArray
-
-        let boundVars =
-          vars
-          |> List.mapi mkBoundExpr
-          |> List.fold (fun m (k, v) -> Map.add k.Name v m) boundVars
-
-        let z3Body = (body :> WExpr).ToZ3Expr(ctx, boundVars)
-        let patterns = Proposition.extractPatternFromRecurrence (ctx, boundVars, body)
-
-        match q with
-        | Forall -> ctx.MkForall(z3Vars, body = z3Body, patterns = patterns)
-        | Exists -> ctx.MkExists(z3Vars, body = z3Body, patterns = patterns)
 
     member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
-      let subs (t: WExpr) =
+      let subsProp (t: WExpr) =
         t.TextualSubstitution varName expr :?> Proposition
+
+      let subs (t: WExpr) = t.TextualSubstitution varName expr
 
       match this with
       | ExtProposition e ->
@@ -475,14 +522,13 @@ and Proposition =
         | r -> failwith (invalidExprEmbedded (r, "Proposition", this))
       | Equals(left, right) -> Equals(subs left, subs right)
       | Differs(left, right) -> Differs(subs left, subs right)
-      | Not right -> Not(subs right)
-      | And(left, right) -> And(subs left, subs right)
-      | Or(left, right) -> Or(subs left, subs right)
-      | Equiv(left, right) -> Equiv(subs left, subs right)
-      | Inequiv(left, right) -> Inequiv(subs left, subs right)
-      | Implies(left, right) -> Implies(subs left, subs right)
-      | Follows(left, right) -> Follows(subs left, subs right)
-      | Quantifier(q, vars, body) -> Quantifier(q, vars, subs body) // TODO think about collisions here
+      | Not right -> Not(subsProp right)
+      | And(left, right) -> And(subsProp left, subsProp right)
+      | Or(left, right) -> Or(subsProp left, subsProp right)
+      | Equiv(left, right) -> Equiv(subsProp left, subsProp right)
+      | Inequiv(left, right) -> Inequiv(subsProp left, subsProp right)
+      | Implies(left, right) -> Implies(subsProp left, subsProp right)
+      | Follows(left, right) -> Follows(subsProp left, subsProp right)
       | True
       | False -> this
 
@@ -659,7 +705,9 @@ and FnApp =
       let funcDecl = toZ3FnDecl this.FnDecl.Signature
       funcDecl.Apply z3Args
 
-    member this.TextualSubstitution (arg1: string) (arg2: WExpr) : WExpr = failwith "Not Implemented"
+    member this.TextualSubstitution (var: string) (expr: WExpr) : WExpr =
+      let args = this.Args |> List.map (fun x -> x.TextualSubstitution var expr)
+      FnApp(this.FnDecl, args)
 
 // Calculation
 //

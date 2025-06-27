@@ -53,8 +53,12 @@ let (<==) x y = Follows(toBinaryProposition "⇐" x y)
 
 let (<&&>) x y = And(toBinaryProposition "∧" x y)
 let (<||>) x y = Or(toBinaryProposition "∨" x y)
-let ``∀`` vars f = Quantifier(Forall, vars, f)
-let ``∃`` vars f = Quantifier(Exists, vars, f)
+
+let ``∀`` vars f =
+  ExtProposition(Quantifier(Forall, vars, f))
+
+let ``∃`` vars f =
+  ExtProposition(Quantifier(Exists, vars, f))
 
 let axiom name (pred: Proposition) = Law(name, pred)
 
@@ -267,6 +271,12 @@ let ``GS 15.35`` () =
 
 let monotonicity () =
   proof { lemma (n < m ==> (n + p < m + p)) }
+
+let ``↑`` vars body =
+  ExtInteger(Quantifier(Maximum, vars, body))
+
+let ``↓`` vars body =
+  ExtInteger(Quantifier(Minimum, vars, body))
 
 // Sequences
 
