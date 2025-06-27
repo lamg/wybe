@@ -175,7 +175,18 @@ let ``ast to semantic block`` () =
 
   let doMeqN = Do [ Guard(m != n, ifBody) ]
 
-  let expected =
-    Compose(assertMN, Compose(doMeqN, Assert(Core.Equals(GriesSchneider.m, GriesSchneider.n))))
+  let expected = Compose(assertMN, Compose(doMeqN, Assert((m = n))))
 
   shouldEqual $"{expected}" $"{statement}"
+
+[<Fact>]
+let ``Euclid algorithm semantics`` () =
+  let ifBody =
+    If
+      [ Guard(m > n, Becomes [ "m", DomainWExpr(None, m - n) ])
+        Guard(n > m, Becomes [ "n", DomainWExpr(None, n - m) ]) ]
+
+  let doMeqN = Do [ Guard(m != n, ifBody) ]
+
+  let r = wpStatement doMeqN (m = n)
+  printfn $"r {r}"
