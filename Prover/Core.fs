@@ -150,8 +150,9 @@ and Integer =
   | AtLeast of Integer * Integer // ≥
   | AtMost of Integer * Integer // ≤
   | IsDivisor of Integer * Integer // ∣
-  | Max of Integer * Integer // x ↑ y
-  | Min of Integer * Integer // x ↓ y
+  | Max of WExpr * WExpr // x ↑ y
+  | Min of WExpr * WExpr // x ↓ y
+  | Abs of WExpr
 
   override this.ToString() : string =
     (this :> WExpr).ToSymbolTree().ToString()
@@ -175,10 +176,11 @@ and Integer =
     member this.ToSymbolTree() =
       let toTree (e: WExpr) = e.ToSymbolTree()
 
-      let binary b symbol x y =
+      let binary b symbol (x: WExpr) (y: WExpr) =
         SymbolTree.Node(Symbol.Op(symbol, b), [ toTree x; toTree y ])
 
-      let binary5, binary4 = binary 5, binary 4
+      let binary4 x y = binary 4 x y
+      let binary5 x y = binary 5 x y
 
       match this with
       | ExtInteger e -> e.ToSymbolTree()
@@ -195,6 +197,7 @@ and Integer =
       | Divide(x, y) -> binary5 "÷" x y
       | Max(x, y) -> binary5 "↑" x y
       | Min(x, y) -> binary5 "↓" x y
+      | Abs x -> SymbolTree.Node(Symbol.Atom "abs", [ toTree x ])
 
     member this.ToZ3Expr(ctx: Context, boundVars: BoundVars) : Expr =
       let toExp n =
@@ -231,6 +234,9 @@ and Integer =
       | Max(n, m) ->
         let n, m = toExp n, toExp m
         ctx.MkITE(ctx.MkGe(n, m), n, m)
+      | Abs n ->
+        let n = toExp n
+        ctx.MkITE(ctx.MkGe(n, ctx.MkInt 0u), n, ctx.MkUnaryMinus n)
 
     member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
       let substitute (e: WExpr) =
@@ -256,6 +262,7 @@ and Integer =
       | IsDivisor(left, right) -> IsDivisor(substitute left, substitute right)
       | Max(left, right) -> Max(substitute left, substitute right)
       | Min(left, right) -> Min(substitute left, substitute right)
+      | Abs right -> Abs(substitute right)
 
 and QuantifierDef =
   | Forall
@@ -409,6 +416,7 @@ and Proposition =
         | ExtInteger m -> loop m
         | Integer _ -> [], []
         | UnaryMinus m -> loop m
+        | Abs m -> loop m
         | Plus(x, y)
         | Minus(x, y)
         | Times(x, y)
