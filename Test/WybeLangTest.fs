@@ -181,12 +181,15 @@ let ``ast to semantic block`` () =
 
 [<Fact>]
 let ``Euclid algorithm semantics`` () =
+  let a, b = mkIntVar "a", mkIntVar "b"
+  let originalVars = Becomes [ "n", DomainWExpr(None, a); "m", DomainWExpr(None, b) ]
+
   let ifBody =
     If
       [ Guard(m > n, Becomes [ "m", DomainWExpr(None, m - n) ])
         Guard(n > m, Becomes [ "n", DomainWExpr(None, n - m) ]) ]
 
   let doMeqN = Do [ Guard(m != n, ifBody) ]
-
-  let r = wpStatement doMeqN (m = n)
+  let initDo = Compose(originalVars, doMeqN)
+  let r = wpStatement initDo (m = n <&&> (gcd m n = gcd a b))
   printfn $"r {r}"

@@ -299,6 +299,24 @@ let ``+ over ↓`` () =
 let ``+ over ↑`` () =
   proof { theorem "+ over ↑" (p + Max(n, m) = Max(p + n, p + m)) }
 
+let gcd m n =
+  let decl = FnDecl("gcd", [ WInt; WInt; WInt ])
+  FnApp(decl, [ m; n ])
+
+let ``GCD symmetry`` = gcd m n = gcd n m |> axiom "GCD symmetry"
+
+let ``GCD associativity`` =
+  gcd (gcd m n) p = gcd m (gcd n p) |> axiom "GCD associativity"
+
+let abs n = Max(n, -n)
+
+let ``GS 15.98`` = gcd n n = abs n |> axiom "GS 15.98"
+
+let ``gcd zero`` = gcd one n = one |> axiom "GCD zero"
+
+let ``GS 15.101`` = gcd m n = gcd (abs m) (abs n) |> axiom "GS 15.101"
+
+let ``GS 15.102`` = gcd m n = gcd m (m + n) |> axiom "GS 15.102"
 
 // Sequences
 
