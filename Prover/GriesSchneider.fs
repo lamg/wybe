@@ -55,10 +55,10 @@ let (<&&>) x y = And(toBinaryProposition "∧" x y)
 let (<||>) x y = Or(toBinaryProposition "∨" x y)
 
 let ``∀`` vars f =
-  ExtProposition(Quantifier(Forall, vars, f))
+  ExtProposition(Quantifier(Forall, vars, True, f))
 
 let ``∃`` vars f =
-  ExtProposition(Quantifier(Exists, vars, f))
+  ExtProposition(Quantifier(Exists, vars, True, f))
 
 let axiom name (pred: Proposition) = Law(name, pred)
 
@@ -272,11 +272,33 @@ let ``GS 15.35`` () =
 let monotonicity () =
   proof { lemma (n < m ==> (n + p < m + p)) }
 
-let ``↑`` vars body =
-  ExtInteger(Quantifier(Maximum, vars, body))
+let ``↓ symmetry`` () =
+  proof { theorem "↓ symmetry" (Min(n, m) = Min(m, n)) }
 
-let ``↓`` vars body =
-  ExtInteger(Quantifier(Minimum, vars, body))
+let ``↑ symmetry`` () =
+  proof { theorem "↑ symmetry" (Max(n, m) = Max(m, n)) }
+
+let ``↓ associativity`` () =
+  proof { theorem "↓ associativity" (Min(n, Min(m, p)) = Min(Min(n, m), p)) }
+
+let ``↑ associativity`` () =
+  proof { theorem "↑ associativity" (Max(n, Max(m, p)) = Max(Max(n, m), p)) }
+
+let ``↑ idempotency`` () =
+  proof { theorem "↑ idempotency" (Max(n, n) = n) }
+
+let ``↓ idempotency`` () =
+  proof { theorem "↓ idempotency" (Min(n, n) = n) }
+
+let ``GS 15.58`` () =
+  proof { theorem "GS 15.58" (n <= m === (Min(n, m) = n)) }
+
+let ``+ over ↓`` () =
+  proof { theorem "+ over ↓" (p + Min(n, m) = Min(p + n, p + m)) }
+
+let ``+ over ↑`` () =
+  proof { theorem "+ over ↑" (p + Max(n, m) = Max(p + n, p + m)) }
+
 
 // Sequences
 

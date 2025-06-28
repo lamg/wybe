@@ -11,10 +11,16 @@ let ``check integer theorems`` () =
     ``GS 15.23``
     ``GS 15.34``
     ``GS 15.35``
-    monotonicity ]
+    monotonicity
+    ``↓ symmetry``
+    ``↑ symmetry``
+    ``↑ associativity``
+    ``↓ associativity``
+    ``↓ idempotency``
+    ``↑ idempotency``
+    ``GS 15.58``
+    ``+ over ↓`` ]
   |> Inspect.checkAll
-
-
 
 [<Fact>]
 let ``integer string representation`` () =

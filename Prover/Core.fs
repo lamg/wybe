@@ -18,7 +18,7 @@ open Microsoft.Z3
 // 2: ∧ ∨
 // 3: ¬
 // 4: = ≠ > < ≤ ≥
-// 5: + - × ÷
+// 5: + - × ÷ ↑ ↓
 // 6: - (unary minus) # :: ++ ◁ ▷
 // 7: variables, function applications, and other atoms like true, false, ϵ, expressions inside parenthesis and angle brackets, like universal and existential quantifiers
 // 8: array access
@@ -175,22 +175,24 @@ and Integer =
     member this.ToSymbolTree() =
       let toTree (e: WExpr) = e.ToSymbolTree()
 
-      let binary5 symbol x y =
-        SymbolTree.Node(Symbol.Op(symbol, 5), [ toTree x; toTree y ])
+      let binary b symbol x y =
+        SymbolTree.Node(Symbol.Op(symbol, b), [ toTree x; toTree y ])
+
+      let binary5, binary4 = binary 5, binary 4
 
       match this with
       | ExtInteger e -> e.ToSymbolTree()
       | Integer i -> SymbolTree.Node(Symbol.Const $"{i}", [])
       | UnaryMinus n -> SymbolTree.Node(Symbol.Op("-", 6), [ toTree n ])
+      | Exceeds(x, y) -> binary4 ">" x y
+      | LessThan(x, y) -> binary4 "<" x y
+      | AtLeast(x, y) -> binary4 "≥" x y
+      | AtMost(x, y) -> binary4 "≤" x y
+      | IsDivisor(x, y) -> binary4 "∣" x y
       | Plus(x, y) -> binary5 "+" x y
       | Minus(x, y) -> binary5 "-" x y
       | Times(x, y) -> binary5 "×" x y
       | Divide(x, y) -> binary5 "÷" x y
-      | Exceeds(x, y) -> binary5 ">" x y
-      | LessThan(x, y) -> binary5 "<" x y
-      | AtLeast(x, y) -> binary5 "≥" x y
-      | AtMost(x, y) -> binary5 "≤" x y
-      | IsDivisor(x, y) -> binary5 "∣" x y
       | Max(x, y) -> binary5 "↑" x y
       | Min(x, y) -> binary5 "↓" x y
 
@@ -219,24 +221,16 @@ and Integer =
         let p, q = toExp n, toExp m
         ctx.MkLe(p, q)
       | IsDivisor(n, m) ->
-        // exists x such n*x = m
-        let extractVar =
-          function
-          | ExtInteger a ->
-            match a with
-            | :? Var as z -> Some z.Name
-            | _ -> None
-          | _ -> None
-
-        let varSet = [ n; m ] |> List.choose extractVar |> Set
-        let x = varSet - Set [ "x"; "y"; "z" ] |> Set.toList |> List.head
-        // x ∉ { n, m }
-
-        let x = ctx.MkIntConst x
+        // ⟨∃x :: n*x = m⟩
+        let x = ctx.MkBound(0u, ctx.IntSort) :?> ArithExpr
         let p, q = toExp n, toExp m
         ctx.MkExists([| x |], ctx.MkEq(ctx.MkMul(p, x), q))
-      | Max(_, _) -> failwith "Not Implemented"
-      | Min(_, _) -> failwith "Not Implemented"
+      | Min(n, m) ->
+        let n, m = toExp n, toExp m
+        ctx.MkITE(ctx.MkLe(n, m), n, m)
+      | Max(n, m) ->
+        let n, m = toExp n, toExp m
+        ctx.MkITE(ctx.MkGe(n, m), n, m)
 
     member this.TextualSubstitution (varName: string) (expr: WExpr) : WExpr =
       let substitute (e: WExpr) =
@@ -260,8 +254,8 @@ and Integer =
       | AtLeast(left, right) -> AtLeast(substitute left, substitute right)
       | AtMost(left, right) -> AtMost(substitute left, substitute right)
       | IsDivisor(left, right) -> IsDivisor(substitute left, substitute right)
-      | Max(_, _) -> failwith "Not Implemented"
-      | Min(_, _) -> failwith "Not Implemented"
+      | Max(left, right) -> Max(substitute left, substitute right)
+      | Min(left, right) -> Min(substitute left, substitute right)
 
 and QuantifierDef =
   | Forall
@@ -272,19 +266,23 @@ and QuantifierDef =
   | Sum
 
 and Quantifier =
-  | Quantifier of QuantifierDef * vars: WExpr list * body: WExpr
+  | Quantifier of QuantifierDef * vars: WExpr list * range: Proposition * body: WExpr
 
   member this.Body =
-    let (Quantifier(_, _, body)) = this
+    let (Quantifier(_, _, _, body)) = this
     body
 
   member this.Vars =
-    let (Quantifier(_, vars, _)) = this
+    let (Quantifier(_, vars, _, _)) = this
     vars
 
   member this.QuantifierDef =
-    let (Quantifier(q, _, _)) = this
+    let (Quantifier(q, _, _, _)) = this
     q
+
+  member this.Range =
+    let (Quantifier(_, _, range, _)) = this
+    range
 
   interface WExpr with
     member this.ToSymbolTree() : SymbolTree =
@@ -334,13 +332,20 @@ and Quantifier =
       match this.QuantifierDef with
       | Forall -> ctx.MkForall(z3Vars, body = z3Body, patterns = patterns)
       | Exists -> ctx.MkExists(z3Vars, body = z3Body, patterns = patterns)
-      | Maximum -> failwith "transforming Maximum quantifiers requires an equality"
-      | Minimum -> failwith "transforming Minimum quantifiers requires an equality"
+      | Maximum ->
+        // TODO recursive definition
+        failwith $"not implemented {this}"
+      | Minimum -> failwith $"not implemented {this}"
       | Product -> failwith "Not Implemented"
       | Sum -> failwith "Not Implemented"
 
     member this.TextualSubstitution (arg: string) (arg_1: WExpr) : WExpr =
-      raise (System.NotImplementedException())
+      Quantifier(
+        this.QuantifierDef,
+        this.Vars,
+        (this.Range :> WExpr).TextualSubstitution arg arg_1 :?> Proposition,
+        this.Body.TextualSubstitution arg arg_1
+      )
 
 and Proposition =
   | ExtProposition of WExpr // used for wrapping other operators that return booleans besides Equals and Differs (variables, >, <, etc.)

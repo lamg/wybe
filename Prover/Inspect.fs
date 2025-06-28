@@ -190,7 +190,7 @@ let checkAll (xs: list<unit -> Core.CheckedCalculation>) =
 let failIfNotProved (x: Inspection) =
   match x.Calc.Error with
   | Some(Core.WrongEvidence(counterExample, p, c)) ->
-    failwith $"Counter-example found {counterExample}: {p} doesn't imply {c}"
+    failwith $"Counter-example found {counterExample}:\n laws {p} don't imply {c}"
   | Some e -> failwith $"{e}"
   | None -> ()
 
