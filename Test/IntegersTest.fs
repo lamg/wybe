@@ -37,13 +37,13 @@ let ``integer string representation`` () =
   |> List.iter (fun (n, s) -> Assert.Equal(s, n.ToString()))
 
 [<Fact>]
-let ``gcd m n = gcd m (m - n)`` () =
+let ``gcd m n = Abs(gcd m (m - n))`` () =
   proof {
-    lemma (gcd m n = gcd m (m - n))
+    lemma (gcd m n = Abs(gcd m (m - n)))
     gcd m n
     ``==`` { ``GS 15.101`` }
     gcd (Abs m) (Abs n)
-    ``==`` { ``GS 15.98`` }
+    ``==`` { ``GS 15.98`` } // GS 15.98: gcd m m = abs m
     gcd (gcd m m) (Abs -n)
     ``==`` { ``GCD associativity`` }
     gcd m (gcd m (Abs -n))
@@ -56,10 +56,9 @@ let ``gcd m n = gcd m (m - n)`` () =
     ``==`` { ``GCD associativity`` }
     gcd (gcd m -n) (gcd m -n)
     ``==`` { ``GS 15.98`` }
-    Abs (gcd m -n)
-    ``==`` { ``GS 15.102``}
-    Abs (gcd m (m - n))
+    Abs(gcd m -n)
+    ``==`` { ``GS 15.102`` } // GS 15.102: gcd m n = gcd m (m + n)
+    Abs(gcd m (m - n))
   }
   |> Inspect.inspect
-  |> Inspect.summary
-  |> Inspect.print
+  |> Inspect.failIfNotProved

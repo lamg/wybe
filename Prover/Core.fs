@@ -336,15 +336,21 @@ and Quantifier =
       let z3Body = this.Body.ToZ3Expr(ctx, boundVars)
       let patterns = Proposition.extractPatternFromRecurrence (ctx, boundVars, this.Body)
 
-      match this.QuantifierDef with
-      | Forall -> ctx.MkForall(z3Vars, body = z3Body, patterns = patterns)
-      | Exists -> ctx.MkExists(z3Vars, body = z3Body, patterns = patterns)
-      | Maximum ->
-        // TODO recursive definition
-        failwith $"not implemented {this}"
-      | Minimum -> failwith $"not implemented {this}"
-      | Product -> failwith "Not Implemented"
-      | Sum -> failwith "Not Implemented"
+      try
+        match this.QuantifierDef with
+        | Forall -> ctx.MkForall(z3Vars, body = z3Body, patterns = patterns)
+        | Exists -> ctx.MkExists(z3Vars, body = z3Body, patterns = patterns)
+        | Maximum ->
+          // TODO recursive definition
+          failwith $"not implemented {this}"
+        | Minimum -> failwith $"not implemented {this}"
+        | Product -> failwith "Not Implemented"
+        | Sum -> failwith "Not Implemented"
+      with :? Z3Exception as e ->
+        let patternElem = patterns |> Array.map string |> Array.toList
+
+        failwith
+          $"Z3 exception: {e.Message} at {(this :> WExpr).ToSymbolTree()}, with pattern {patternElem} and vars {boundVars}"
 
     member this.TextualSubstitution (arg: string) (arg_1: WExpr) : WExpr =
       Quantifier(
