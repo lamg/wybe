@@ -14,11 +14,6 @@ let private toProp (x: WExpr) =
   | :? Proposition as x -> Ok x
   | _ -> Error $"expecting proposition at {x}"
 
-let private underline x =
-  let str = x.ToString()
-  let line = String.replicate str.Length "^"
-  str, line
-
 let private toBinaryProposition (op: string) (x: WExpr) (y: WExpr) =
   let strX, lineX = underline x
   let strY, lineY = underline y

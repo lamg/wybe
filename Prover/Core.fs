@@ -36,7 +36,6 @@ type CheckResult =
   | Unknown
 
 type WybeError =
-  | InvalidSymbolTree of nodeChildrenAmount: int
   | EmptySignature of functionName: string
   | NonVarInQuantifiedVars of var: string
   | StepExprShouldBePropositions of string * string
@@ -57,11 +56,13 @@ type Symbol =
   | Const of string
   | Atom of string
   | Indexed
+  | Underlined of Symbol
 
   member this.Precedence =
     match this with
     | Op(_, p) -> p
     | Indexed -> 8
+    | Underlined s -> s.Precedence
     | _ -> 7
 
   member this.Symbol =
@@ -71,18 +72,24 @@ type Symbol =
     | Atom s
     | Const s -> s
     | Indexed -> "[]"
+    | Underlined s -> s.Symbol
 
 [<RequireQualifiedAccess>]
 type SymbolTree =
   | Node of value: Symbol * children: SymbolTree list
+  | WithMessage of SymbolTree * message: string
 
   member this.Value =
-    let (Node(value, _)) = this
-    value
+    match this with
+    | Node(value, _) -> value
+    | WithMessage(tree, _) -> tree.Value
 
   member this.Children =
-    let (Node(_, children)) = this
-    children
+    match this with
+    | Node(_, children) -> children
+    | WithMessage(tree, _) -> tree.Children
+
+  member this.Display() : string list = failwith "not implemented display"
 
   override this.ToString() =
     let parenthesise (parent: Symbol) (child: SymbolTree) =
@@ -105,10 +112,14 @@ type SymbolTree =
     | Node(x, [ left; right ]) -> $"{parenthesise x left} {x.Symbol} {parenthesise x right}"
     | Node(x, [ right ]) -> $"{x.Symbol}{parenthesise x right}"
     | Node(x, []) -> x.Symbol
-    | Node(_, xs) -> raise (WybeException(InvalidSymbolTree xs.Length))
+    | Node(_, xs) -> failwith $"internal error: invalid symbol tree with {xs.Length} children"
+    | WithMessage(t, _) -> t.ToString()
 
   member this.existsNode(p: Symbol -> bool) =
     p this.Value || this.Children |> List.exists (fun c -> c.existsNode p)
+
+  member this.map(f: Symbol -> Symbol) =
+    Node(f this.Value, this.Children |> List.map (fun t -> t.map f))
 
 // section WExpr (Wybe Expressions)
 //
@@ -721,6 +732,25 @@ and FnApp =
     member this.TextualSubstitution (var: string) (expr: WExpr) : WExpr =
       let args = this.Args |> List.map (fun x -> x.TextualSubstitution var expr)
       FnApp(this.FnDecl, args)
+
+and ErrorWExpr =
+  | ErrorWExpr of expecting: WSort * got: WSort * atWExpr: WExpr
+
+  member this.AtWExpr =
+    let (ErrorWExpr(_, _, atWExpr)) = this
+    atWExpr
+
+  interface WExpr with
+    member this.TextualSubstitution (_: string) (_: WExpr) : WExpr =
+      failwith "cannot perform textual substitution in expression with error {this.AtWExpr}"
+
+    member this.ToSymbolTree() : SymbolTree =
+      this.AtWExpr.ToSymbolTree().map Symbol.Underlined
+
+
+    member this.ToZ3Expr(ctx: Context, _: BoundVars) : Expr =
+      failwith $"cannot convert ErrorWExpr {this} to a Z3 expression"
+
 
 // Calculation
 //

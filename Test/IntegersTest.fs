@@ -56,9 +56,9 @@ let ``gcd m n = gcd m (m - n)`` () =
     ``==`` { ``GCD associativity`` }
     gcd (gcd m -n) (gcd m -n)
     ``==`` { ``GS 15.98`` }
-    Abs (gcd m -n)
-    ``==`` { ``GS 15.102``}
-    Abs (gcd m (m - n))
+    Abs(gcd m -n)
+    ``==`` { ``GS 15.102`` }
+    Abs(gcd m (m - n))
   }
   |> Inspect.inspect
   |> Inspect.summary
