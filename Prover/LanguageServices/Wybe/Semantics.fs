@@ -549,7 +549,7 @@ let rec astStatementToSemantic (vars: Map<string, Type>) (s: AST.Statement) =
 
     match errs with
     | [] -> constructor (List.rev oks) |> NewStatement
-    | errs -> (List.rev errs) |> MultipleResults |> FailedSemantic
+    | errs -> List.rev errs |> MultipleResults |> FailedSemantic
 
   match s with
   | AST.VarDecl xs ->
@@ -587,8 +587,8 @@ let astBlockToSemantic (xs: AST.Statement list) =
   |> List.fold
     (fun (vars, errs, s) x ->
       match astStatementToSemantic vars x with
-      | NewVars newVars -> (newVars, errs, s)
-      | NewStatement r when s.Equals Skip -> (vars, errs, r)
-      | NewStatement r -> (vars, errs, Compose(s, r))
-      | FailedSemantic e -> (vars, e :: errs, s))
+      | NewVars newVars -> newVars, errs, s
+      | NewStatement r when s.Equals Skip -> vars, errs, r
+      | NewStatement r -> vars, errs, Compose(s, r)
+      | FailedSemantic e -> vars, e :: errs, s)
     (Map.empty, [], Skip)
