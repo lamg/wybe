@@ -6,16 +6,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/dotnet/sdk:10.0
+      image: mcr.microsoft.com/dotnet/nightly/sdk:10.0-preview-alpine
 
     steps:
       - uses: actions/checkout@v4
-      
       - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y libz3-dev
-      
+          apk add --no-cache z3-dev            
       - name: Run tests
         run: |
           dotnet test
